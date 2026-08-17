@@ -38,29 +38,34 @@ redundância embutida. Isso não é opcional.
 
 ### 2. Blindagem do servidor, antes de qualquer coisa
 
+Tudo automatizado em **`infra/endurecer-servidor.sh`**. Rode como root, uma vez,
+antes de instalar o EasyPanel:
+
 ```bash
-# acesso só por chave, nunca por senha
-sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
-sed -i 's/^#*PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
-systemctl restart ssh
-
-# firewall: só o necessário
-ufw default deny incoming
-ufw allow 22/tcp
-ufw allow 80,443/tcp
-ufw enable
-
-# bloqueio de força bruta
-apt install -y fail2ban
-systemctl enable --now fail2ban
-
-# atualizações de segurança automáticas
-apt install -y unattended-upgrades
-dpkg-reconfigure -plow unattended-upgrades
+scp infra/endurecer-servidor.sh root@SEU_VPS:/root/
+ssh root@SEU_VPS 'bash /root/endurecer-servidor.sh'
 ```
+
+O script cobre SSH só por chave, ufw, fail2ban e unattended-upgrades. Três
+detalhes por que ele não é só um `sed` no `sshd_config`:
+
+1. No Ubuntu 24.04 os arquivos de `/etc/ssh/sshd_config.d/` têm precedência, e
+   o cloud-init costuma deixar lá um `PasswordAuthentication yes`. Editar só o
+   `sshd_config` pode não surtir efeito nenhum. O script escreve um drop-in.
+2. Ele aborta se não houver chave em `authorized_keys` — desligar a senha sem
+   isso te tranca do lado de fora do próprio servidor.
+3. `dpkg-reconfigure -plow` abre menu interativo e trava em execução sem
+   terminal; a configuração é escrita direto no arquivo.
 
 **A porta 5432 nunca é exposta.** O Postgres só é acessível pela rede interna
 do Docker. Se precisar acessar de fora, use túnel SSH.
+
+Atenção a uma armadilha: **o ufw não protege porta publicada por container.**
+O Docker escreve as próprias regras de iptables e passa por cima do firewall —
+um `ports: 5432:5432` fica acessível da internet mesmo com o ufw negando a
+porta. O controle real é não publicar a porta; no máximo publique em
+`127.0.0.1:5432:5432`. Confira com `ss -ltn | grep 5432` e pela varredura
+externa descrita em `infra/checklist-pos-deploy.md`.
 
 ### 3. EasyPanel
 
@@ -80,28 +85,43 @@ do Docker. Se precisar acessar de fora, use túnel SSH.
 ### 5. Backup — a parte que não pode falhar
 
 ```bash
-apt install -y postgresql-client awscli
 cp infra/*.sh /opt/consensus/
 chmod +x /opt/consensus/*.sh
+install -m 600 -o root -g root /dev/null /opt/consensus/.env.backup
+# preencher conforme infra/variaveis-de-producao.md, seção B
 
-crontab -e
+crontab -e   # colar o conteúdo de infra/crontab-producao
 ```
 
-```cron
-# dump do banco às 3h e às 15h
-0 3,15 * * * . /opt/consensus/.env.backup && /opt/consensus/backup-postgres.sh >> /var/log/backup.log 2>&1
-# réplica dos documentos às 4h
-0 4 * * *    . /opt/consensus/.env.backup && /opt/consensus/sincronizar-arquivos.sh >> /var/log/sync.log 2>&1
-```
+As linhas prontas estão em **`infra/crontab-producao`**. Repare no `set -a`
+antes de carregar o `.env.backup`: sem ele as variáveis ficam só no shell do
+cron e não chegam ao script, que aborta reclamando de variável indefinida.
 
 **Monitoramento do backup.** Crie um check no healthchecks.io e coloque a URL
 em `HEALTHCHECK_URL`. O script só avisa quando termina com sucesso — se o
 backup parar de rodar, você recebe alerta. Sem isso, você vai descobrir que o
 backup estava quebrado no pior dia possível.
 
-**Guarde a `BACKUP_PASSPHRASE` fora do servidor.** Se ela se perder, o backup
-criptografado vira um monte de bytes inúteis. Gerenciador de senhas, não
-arquivo no VPS.
+**A chave que decifra o backup não vive no servidor.** Guardar a passphrase no
+VPS anularia o backup como proteção: quem invade o servidor levaria o banco e a
+chave dos backups na mesma ida. Por isso o backup é cifrado com **chave
+pública** (`age`) — o servidor cifra e não decifra.
+
+| Onde | O quê | É segredo? |
+|---|---|---|
+| VPS, em `.env.backup` | `BACKUP_CHAVE_PUBLICA` (`age1...`) | não |
+| Gerenciador de senhas | chave privada (`AGE-SECRET-KEY-1...`) | **sim** |
+| Segundo cofre, outra pessoa | segunda via da privada | sim |
+
+Gere o par **na sua máquina**, nunca no servidor:
+
+```bash
+age-keygen -o consensus-backup.key
+```
+
+A restauração (`infra/restaurar-backup.sh`) roda no seu computador, com a chave
+privada vinda do cofre — é o único momento em que ela sai de lá. Perdeu a chave
+e não tem segunda via? Todos os backups viram bytes inúteis.
 
 ## Rotina de operação
 

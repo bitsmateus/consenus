@@ -22,9 +22,19 @@ set -Eeuo pipefail
 
 # ---------------------------------------------------------------- config
 : "${DATABASE_URL:?defina DATABASE_URL}"
-: "${BACKUP_PASSPHRASE:?defina BACKUP_PASSPHRASE}"
 : "${BACKUP_S3_BUCKET:?defina BACKUP_S3_BUCKET}"
 : "${BACKUP_S3_ENDPOINT:?defina BACKUP_S3_ENDPOINT}"
+
+# Cifra com chave PÚBLICA. O servidor consegue criar backup e não consegue
+# abrir nenhum — a chave privada mora no gerenciador de senhas, fora daqui.
+# Ver infra/variaveis-de-producao.md
+: "${BACKUP_CHAVE_PUBLICA:?defina BACKUP_CHAVE_PUBLICA (age1...)}"
+
+if [ -n "${BACKUP_PASSPHRASE:-}" ]; then
+  echo "ERRO: BACKUP_PASSPHRASE presente no servidor. Remova." >&2
+  echo "A chave que decifra o backup não pode viver na mesma máquina que ele." >&2
+  exit 1
+fi
 
 RETENCAO_DIAS="${RETENCAO_DIAS:-30}"
 PING_SUCESSO="${HEALTHCHECK_URL:-}"    # ex.: https://hc-ping.com/SEU-UUID
@@ -54,11 +64,11 @@ if [ "$TAMANHO" -lt 10240 ]; then
 fi
 
 # ---------------------------------------------------------------- 2. cripto
-openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt \
-  -in "${TEMP}/${ARQUIVO}" \
-  -out "${TEMP}/${ARQUIVO}.enc" \
-  -pass env:BACKUP_PASSPHRASE
-echo "criptografado"
+# age com destinatário: cifra com a pública, só a privada abre.
+age --recipient "$BACKUP_CHAVE_PUBLICA" \
+  --output "${TEMP}/${ARQUIVO}.enc" \
+  "${TEMP}/${ARQUIVO}"
+echo "criptografado para $BACKUP_CHAVE_PUBLICA"
 
 # ---------------------------------------------------------------- 3. envio
 aws s3 cp "${TEMP}/${ARQUIVO}.enc" \

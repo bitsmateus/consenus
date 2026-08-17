@@ -13,7 +13,9 @@
 
 set -Eeuo pipefail
 
-: "${BACKUP_PASSPHRASE:?defina BACKUP_PASSPHRASE}"
+# Chave privada, vinda do gerenciador de senhas. Este script roda na SUA
+# máquina, nunca no VPS — é o único momento em que a chave sai do cofre.
+: "${BACKUP_CHAVE_PRIVADA:?defina BACKUP_CHAVE_PRIVADA (caminho do arquivo .key)}"
 : "${BACKUP_S3_BUCKET:?defina BACKUP_S3_BUCKET}"
 : "${BACKUP_S3_ENDPOINT:?defina BACKUP_S3_ENDPOINT}"
 : "${PGHOST:?defina PGHOST}"
@@ -47,10 +49,9 @@ echo "restaurando: $ALVO"
 aws s3 cp "s3://${BACKUP_S3_BUCKET}/postgres/${ALVO}" "${TEMP}/${ALVO}" \
   --endpoint-url "$BACKUP_S3_ENDPOINT" --only-show-errors
 
-openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 \
-  -in "${TEMP}/${ALVO}" \
-  -out "${TEMP}/restaurado.dump" \
-  -pass env:BACKUP_PASSPHRASE
+age --decrypt --identity "$BACKUP_CHAVE_PRIVADA" \
+  --output "${TEMP}/restaurado.dump" \
+  "${TEMP}/${ALVO}"
 
 # ---------------------------------------------------------------- restaurar
 createdb "$BANCO_TESTE"

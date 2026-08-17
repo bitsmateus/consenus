@@ -1,0 +1,29 @@
+# Crontab de produção — Consensus One
+# Instalar como root:  crontab -e   (e colar o conteúdo abaixo)
+# Conferir depois:     crontab -l
+#
+# Horários conforme docs/07: dump do banco às 3h e às 15h, réplica dos
+# documentos às 4h. Fuso do servidor fixado em America/Sao_Paulo pela linha
+# CRON_TZ — sem ela o cron usa o fuso do sistema e o horário pode escorregar.
+#
+# O arquivo .env.backup NÃO contém a BACKUP_PASSPHRASE. Ele carrega apenas a
+# chave PÚBLICA de cifra: o servidor consegue criar o backup e não consegue
+# abrir nenhum. A chave privada fica no gerenciador de senhas.
+
+CRON_TZ=America/Sao_Paulo
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+MAILTO=""
+
+# dump do banco às 3h e às 15h (perda máxima de 12 horas — docs/07, limite 1)
+0 3,15 * * *  set -a; . /opt/consensus/.env.backup; set +a; /opt/consensus/backup-postgres.sh >> /var/log/consensus-backup.log 2>&1
+
+# réplica dos documentos Magalu -> R2, às 4h
+0 4 * * *     set -a; . /opt/consensus/.env.backup; set +a; /opt/consensus/sincronizar-arquivos.sh >> /var/log/consensus-sync.log 2>&1
+
+# lembrete mensal do teste de restauração (dia 1, 9h) — o teste é MANUAL e
+# roda fora do servidor, porque exige a chave privada. Ver docs/07.
+0 9 1 * *     echo "Rodar infra/restaurar-backup.sh na sua maquina e registrar em docs/07" | logger -t consensus-restauracao
+
+# rotação dos logs para não encher o disco
+0 5 * * 0     /usr/sbin/logrotate -f /etc/logrotate.d/consensus 2>/dev/null || true
