@@ -2,31 +2,44 @@
 
 Prazo contratual: 15 a 20 dias corridos da assinatura.
 
-## Sprint 0 — Fundação (dias 1 a 2)
+## Sprint 0 — Fundação (dias 1 a 2) — CONCLUÍDA
 
-- [ ] Projeto Next.js, Prisma, Tailwind e shadcn/ui configurados
-- [ ] Docker com Postgres e MinIO subindo local
-- [ ] CI no GitHub Actions rodando lint, tipos e testes
-- [ ] Design system aplicado: cores, tipografia, componentes base
-- [ ] Migração inicial do banco
-- [ ] Login com e-mail e senha, papéis e sessão
-- [ ] Ambientes de homologação e produção provisionados
+- [x] Projeto Next.js, Prisma, Tailwind e shadcn/ui configurados
+- [x] Docker com Postgres e MinIO subindo local
+- [x] CI no GitHub Actions rodando lint, tipos e testes
+- [x] Design system aplicado: cores, tipografia, componentes base
+- [x] Migração inicial do banco
+- [x] Login com e-mail e senha, papéis e sessão, com segundo fator obrigatório
+      para ADMIN e OPERADOR
+- [ ] Ambientes de homologação e produção provisionados — artefatos prontos em
+      `infra/`, execução depende do acesso ao VPS
 
 **Demonstrável:** tela de login com a marca da Consensus One
 
-## Sprint 1 — Cadastros (dias 3 a 6)
+## Sprint 1 — Cadastros (dias 3 a 6) — CONCLUÍDA
 
-- [ ] CRUD de pessoas com validação de CPF e CNPJ
-- [ ] Criação do ato com numeração automática
-- [ ] Vínculo de partes: solicitante, convidado e procuradores dos dois lados
-- [ ] Naturezas de procurador: advogado, escritório, consultoria e representante
-- [ ] Cálculo automático de D+20 e do prazo de 10 dias
-- [ ] Painel com listagem, busca por CPF/CNPJ/OAB e filtros por status
-- [ ] Filtro por procurador, com contagem por representante
-- [ ] Gestão de usuários e permissões
-- [ ] Linha do tempo do ato
+- [x] CRUD de pessoas com validação de CPF e CNPJ
+- [x] Criação do ato com numeração automática
+- [x] Vínculo de partes: solicitante, convidado e procuradores dos dois lados
+- [x] Naturezas de procurador: advogado, escritório, consultoria e representante
+- [x] Cálculo automático de D+20 e do prazo de 15 dias (ver docs/09, item 1)
+- [x] Painel com listagem, busca por CPF/CNPJ/OAB e filtros por status
+- [x] Filtro por procurador, com contagem por representante
+- [x] Gestão de usuários e permissões
+- [x] Linha do tempo do ato
 
-**Demonstrável:** operador cadastra um ato completo
+**Demonstrável:** operador cadastra um ato completo — coberto de ponta a ponta
+em `tests/e2e/cadastro-do-ato.spec.ts`, no navegador.
+
+Fora do que foi entregue, de propósito:
+
+- **Exclusão de pessoa não existe.** Pessoa vinculada a procedimento não pode
+  sumir sem quebrar o histórico, e o sistema é de natureza probatória. Se o
+  cliente precisar, o caminho é inativação, não exclusão — decisão dele.
+- **O prazo da documentação é contado da criação do procedimento.** O docs/02
+  diz "15 dias corridos da 1ª carta", e a carta é da Sprint 2; como ela é
+  gerada ao concluir o cadastro, as datas coincidem hoje. Na emissão da carta,
+  o prazo passa a ser recontado a partir do envio.
 
 ## Sprint 2 — Documentos e verificação (dias 7 a 10)
 
