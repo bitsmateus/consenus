@@ -1,0 +1,22 @@
+node_modules/
+.next/
+out/
+build/
+tsconfig.tsbuildinfo
+
+# segredos: nenhum .env entra no repositório, só o exemplo sem valores
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+credenciais*.json
+
+*.log
+.DS_Store
+/playwright-report/
+/test-results/
+/prisma/*.db
+.vercel

@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: consensus
+          POSTGRES_PASSWORD: consensus
+          POSTGRES_DB: consensus_one_test
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-retries 10
+        ports: ["5432:5432"]
+
+    env:
+      DATABASE_URL: postgresql://consensus:consensus@localhost:5432/consensus_one_test
+      AUTH_SECRET: chave-de-teste-nao-usar-em-producao
+      TZ: America/Sao_Paulo
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx prisma migrate deploy
+      - name: Lint e tipos
+        run: npm run lint
+      - name: Testes unitários
+        run: npm run test
+      - name: Instalar navegador
+        run: npx playwright install --with-deps chromium
+      - name: Testes ponta a ponta
+        run: npm run test:e2e

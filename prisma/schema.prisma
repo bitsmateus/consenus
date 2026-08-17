@@ -1,0 +1,364 @@
+// Sistema de Gestão da Câmara Consensus One
+// Modelo de dados da Etapa 1
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------- usuários
+
+enum Papel {
+  ADMIN        // administra o sistema e a equipe
+  OPERADOR     // colaborador da câmara: conduz todo o fluxo
+  PARTE        // acesso externo, restrito ao próprio ato
+  PROCURADOR   // acesso externo, vê TODOS os atos em que representa alguém
+}
+
+model Usuario {
+  id             String    @id @default(cuid())
+  nome           String
+  email          String    @unique
+  senhaHash      String
+  papel          Papel     @default(OPERADOR)
+  ativo          Boolean   @default(true)
+
+  // segundo fator (obrigatório para ADMIN e OPERADOR)
+  totpSecret     String?
+  totpAtivo      Boolean   @default(false)
+
+  // proteção contra força bruta
+  tentativasFalhas Int      @default(0)
+  bloqueadoAte     DateTime?
+  ultimoLoginEm    DateTime?
+
+  // vínculo do perfil externo com a pessoa cadastrada
+  pessoaId       String?   @unique
+  pessoa         Pessoa?   @relation(fields: [pessoaId], references: [id])
+
+  atosCriados    Ato[]          @relation("AtoCriadoPor")
+  eventos        EventoAto[]
+  auditoria      LogAuditoria[]
+  documentos     Documento[]    @relation("DocumentoEnviadoPor")
+
+  criadoEm       DateTime  @default(now())
+  atualizadoEm   DateTime  @updatedAt
+
+  @@index([email])
+}
+
+// ---------------------------------------------------------------- pessoas
+
+enum TipoPessoa {
+  FISICA
+  JURIDICA
+}
+
+/// Natureza do procurador. Um ato pode ser representado por qualquer um deles,
+/// tanto do lado do Solicitante quanto do Convidado.
+enum TipoProcurador {
+  ADVOGADO                 // pessoa física com OAB
+  ESCRITORIO_ADVOCACIA     // pessoa jurídica
+  EMPRESA_CONSULTORIA      // consultoria que encaminha o caso
+  REPRESENTANTE_EMPRESA    // pessoa física que representa a consultoria/empresa
+}
+
+model Pessoa {
+  id           String     @id @default(cuid())
+  tipo         TipoPessoa
+  nome         String
+  documento    String     @unique   // CPF ou CNPJ, apenas dígitos
+  email        String?
+  telefone     String?
+  logradouro   String?
+  numero       String?
+  complemento  String?
+  bairro       String?
+  cidade       String?
+  uf           String?    @db.VarChar(2)
+  cep          String?
+
+  // ---- quando a pessoa atua como procuradora ----
+  tipoProcurador TipoProcurador?
+  oab            String?          // advogado ou escritório
+  /// empresa/escritório ao qual este representante está vinculado
+  vinculadoAId   String?
+  vinculadoA     Pessoa?          @relation("Vinculo", fields: [vinculadoAId], references: [id])
+  representantes Pessoa[]         @relation("Vinculo")
+
+  usuario      Usuario?
+  participacoes ParteDoAto[]
+  enviosRecebidos Envio[]
+
+  criadoEm     DateTime   @default(now())
+  atualizadoEm DateTime   @updatedAt
+
+  @@index([documento])
+  @@index([nome])
+}
+
+// ---------------------------------------------------------------- ato
+
+enum StatusAto {
+  RASCUNHO                 // cadastro iniciado
+  AGUARDANDO_DOCUMENTACAO  // 1a carta enviada ao solicitante, data reservada
+  DOCUMENTACAO_EM_ANALISE  // solicitante enviou, operador confere
+  DATA_CONFIRMADA          // operador validou os documentos, data efetivada
+  CONVIDADO_CONVOCADO      // 2a carta enviada ao convidado
+  SESSAO_REALIZADA         // aguardando lavratura da ata
+  COMPOSICAO_INTEGRAL      // desfechos previstos no modelo de ata do cliente
+  COMPOSICAO_PARCIAL
+  REDESIGNADA
+  ENCERRADO_SEM_COMPOSICAO
+  SESSAO_PREJUDICADA
+  CANCELADO                // solicitante não enviou a documentação no prazo
+}
+
+/// Desfecho registrado na Ata — as cinco opções do modelo oficial
+enum DesfechoSessao {
+  COMPOSICAO_INTEGRAL
+  COMPOSICAO_PARCIAL
+  REDESIGNACAO
+  ENCERRAMENTO_SEM_COMPOSICAO
+  SESSAO_PREJUDICADA
+}
+
+enum ModalidadeSessao {
+  VIDEOCONFERENCIA
+  PRESENCIAL
+  HIBRIDA
+}
+
+model Ato {
+  id                  String     @id @default(cuid())
+  numero              String     @unique   // ex.: 2026.0001
+  status              StatusAto  @default(RASCUNHO)
+
+  objeto              String?    // "Objeto do Procedimento" — vai nos documentos
+
+  // agenda
+  dataReservada       DateTime?  // provisória, criada no passo 2
+  dataConfirmada      DateTime?  // efetivada no passo 3
+  modalidade          ModalidadeSessao @default(VIDEOCONFERENCIA)
+  linkVideoconferencia String?
+  idReuniao           String?    // "ID da reunião" do Zoom
+  senhaReuniao        String?    // "Senha" do Zoom
+  localPresencial     String?
+
+  // realização
+  horaInicio          DateTime?
+  horaEncerramento    DateTime?
+  desfecho            DesfechoSessao?
+  motivoPrejudicada   String?
+  observacoesSessao   String?
+
+  // prazos calculados na criação, a partir de ConfiguracaoSistema
+  prazoDocumentacaoAte DateTime?
+
+  observacoes         String?
+
+  criadoPorId         String
+  criadoPor           Usuario    @relation("AtoCriadoPor", fields: [criadoPorId], references: [id])
+
+  partes              ParteDoAto[]
+  documentos          Documento[]
+  eventos             EventoAto[]
+  envios              Envio[]
+
+  criadoEm            DateTime   @default(now())
+  atualizadoEm        DateTime   @updatedAt
+
+  @@index([status])
+  @@index([dataConfirmada])
+}
+
+enum PapelNoAto {
+  SOLICITANTE   // "Interessado Solicitante" — quem provoca o procedimento
+  CONVIDADO     // "Interessado Convidado" — a outra parte
+  PROCURADOR
+  CONCILIADOR
+}
+
+model ParteDoAto {
+  id          String     @id @default(cuid())
+  atoId       String
+  ato         Ato        @relation(fields: [atoId], references: [id], onDelete: Cascade)
+  pessoaId    String
+  pessoa      Pessoa     @relation(fields: [pessoaId], references: [id])
+  papel       PapelNoAto
+
+  /// quando papel = PROCURADOR, indica qual parte ele representa.
+  /// Um mesmo procurador pode representar o Solicitante em um ato e o
+  /// Convidado em outro — a natureza vem de Pessoa.tipoProcurador.
+  representaId String?
+  representa   ParteDoAto?  @relation("Representacao", fields: [representaId], references: [id])
+  representados ParteDoAto[] @relation("Representacao")
+
+  /// registrado na sessão, para o item "III – DO COMPARECIMENTO" da ata
+  compareceu  Boolean?
+  observacaoPresenca String?
+
+  criadoEm    DateTime   @default(now())
+
+  @@unique([atoId, pessoaId, papel])
+  @@index([atoId])
+}
+
+// ---------------------------------------------------------------- documentos
+
+enum TipoDocumento {
+  // ---- emitidos pela esteira, com código CO-XX-ANO-NNNNNN ----
+  CARTA_CONVITE_SOLICITANTE   // CO-CC  · comunica cadastro e pede documentação
+  CARTA_CONVITE_CONVIDADO     // CO-CC  · convoca a outra parte
+  ATA                         // CO-ATA · obrigatória em toda sessão, encerra a esteira
+  TERMO_ACORDO                // CO-TA  · quando há composição
+
+  // ---- recebidos ou anexados, sem código próprio ----
+  DOCUMENTO_DA_PARTE
+  LAUDO_AR
+  DOCUMENTO_ASSINADO
+  OUTRO
+
+  // Termo de Encerramento (CO-TE), Notificação (CO-NT) e Memorando (CO-MEM)
+  // NÃO entram aqui. Decisão do cliente em 14/08/2026: são de uso
+  // administrativo, fora da esteira. Ver docs/08.
+}
+
+model Documento {
+  id                String        @id @default(cuid())
+  atoId             String
+  ato               Ato           @relation(fields: [atoId], references: [id], onDelete: Cascade)
+  tipo              TipoDocumento
+
+  // código único impresso no cabeçalho e codificado no QR Code
+  codigoVerificacao String        @unique
+  emitidoPelaCamara Boolean       @default(false)  // true = gerado pelo sistema
+
+  nomeArquivo       String
+  chaveStorage      String        // caminho no bucket
+  mimeType          String
+  tamanhoBytes      Int
+  hashSha256        String        // integridade do arquivo
+
+  enviadoPorId      String?
+  enviadoPor        Usuario?      @relation("DocumentoEnviadoPor", fields: [enviadoPorId], references: [id])
+
+  envios            Envio[]
+  comprovanteDe     Envio[]       @relation("ComprovanteDoEnvio")
+
+  criadoEm          DateTime      @default(now())
+
+  @@index([atoId])
+  @@index([codigoVerificacao])
+}
+
+// ---------------------------------------------------------------- envios
+
+enum CanalEnvio {
+  AR_DIGITAL
+  EMAIL
+  ENTREGA_MANUAL
+}
+
+enum StatusEnvio {
+  PENDENTE
+  ENVIADO
+  ENTREGUE
+  FALHOU
+}
+
+model Envio {
+  id             String      @id @default(cuid())
+  atoId          String
+  ato            Ato         @relation(fields: [atoId], references: [id], onDelete: Cascade)
+  documentoId    String
+  documento      Documento   @relation(fields: [documentoId], references: [id])
+  destinatarioId String
+  destinatario   Pessoa      @relation(fields: [destinatarioId], references: [id])
+
+  canal          CanalEnvio
+  status         StatusEnvio @default(PENDENTE)
+  enviadoEm      DateTime?
+  entregueEm     DateTime?
+
+  // laudo de AR arquivado como documento
+  comprovanteId  String?
+  comprovante    Documento?  @relation("ComprovanteDoEnvio", fields: [comprovanteId], references: [id])
+
+  observacao     String?
+  criadoEm       DateTime    @default(now())
+
+  @@index([atoId])
+}
+
+// ---------------------------------------------------------------- linha do tempo
+
+enum TipoEvento {
+  ATO_CRIADO
+  PARTE_ADICIONADA
+  CARTA_SOLICITANTE_GERADA
+  CARTA_SOLICITANTE_ENVIADA
+  DOCUMENTO_RECEBIDO
+  DOCUMENTACAO_CONFERIDA
+  DATA_CONFIRMADA
+  CARTA_CONVIDADO_GERADA
+  CARTA_CONVIDADO_ENVIADA
+  SESSAO_REALIZADA
+  ATA_GERADA
+  TERMO_GERADO
+  DOCUMENTO_ASSINADO_ANEXADO
+  ATO_CONCLUIDO
+  ATO_CANCELADO
+  OBSERVACAO
+}
+
+model EventoAto {
+  id         String     @id @default(cuid())
+  atoId      String
+  ato        Ato        @relation(fields: [atoId], references: [id], onDelete: Cascade)
+  tipo       TipoEvento
+  descricao  String
+  usuarioId  String?
+  usuario    Usuario?   @relation(fields: [usuarioId], references: [id])
+  metadados  Json?
+  criadoEm   DateTime   @default(now())
+
+  @@index([atoId, criadoEm])
+}
+
+// ---------------------------------------------------------------- auditoria
+
+model LogAuditoria {
+  id         String   @id @default(cuid())
+  usuarioId  String?
+  usuario    Usuario? @relation(fields: [usuarioId], references: [id])
+  acao       String   // LOGIN, DOWNLOAD_DOCUMENTO, ALTEROU_ATO, ...
+  entidade   String   // Ato, Documento, Usuario
+  entidadeId String?
+  ip         String?
+  userAgent  String?
+  metadados  Json?
+  criadoEm   DateTime @default(now())
+
+  @@index([usuarioId, criadoEm])
+  @@index([entidade, entidadeId])
+}
+
+// ---------------------------------------------------------------- configuração
+
+model ConfiguracaoSistema {
+  id                      Int      @id @default(1)
+  nomeCamara              String   @default("Consensus One")
+  /// 15 dias, conforme a Carta-Convite ao Interessado Solicitante
+  prazoDocumentacaoDias   Int      @default(15)
+  /// aviso mínimo para mudar a modalidade da sessão
+  horasAvisoModalidade    Int      @default(48)
+  diasAteSessao           Int      @default(20)
+  urlVerificacao          String   @default("https://consensone.com.br/verificar")
+  emailRemetente          String?
+  atualizadoEm            DateTime @updatedAt
+}
