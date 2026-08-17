@@ -5,13 +5,15 @@ deve ser construído. Siga estas regras em toda alteração.
 
 ## O que é este projeto
 
-Sistema de gestão de câmara privada de conciliação da **Consensus One**
-(CNPJ 68.052.966/0001-06). Desenvolvido pela NX Netscale.
+Sistema de gestão da **Consensus One — Câmara Privada de Composição
+Estratégica Consensual** (CNPJ 68.052.966/0001-06), nome institucional
+conforme o papel timbrado oficial e `docs/05-design-system.md`. Desenvolvido
+pela NX Netscale.
 
 O sistema controla o ciclo completo de um ato de conciliação, em cinco passos:
-cadastro das partes, primeira carta convite ao requerente, validação da
-documentação, segunda carta convite ao demandado, e a sessão com ata e termo
-de acordo.
+cadastro das partes, primeira carta convite ao Interessado Solicitante,
+validação da documentação, segunda carta convite ao Interessado Convidado, e a
+sessão com ata e termo de acordo.
 
 Leia `docs/01-escopo-etapa-1.md` e `docs/02-fluxo-cinco-passos.md` antes de
 implementar qualquer funcionalidade. O escopo é contratual — não invente

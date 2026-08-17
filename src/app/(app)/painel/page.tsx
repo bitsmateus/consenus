@@ -1,7 +1,6 @@
-import { Papel } from "@prisma/client";
+import { Papel, StatusAto } from "@prisma/client";
 import { db } from "@/lib/db";
-import { exigirUsuario, filtroDeAtosVisiveis } from "@/lib/sessao";
-import { StatusAto } from "@prisma/client";
+import { ESTADOS_FINAIS, exigirUsuario, filtroDeAtosVisiveis } from "@/lib/sessao";
 
 export const metadata = { title: "Painel — Consensus One" };
 
@@ -11,12 +10,7 @@ export default async function Painel() {
 
   const [emAndamento, aguardando, total] = await Promise.all([
     db.ato.count({
-      where: {
-        AND: [
-          filtro,
-          { status: { notIn: [StatusAto.CANCELADO, StatusAto.COMPOSICAO_INTEGRAL] } },
-        ],
-      },
+      where: { AND: [filtro, { status: { notIn: ESTADOS_FINAIS } }] },
     }),
     db.ato.count({ where: { AND: [filtro, { status: StatusAto.AGUARDANDO_DOCUMENTACAO }] } }),
     db.ato.count({ where: filtro }),

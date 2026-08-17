@@ -1,8 +1,14 @@
 import Image from "next/image";
 import Link from "next/link";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { Papel } from "@prisma/client";
+import { db } from "@/lib/db";
 import { exigirUsuario } from "@/lib/sessao";
+import { segundoFatorPendente } from "@/lib/totp";
 import { sair } from "@/acoes/autenticacao";
+
+const ROTA_DE_SEGURANCA = "/seguranca";
 
 const MENU_EQUIPE = [
   { href: "/painel", rotulo: "Painel" },
@@ -12,12 +18,14 @@ const MENU_EQUIPE = [
   { href: "/documentos", rotulo: "Documentos" },
   { href: "/equipe", rotulo: "Equipe" },
   { href: "/auditoria", rotulo: "Auditoria" },
+  { href: "/seguranca", rotulo: "Segurança" },
 ];
 
 const MENU_EXTERNO = [
   { href: "/painel", rotulo: "Procedimentos" },
   { href: "/documentos", rotulo: "Documentos" },
   { href: "/meus-dados", rotulo: "Meus dados" },
+  { href: "/seguranca", rotulo: "Segurança" },
 ];
 
 const SUBTITULO: Record<Papel, string> = {
@@ -29,6 +37,23 @@ const SUBTITULO: Record<Papel, string> = {
 
 export default async function LayoutDaAplicacao({ children }: { children: React.ReactNode }) {
   const usuario = await exigirUsuario();
+
+  // Obrigatoriedade do segundo fator, imposta no servidor a cada requisição.
+  // Lê do banco, não do token: o token é emitido no login e ficaria velho logo
+  // depois de a pessoa ativar o segundo fator.
+  const registro = await db.usuario.findUnique({
+    where: { id: usuario.id },
+    select: { totpAtivo: true },
+  });
+  const caminho = (await headers()).get("x-caminho") ?? "";
+
+  if (
+    segundoFatorPendente({ papel: usuario.papel, totpAtivo: registro?.totpAtivo ?? false }) &&
+    !caminho.startsWith(ROTA_DE_SEGURANCA)
+  ) {
+    redirect(ROTA_DE_SEGURANCA);
+  }
+
   const equipe = usuario.papel === Papel.ADMIN || usuario.papel === Papel.OPERADOR;
   const menu = equipe ? MENU_EQUIPE : MENU_EXTERNO;
 

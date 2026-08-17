@@ -1,15 +1,26 @@
 /**
- * Autorização. Toda consulta que devolve dados de ato passa por aqui.
+ * Sessão do usuário e aplicação da regra de autorização.
+ *
+ * A regra em si mora em `autorizacao.ts`, sem dependência de Auth.js.
+ * Aqui ela é amarrada ao usuário autenticado.
  *
  * Regras (CLAUDE.md, item 3):
  *   ADMIN / OPERADOR -> todos os atos
- *   PARTE            -> só o próprio ato, e só depois de SESSAO_REALIZADA
+ *   PARTE            -> só os atos em que é Interessado, e só após a sessão
  *   PROCURADOR       -> todos os atos em que representa alguém, mesma regra
  *                       de liberação de documentos
  */
-import { Papel, Prisma, StatusAto } from "@prisma/client";
+import { Papel, type Prisma } from "@prisma/client";
 import { auth } from "@/auth";
+import { montarFiltroDeAtos } from "./autorizacao";
 import { SemPermissao } from "./erros";
+
+export {
+  ESTADOS_LIBERADOS,
+  ESTADOS_FINAIS,
+  montarFiltroDeAtos,
+  type UsuarioAutorizavel,
+} from "./autorizacao";
 
 export async function usuarioAtual() {
   const sessao = await auth();
@@ -36,33 +47,12 @@ export async function exigirAdmin() {
   return usuario;
 }
 
-/** Estados em que o acesso externo aos documentos está liberado. */
-export const ESTADOS_LIBERADOS: StatusAto[] = [
-  StatusAto.SESSAO_REALIZADA,
-  StatusAto.COMPOSICAO_INTEGRAL,
-  StatusAto.COMPOSICAO_PARCIAL,
-  StatusAto.REDESIGNADA,
-  StatusAto.ENCERRADO_SEM_COMPOSICAO,
-  StatusAto.SESSAO_PREJUDICADA,
-];
-
 /**
  * Filtro que TODA listagem e consulta de ato deve aplicar.
  * Nunca monte uma query de ato sem passar por aqui.
  */
 export async function filtroDeAtosVisiveis(): Promise<Prisma.AtoWhereInput> {
-  const usuario = await exigirUsuario();
-
-  if (usuario.papel === Papel.ADMIN || usuario.papel === Papel.OPERADOR) return {};
-
-  if (!usuario.pessoaId) throw new SemPermissao();
-
-  // PARTE e PROCURADOR: precisa de vínculo explícito neste ato.
-  // A diferença é só a quantidade de vínculos que cada um costuma ter.
-  return {
-    status: { in: ESTADOS_LIBERADOS },
-    partes: { some: { pessoaId: usuario.pessoaId } },
-  };
+  return montarFiltroDeAtos(await exigirUsuario());
 }
 
 export async function exigirAcessoAoAto(atoId: string, db: Prisma.TransactionClient | typeof import("./db").db) {

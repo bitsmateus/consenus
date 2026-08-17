@@ -11,6 +11,8 @@ export default defineConfig({
   test: {
     environment: "node",
     // os testes ponta a ponta rodam pelo Playwright (npm run test:e2e)
-    include: ["tests/unit/**/*.test.ts"],
+    include: ["tests/unit/**/*.test.ts", "tests/integracao/**/*.test.ts"],
+    // os de integração compartilham o mesmo banco: sem paralelismo entre arquivos
+    fileParallelism: false,
   },
 });

@@ -1,8 +1,9 @@
+import { NextResponse } from "next/server";
 import NextAuth from "next-auth";
 import { configuracaoDeAutenticacao } from "@/auth.config";
 
 /**
- * Proteção de rotas. Públicas: /entrar e /verificar.
+ * Proteção de rotas. Públicas: /entrar, /verificar e os endpoints do Auth.js.
  * A autorização fina (quem vê qual ato) NÃO acontece aqui — está em
  * src/lib/sessao.ts, no servidor, a cada consulta. Ver CLAUDE.md, regra 2.
  *
@@ -11,18 +12,39 @@ import { configuracaoDeAutenticacao } from "@/auth.config";
  */
 const { auth } = NextAuth(configuracaoDeAutenticacao);
 
+/** Únicas rotas que respondem sem sessão. Ver docs/04. */
+function ehPublica(pathname: string): boolean {
+  return (
+    pathname.startsWith("/entrar") ||
+    pathname.startsWith("/verificar") ||
+    pathname.startsWith("/api/auth")
+  );
+}
+
 export default auth((req) => {
   const { pathname } = req.nextUrl;
-  const publica = pathname.startsWith("/entrar") || pathname.startsWith("/verificar");
 
-  if (!req.auth && !publica) {
-    const url = new URL("/entrar", req.nextUrl.origin);
-    url.searchParams.set("de", pathname);
-    return Response.redirect(url);
+  if (req.auth || ehPublica(pathname)) {
+    // o layout precisa saber o caminho para decidir sobre o segundo fator
+    // pendente; Server Component não recebe pathname por outro meio
+    const cabecalhos = new Headers(req.headers);
+    cabecalhos.set("x-caminho", pathname);
+    return NextResponse.next({ request: { headers: cabecalhos } });
   }
-  return undefined;
+
+  // Rota de API responde 401; redirecionar devolveria HTML para quem espera JSON
+  if (pathname.startsWith("/api")) {
+    return Response.json(
+      { erro: "Sessão expirada. Entre novamente." },
+      { status: 401 }
+    );
+  }
+
+  const url = new URL("/entrar", req.nextUrl.origin);
+  url.searchParams.set("de", pathname);
+  return Response.redirect(url);
 });
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|marca).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|marca).*)"],
 };

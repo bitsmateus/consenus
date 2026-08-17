@@ -14,6 +14,15 @@ export function FormularioDeLogin({ de }: { de?: string }) {
 
       <Campo rotulo="E-mail" name="email" type="email" autoComplete="email" required autoFocus />
       <Campo rotulo="Senha" name="senha" type="password" autoComplete="current-password" required />
+      <Campo
+        rotulo="Código de verificação"
+        name="codigo"
+        inputMode="numeric"
+        autoComplete="one-time-code"
+        maxLength={6}
+        className="tabular"
+        dica="Só para contas com verificação em duas etapas."
+      />
 
       {estado.erro && (
         <p role="alert" className="mb-4 rounded-md border border-erro/20 bg-erro/5 px-3 py-2 text-xs text-erro">

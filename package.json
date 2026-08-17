@@ -2,7 +2,7 @@
   "name": "consensus-one",
   "version": "0.1.0",
   "private": true,
-  "description": "Sistema de Gestão da Câmara Privada de Conciliação — Consensus One",
+  "description": "Sistema de Gestão da Câmara Privada de Composição Estratégica Consensual — Consensus One",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

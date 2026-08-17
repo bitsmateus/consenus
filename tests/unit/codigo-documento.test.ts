@@ -1,5 +1,18 @@
-import { describe, expect, it } from "vitest";
-import { montarCodigo, codigoEhValido, analisarCodigo, normalizarCodigo } from "@/lib/codigo-documento";
+import { beforeAll, describe, expect, it } from "vitest";
+import {
+  montarCodigo,
+  codigoEhValido,
+  analisarCodigo,
+  normalizarCodigo,
+  calcularVerificador,
+  siglaDoTipo,
+  tiposQueCompartilhamSequencia,
+} from "@/lib/codigo-documento";
+
+// o verificador é HMAC sobre a base + segredo do ambiente
+beforeAll(() => {
+  process.env.CODIGO_SEGREDO = "segredo-de-teste";
+});
 
 describe("código de documento — padrão Consensus One", () => {
   it("monta no formato CO-SIGLA-ANO-SEQUENCIAL", () => {
@@ -41,9 +54,43 @@ describe("código de documento — padrão Consensus One", () => {
   });
 
   it("detecta verificador adulterado", () => {
-    const info = analisarCodigo("CO-ATA-2026-000001-AA");
-    if (info?.verificador === "AA") return; // colisão improvável
-    expect(info?.verificadorConfere).toBe(false);
+    const base = "CO-ATA-2026-000001";
+    const correto = calcularVerificador(base)!;
+    // escolhe deterministicamente um par diferente do correto, para a asserção
+    // sempre rodar — a versão anterior deste teste voltava antes de asserir
+    const adulterado = correto === "AA" ? "AB" : "AA";
+
+    expect(adulterado).not.toBe(correto);
+    expect(analisarCodigo(`${base}-${adulterado}`)?.verificadorConfere).toBe(false);
+    expect(analisarCodigo(`${base}-${correto}`)?.verificadorConfere).toBe(true);
+  });
+
+  it("sem CODIGO_SEGREDO não afirma nada sobre o verificador", () => {
+    const anterior = process.env.CODIGO_SEGREDO;
+    delete process.env.CODIGO_SEGREDO;
+    try {
+      expect(calcularVerificador("CO-ATA-2026-000001")).toBeNull();
+      expect(analisarCodigo("CO-ATA-2026-000001-AA")?.verificadorConfere).toBeNull();
+      expect(() => montarCodigo("ATA", 2026, 1, true)).toThrow();
+    } finally {
+      process.env.CODIGO_SEGREDO = anterior;
+    }
+  });
+
+  it("as duas cartas convite dividem a sigla CC e a mesma sequência", () => {
+    expect(siglaDoTipo("CARTA_CONVITE_SOLICITANTE")).toBe("CC");
+    expect(siglaDoTipo("CARTA_CONVITE_CONVIDADO")).toBe("CC");
+
+    // o contador da Sprint 2 precisa somar os dois tipos, senão a carta ao
+    // Convidado repete o código da carta ao Solicitante e o banco rejeita
+    expect(tiposQueCompartilhamSequencia("CARTA_CONVITE_SOLICITANTE")).toEqual(
+      expect.arrayContaining(["CARTA_CONVITE_SOLICITANTE", "CARTA_CONVITE_CONVIDADO"])
+    );
+    expect(tiposQueCompartilhamSequencia("ATA")).toEqual(["ATA"]);
+
+    // sequenciais distintos na mesma sigla geram códigos distintos
+    expect(montarCodigo("CARTA_CONVITE_SOLICITANTE", 2026, 1)).toBe("CO-CC-2026-000001");
+    expect(montarCodigo("CARTA_CONVITE_CONVIDADO", 2026, 2)).toBe("CO-CC-2026-000002");
   });
 
   it("expõe o código base para busca no sistema", () => {

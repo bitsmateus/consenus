@@ -17,7 +17,7 @@ export function calcularDataDaSessao(criadoEm: Date, diasAteSessao: number): Dat
   return fromZonedTime(startOfDay(addDays(toZonedTime(criadoEm, FUSO), diasAteSessao)), FUSO);
 }
 
-/** Prazo final para o requerente enviar a documentação */
+/** Prazo final para o Interessado Solicitante enviar a documentação */
 export function calcularPrazoDocumentacao(dataDaCarta: Date, prazoEmDias: number): Date {
   return fromZonedTime(startOfDay(addDays(toZonedTime(dataDaCarta, FUSO), prazoEmDias)), FUSO);
 }

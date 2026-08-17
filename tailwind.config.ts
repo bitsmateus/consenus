@@ -12,9 +12,13 @@ export default {
         prata: { 400: "#D1D1D1" },
         carvao: { 700: "#2B2B2B", 500: "#5A5A5A", 300: "#A6A6A6", 100: "#E4E1DA" },
         fundo: "#F7F6F3",
+        superficie: "#FFFFFF",
         sucesso: "#2F6B4F",
+        "sucesso-bg": "#E9F1EC",
         atencao: "#946810",
+        "atencao-bg": "#FAF2E1",
         erro: "#8E2A2A",
+        "erro-bg": "#F9EBEB",
       },
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],

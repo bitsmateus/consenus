@@ -234,8 +234,10 @@ model Documento {
   ato               Ato           @relation(fields: [atoId], references: [id], onDelete: Cascade)
   tipo              TipoDocumento
 
-  // código único impresso no cabeçalho e codificado no QR Code
-  codigoVerificacao String        @unique
+  /// Código único impresso no cabeçalho e codificado no QR Code.
+  /// Opcional de propósito: só os documentos emitidos pela esteira têm código.
+  /// Documento da parte, laudo de AR e assinado são anexos, não recebem número.
+  codigoVerificacao String?       @unique
   emitidoPelaCamara Boolean       @default(false)  // true = gerado pelo sistema
 
   nomeArquivo       String
@@ -358,7 +360,7 @@ model ConfiguracaoSistema {
   /// aviso mínimo para mudar a modalidade da sessão
   horasAvisoModalidade    Int      @default(48)
   diasAteSessao           Int      @default(20)
-  urlVerificacao          String   @default("https://consensone.com.br/verificar")
+  urlVerificacao          String   @default("https://consensusone.com.br/verificar")
   emailRemetente          String?
   atualizadoEm            DateTime @updatedAt
 }
