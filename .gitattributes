@@ -1,0 +1,16 @@
+# Normalização de fim de linha.
+#
+# Sem isto, o Git no Windows entrega os .sh com CRLF na cópia de trabalho e o
+# Linux recusa o script com "bad interpreter: /bin/bash^M". Os arquivos que vão
+# rodar no servidor ficam travados em LF, independente do sistema de quem edita.
+
+* text=auto eol=lf
+
+*.sh            text eol=lf
+Dockerfile      text eol=lf
+*.yml           text eol=lf
+infra/crontab-producao text eol=lf
+
+*.png binary
+*.docx binary
+*.ico binary
