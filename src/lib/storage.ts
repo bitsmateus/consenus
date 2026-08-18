@@ -26,6 +26,17 @@ export const s3 = new S3Client({
 
 const BUCKET = process.env.S3_BUCKET!;
 
+/**
+ * Criptografia em repouso, exigida por docs/04.
+ *
+ * A Magalu Cloud aceita SSE-S3 e em produção isso fica ligado. O MinIO local
+ * recusa se não tiver KMS configurado, então em desenvolvimento a variável fica
+ * vazia. O padrão é LIGADO: esquecer de definir mantém a proteção, não a
+ * remove.
+ */
+const CRIPTOGRAFIA_NO_SERVIDOR =
+  process.env.S3_CRIPTOGRAFIA === undefined ? "AES256" : process.env.S3_CRIPTOGRAFIA || undefined;
+
 export function calcularHash(conteudo: Buffer): string {
   return createHash("sha256").update(conteudo).digest("hex");
 }
@@ -47,7 +58,7 @@ export async function enviarArquivo(params: {
       Key: params.chave,
       Body: params.conteudo,
       ContentType: params.mimeType,
-      ServerSideEncryption: "AES256",
+      ServerSideEncryption: CRIPTOGRAFIA_NO_SERVIDOR as "AES256" | undefined,
     })
   );
 

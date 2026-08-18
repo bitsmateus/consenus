@@ -19,6 +19,7 @@ import { diasRestantes, situacaoDoPrazo } from "@/lib/prazos";
 import { exigirUsuario } from "@/lib/sessao";
 import { FormularioDeObservacao } from "./observacao";
 import { FormularioDeVinculo } from "./vinculos";
+import { SecaoDeDocumentos } from "./secao-documentos";
 
 export const metadata = { title: "Procedimento — Consensus One" };
 
@@ -165,6 +166,16 @@ export default async function PaginaDoAto({ params }: { params: Promise<{ id: st
                 />
               )}
             </section>
+
+            {/* ---------------------------------------------- documentos */}
+            <SecaoDeDocumentos
+              atoId={ato.id}
+              status={ato.status}
+              documentos={ato.documentos}
+              envios={ato.envios}
+              interessados={interessados.map((p) => ({ id: p.pessoa.id, nome: p.pessoa.nome }))}
+              equipe={equipe}
+            />
 
             {/* ---------------------------------------------- linha do tempo */}
             <section>

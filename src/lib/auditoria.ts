@@ -26,6 +26,7 @@ export type AcaoAuditada =
   | "ENVIOU_DOCUMENTO"
   | "BAIXOU_DOCUMENTO"
   | "CONSULTOU_VERIFICACAO"
+  | "VARREDURA_SUSPEITA"
   | "CRIOU_USUARIO"
   | "ALTEROU_PERMISSAO";
 
@@ -35,8 +36,14 @@ export async function registrarAuditoria(params: {
   entidade: string;
   entidadeId?: string | null;
   metadados?: Record<string, unknown>;
+  /**
+   * Não grava IP nem user-agent. Usado só na página pública de verificação:
+   * docs/03 manda registrar a consulta "sem identificar o consultante", porque
+   * a página é aberta e o interesse é auditar o uso, não vigiar quem consulta.
+   */
+  semIdentificacao?: boolean;
 }): Promise<void> {
-  const cabecalhos = await headers();
+  const cabecalhos = params.semIdentificacao ? null : await headers();
 
   await db.logAuditoria.create({
     data: {
@@ -44,8 +51,8 @@ export async function registrarAuditoria(params: {
       acao: params.acao,
       entidade: params.entidade,
       entidadeId: params.entidadeId ?? null,
-      ip: cabecalhos.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
-      userAgent: cabecalhos.get("user-agent") ?? null,
+      ip: cabecalhos?.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
+      userAgent: cabecalhos?.get("user-agent") ?? null,
       metadados: params.metadados ? JSON.parse(JSON.stringify(params.metadados)) : undefined,
     },
   });

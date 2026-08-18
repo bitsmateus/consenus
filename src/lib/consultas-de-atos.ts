@@ -140,6 +140,18 @@ export async function buscarAtoEm(where: Prisma.AtoWhereInput) {
         orderBy: { criadoEm: "desc" },
         include: { usuario: { select: { nome: true } } },
       },
+      documentos: {
+        orderBy: { criadoEm: "desc" },
+        include: { enviadoPor: { select: { nome: true } } },
+      },
+      envios: {
+        orderBy: { criadoEm: "desc" },
+        include: {
+          documento: { select: { id: true, codigoVerificacao: true, nomeArquivo: true } },
+          destinatario: { select: { nome: true } },
+          comprovante: { select: { id: true, nomeArquivo: true } },
+        },
+      },
     },
   });
 }

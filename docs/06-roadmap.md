@@ -41,15 +41,27 @@ Fora do que foi entregue, de propósito:
   gerada ao concluir o cadastro, as datas coincidem hoje. Na emissão da carta,
   o prazo passa a ser recontado a partir do envio.
 
-## Sprint 2 — Documentos e verificação (dias 7 a 10)
+## Sprint 2 — Documentos e verificação (dias 7 a 10) — CONCLUÍDA
 
-- [ ] Motor de geração de PDF a partir de template HTML
-- [ ] Primeira carta convite com os dados do ato
-- [ ] Geração do código único e do QR Code
-- [ ] Página pública de verificação
-- [ ] Upload de documentos com hash e validação de tipo
-- [ ] Registro de envio e anexação do laudo de AR
-- [ ] Download por URL pré-assinada
+- [x] Motor de geração de PDF a partir de template HTML
+- [x] Primeira carta convite com os dados do ato
+- [x] Geração do código único e do QR Code
+- [x] Página pública de verificação
+- [x] Upload de documentos com hash e validação de tipo
+- [x] Registro de envio e anexação do laudo de AR
+- [x] Download por URL pré-assinada
+
+As sete proteções obrigatórias da página de verificação (docs/03) estão
+implementadas: limite de 10 consultas por minuto e 100 por hora por IP, tempo de
+resposta constante, resposta idêntica para código inexistente e malformado,
+nenhuma contagem exposta, sem autocompletar, alerta de varredura em
+`LogAuditoria` e bloqueio após 20 consultas seguidas sem resultado.
+
+Uma ressalva sobre a última: o bloqueio hoje é um período de espera, não um
+desafio visual — não há CAPTCHA, porque isso exigiria serviço externo, que não
+está no escopo. E o contador de consultas vive em memória: basta para o VPS
+único de docs/07, mas precisa migrar para Redis ou banco no dia em que o app
+rodar replicado, senão o limite passa a valer por réplica.
 
 **➜ PRIMEIRA DEMONSTRAÇÃO AO CLIENTE — marco da 2ª parcela**
 
