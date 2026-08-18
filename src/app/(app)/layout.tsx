@@ -23,16 +23,16 @@ const MENU_EQUIPE: ItemDeMenu[] = [
   { href: "/pessoas", rotulo: "Interessados" },
   { href: "/equipe", rotulo: "Equipe" },
   { href: "/seguranca", rotulo: "Segurança" },
-  { href: "/documentos", rotulo: "Documentos", sprint: 2 },
-  { href: "/agenda", rotulo: "Agenda", sprint: 3 },
-  { href: "/auditoria", rotulo: "Auditoria", sprint: 3 },
+  { href: "/documentos", rotulo: "Documentos" },
+  { href: "/auditoria", rotulo: "Auditoria" },
+  { href: "/agenda", rotulo: "Agenda", sprint: 4 },
 ];
 
 const MENU_EXTERNO: ItemDeMenu[] = [
   { href: "/painel", rotulo: "Procedimentos" },
   { href: "/seguranca", rotulo: "Segurança" },
-  { href: "/documentos", rotulo: "Documentos", sprint: 2 },
-  { href: "/meus-dados", rotulo: "Meus dados", sprint: 3 },
+  { href: "/documentos", rotulo: "Documentos" },
+  { href: "/meus-dados", rotulo: "Meus dados" },
 ];
 
 const SUBTITULO: Record<Papel, string> = {

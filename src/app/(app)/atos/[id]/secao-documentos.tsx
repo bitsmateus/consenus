@@ -1,5 +1,5 @@
-import { StatusAto, TipoDocumento } from "@prisma/client";
-import { emitirCartaAoSolicitante, vincularLaudo } from "@/acoes/documentos";
+import { TipoDocumento } from "@prisma/client";
+import { vincularLaudo } from "@/acoes/documentos";
 import { Botao } from "@/components/ui/botao";
 import { Etiqueta } from "@/components/ui/etiqueta";
 import { Selecao } from "@/components/ui/selecao";
@@ -43,14 +43,12 @@ type Envio = {
 
 export function SecaoDeDocumentos({
   atoId,
-  status,
   documentos,
   envios,
   interessados,
   equipe,
 }: {
   atoId: string;
-  status: StatusAto;
   documentos: Documento[];
   envios: Envio[];
   interessados: { id: string; nome: string }[];
@@ -65,18 +63,6 @@ export function SecaoDeDocumentos({
       <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-carvao-500">
         Repositório do procedimento
       </h2>
-
-      {equipe && status === StatusAto.RASCUNHO && (
-        <form action={emitirCartaAoSolicitante} className="mb-3 rounded-lg bg-dourado-100 p-4">
-          <input type="hidden" name="atoId" value={atoId} />
-          <p className="mb-3 text-xs leading-relaxed text-dourado-600">
-            Passo 2 — emitir a Carta-Convite ao Interessado Solicitante. O sistema
-            gera o código, aplica o timbrado com QR Code e abre o prazo de
-            documentação. A data da sessão continua apenas reservada.
-          </p>
-          <Botao type="submit">Emitir Carta-Convite</Botao>
-        </form>
-      )}
 
       {documentos.length === 0 ? (
         <p className="mb-3 rounded-lg border border-dashed border-carvao-100 bg-white px-4 py-6 text-center text-xs text-carvao-500">

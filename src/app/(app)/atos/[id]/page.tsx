@@ -20,6 +20,7 @@ import { exigirUsuario } from "@/lib/sessao";
 import { FormularioDeObservacao } from "./observacao";
 import { FormularioDeVinculo } from "./vinculos";
 import { SecaoDeDocumentos } from "./secao-documentos";
+import { SecaoDeFluxo } from "./secao-fluxo";
 
 export const metadata = { title: "Procedimento — Consensus One" };
 
@@ -167,10 +168,12 @@ export default async function PaginaDoAto({ params }: { params: Promise<{ id: st
               )}
             </section>
 
+            {/* ---------------------------------------------- fluxo */}
+            <SecaoDeFluxo ato={ato} equipe={equipe} />
+
             {/* ---------------------------------------------- documentos */}
             <SecaoDeDocumentos
               atoId={ato.id}
-              status={ato.status}
               documentos={ato.documentos}
               envios={ato.envios}
               interessados={interessados.map((p) => ({ id: p.pessoa.id, nome: p.pessoa.nome }))}

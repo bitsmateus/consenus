@@ -144,6 +144,8 @@ export async function buscarAtoEm(where: Prisma.AtoWhereInput) {
         orderBy: { criadoEm: "desc" },
         include: { enviadoPor: { select: { nome: true } } },
       },
+      conferencias: { include: { conferidoPor: { select: { nome: true } } } },
+      termoDeAcordo: true,
       envios: {
         orderBy: { criadoEm: "desc" },
         include: {

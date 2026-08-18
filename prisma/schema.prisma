@@ -44,6 +44,8 @@ model Usuario {
   eventos        EventoAto[]
   auditoria      LogAuditoria[]
   documentos     Documento[]    @relation("DocumentoEnviadoPor")
+  conferencias   ConferenciaDeDocumento[]
+  termos         TermoDeAcordo[]
 
   criadoEm       DateTime  @default(now())
   atualizadoEm   DateTime  @updatedAt
@@ -168,6 +170,8 @@ model Ato {
   documentos          Documento[]
   eventos             EventoAto[]
   envios              Envio[]
+  conferencias        ConferenciaDeDocumento[]
+  termoDeAcordo       TermoDeAcordo?
 
   criadoEm            DateTime   @default(now())
   atualizadoEm        DateTime   @updatedAt
@@ -206,6 +210,64 @@ model ParteDoAto {
 
   @@unique([atoId, pessoaId, papel])
   @@index([atoId])
+}
+
+// ---------------------------------------------------------------- conferência
+
+/// Os cinco documentos que a Carta-Convite exige do Interessado Solicitante.
+/// docs/08: o passo 3 confere item a item, não "recebeu ou não" — assim o
+/// operador sabe exatamente o que falta antes de confirmar a data.
+enum ItemDaDocumentacao {
+  CONTRATO_PRESTACAO_SERVICOS  // I   — com a Empresa de Consultoria e Assessoria Técnica
+  PROCURACAO                   // II  — quando aplicável
+  CONTRATO_FINANCIAMENTO       // III
+  PROVA_TECNICA                // IV
+  DOCUMENTOS_PESSOAIS          // V
+}
+
+model ConferenciaDeDocumento {
+  id             String             @id @default(cuid())
+  atoId          String
+  ato            Ato                @relation(fields: [atoId], references: [id], onDelete: Cascade)
+  item           ItemDaDocumentacao
+
+  conferido      Boolean            @default(false)
+  /// "procuração, quando aplicável": nem todo procedimento tem procurador
+  naoAplicavel   Boolean            @default(false)
+  observacao     String?
+
+  conferidoPorId String?
+  conferidoPor   Usuario?           @relation(fields: [conferidoPorId], references: [id])
+  conferidoEm    DateTime?
+
+  @@unique([atoId, item])
+  @@index([atoId])
+}
+
+// ---------------------------------------------------------------- termo de acordo
+
+/// Campos livres do Termo de Acordo. Todo o resto do modelo é texto fixo e não
+/// é editável na interface: inadimplemento, confidencialidade, força executiva
+/// e quitação são decisão jurídica do cliente, não do operador que lavra o
+/// termo no fim de uma sessão. Ver docs/09, item 9.
+model TermoDeAcordo {
+  id                       String   @id @default(cuid())
+  atoId                    String   @unique
+  ato                      Ato      @relation(fields: [atoId], references: [id], onDelete: Cascade)
+
+  objetoDoAcordo           String   // Cláusula Primeira
+  obrigacoesPrimeiraParte  String   // Cláusula Segunda
+  obrigacoesSegundaParte   String   // Cláusula Terceira
+  condicoesEspecificas     String?  // Cláusula Quarta
+  prazosDeCumprimento      String?  // Seção V, § 1º
+  formaDeCumprimento       String?  // Seção V, § 2º
+  formaDePagamento         String?  // Seção V, § 3º
+  demaisCondicoes          String?  // Seção V, § 4º
+
+  criadoPorId              String?
+  criadoPor                Usuario? @relation(fields: [criadoPorId], references: [id])
+  criadoEm                 DateTime @default(now())
+  atualizadoEm             DateTime @updatedAt
 }
 
 // ---------------------------------------------------------------- documentos

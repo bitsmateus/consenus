@@ -65,19 +65,26 @@ rodar replicado, senão o limite passa a valer por réplica.
 
 **➜ PRIMEIRA DEMONSTRAÇÃO AO CLIENTE — marco da 2ª parcela**
 
-## Sprint 3 — Fluxo completo (dias 11 a 14)
+## Sprint 3 — Fluxo completo (dias 11 a 14) — CONCLUÍDA
 
-- [ ] Conferência da documentação e confirmação da data pelo operador
-- [ ] Segunda carta convite, bloqueada até a confirmação
-- [ ] Registro da sessão
-- [ ] Geração da ata (obrigatória) e do termo de acordo (opcional)
-- [ ] Anexação dos documentos assinados
-- [ ] Repositório do ato com todos os arquivos e comprovantes
-- [ ] Portal da parte, liberado após a sessão
-- [ ] Portal do procurador, com todos os representados e busca
-- [ ] Log de auditoria completo
+- [x] Conferência da documentação e confirmação da data pelo operador
+- [x] Segunda carta convite, bloqueada até a confirmação
+- [x] Registro da sessão
+- [x] Geração da ata (obrigatória) e do termo de acordo (opcional)
+- [x] Anexação dos documentos assinados
+- [x] Repositório do ato com todos os arquivos e comprovantes
+- [x] Portal da parte, liberado após a sessão
+- [x] Portal do procurador, com todos os representados e busca
+- [x] Log de auditoria completo
 
-**Demonstrável:** um ato do cadastro ao arquivamento
+**Demonstrável:** um ato do cadastro ao arquivamento — percorrido de ponta a
+ponta no navegador, gerando os quatro documentos oficiais.
+
+A conferência do passo 3 é item a item, sobre os cinco documentos que a
+Carta-Convite exige, e é ela que trava a confirmação da data. A segunda carta
+recusa ser expedida antes disso, no servidor, não só na tela. O encerramento
+administrativo por falta de documentação está previsto no próprio modelo e foi
+implementado junto.
 
 ## Sprint 4 — Homologação e entrega (dias 15 a 20)
 

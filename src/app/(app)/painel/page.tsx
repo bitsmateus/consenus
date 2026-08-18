@@ -7,11 +7,25 @@ import { db } from "@/lib/db";
 import { ROTULO_STATUS, TOM_DO_STATUS, formatarData } from "@/lib/formato";
 import { situacaoDoPrazo } from "@/lib/prazos";
 import { ESTADOS_FINAIS, exigirUsuario, filtroDeAtosVisiveis } from "@/lib/sessao";
+import { PortalDoProcurador } from "./portal-do-procurador";
 
 export const metadata = { title: "Painel — Consensus One" };
 
-export default async function Painel() {
+export default async function Painel({
+  searchParams,
+}: {
+  searchParams: Promise<{ busca?: string }>;
+}) {
   const usuario = await exigirUsuario();
+
+  // O procurador tem tela própria, separada do portal do Interessado: ele
+  // enxerga vários procedimentos e precisa saber quem representa em cada um.
+  // Ver docs/10.
+  if (usuario.papel === Papel.PROCURADOR && usuario.pessoaId) {
+    const { busca } = await searchParams;
+    return <PortalDoProcurador pessoaId={usuario.pessoaId} busca={busca} />;
+  }
+
   const filtro = await filtroDeAtosVisiveis();
 
   const [emAndamento, aguardando, total, recentes] = await Promise.all([
