@@ -10,22 +10,29 @@ import { sair } from "@/acoes/autenticacao";
 
 const ROTA_DE_SEGURANCA = "/seguranca";
 
-const MENU_EQUIPE = [
+/**
+ * Itens do menu. `sprint` marca a tela ainda não construída: ela continua
+ * visível, para o rito completo aparecer, mas não vira link — rota inexistente
+ * devolve 404, e o Next ainda faria prefetch dela em toda página.
+ */
+type ItemDeMenu = { href: string; rotulo: string; sprint?: number };
+
+const MENU_EQUIPE: ItemDeMenu[] = [
   { href: "/painel", rotulo: "Painel" },
   { href: "/atos", rotulo: "Procedimentos" },
-  { href: "/agenda", rotulo: "Agenda" },
   { href: "/pessoas", rotulo: "Interessados" },
-  { href: "/documentos", rotulo: "Documentos" },
   { href: "/equipe", rotulo: "Equipe" },
-  { href: "/auditoria", rotulo: "Auditoria" },
   { href: "/seguranca", rotulo: "Segurança" },
+  { href: "/documentos", rotulo: "Documentos", sprint: 2 },
+  { href: "/agenda", rotulo: "Agenda", sprint: 3 },
+  { href: "/auditoria", rotulo: "Auditoria", sprint: 3 },
 ];
 
-const MENU_EXTERNO = [
+const MENU_EXTERNO: ItemDeMenu[] = [
   { href: "/painel", rotulo: "Procedimentos" },
-  { href: "/documentos", rotulo: "Documentos" },
-  { href: "/meus-dados", rotulo: "Meus dados" },
   { href: "/seguranca", rotulo: "Segurança" },
+  { href: "/documentos", rotulo: "Documentos", sprint: 2 },
+  { href: "/meus-dados", rotulo: "Meus dados", sprint: 3 },
 ];
 
 const SUBTITULO: Record<Papel, string> = {
@@ -75,15 +82,28 @@ export default async function LayoutDaAplicacao({ children }: { children: React.
         </div>
 
         <nav className="mt-4 flex flex-col gap-px px-2">
-          {menu.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="rounded-md px-3 py-2 text-sm text-white/75 transition-colors hover:bg-white/5 hover:text-white"
-            >
-              {item.rotulo}
-            </Link>
-          ))}
+          {menu.map((item) =>
+            item.sprint ? (
+              <span
+                key={item.href}
+                title={`Disponível na Sprint ${item.sprint}`}
+                className="flex cursor-default items-center justify-between gap-2 rounded-md px-3 py-2 text-sm text-white/25"
+              >
+                {item.rotulo}
+                <span className="text-[9px] uppercase tracking-wider text-dourado-400/50">
+                  em breve
+                </span>
+              </span>
+            ) : (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="rounded-md px-3 py-2 text-sm text-white/75 transition-colors hover:bg-white/5 hover:text-white"
+              >
+                {item.rotulo}
+              </Link>
+            )
+          )}
         </nav>
 
         <div className="mt-auto border-t border-white/10 px-5 pt-4">

@@ -20,6 +20,9 @@ export function destinoSeguro(destino: string | undefined | null, padrao = "/pai
 
   const limpo = destino.trim();
   if (!limpo.startsWith("/")) return padrao;
+  // "/" só redireciona para o painel: mandar para lá encadearia mais um salto,
+  // e cadeia de redirecionamento quebra a resposta da Server Action
+  if (limpo === "/") return padrao;
   // protocolo-relativo ("//host") ou barra invertida ("/\host")
   if (/^\/[/\\]/.test(limpo)) return padrao;
   if (temCaractereDeControle(limpo)) return padrao;

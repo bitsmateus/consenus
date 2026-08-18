@@ -4,7 +4,9 @@ import { redirect } from "next/navigation";
 import { AuthError } from "next-auth";
 import { z } from "zod";
 import { signIn, signOut } from "@/auth";
+import { db } from "@/lib/db";
 import { destinoSeguro } from "@/lib/navegacao";
+import { segundoFatorPendente } from "@/lib/totp";
 
 const esquema = z.object({
   email: z.string().email("Informe um e-mail válido."),
@@ -36,8 +38,20 @@ export async function entrar(_anterior: EstadoLogin, dados: FormData): Promise<E
     throw erro;
   }
 
+  // Manda direto para o destino final. O layout também barra quem tem segundo
+  // fator pendente, mas deixar o desvio para lá encadearia dois redirecionamentos
+  // na resposta da Server Action — e o roteador do Next quebra nessa cadeia.
+  const conta = await db.usuario.findUnique({
+    where: { email },
+    select: { papel: true, totpAtivo: true },
+  });
+
+  const destino = conta && segundoFatorPendente(conta)
+    ? "/seguranca"
+    : destinoSeguro(de);
+
   // fora do try: redirect() sinaliza por exceção e não pode ser capturado acima
-  redirect(destinoSeguro(de));
+  redirect(destino);
 }
 
 export async function sair() {
