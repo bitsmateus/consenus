@@ -38,6 +38,11 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
+# Criação do primeiro administrador. Sem isto, sobe o sistema e ninguém entra:
+# criar conta pela tela exige estar logado como admin, e o seed não roda em
+# produção. Uso no console do container: node scripts/criar-admin.cjs
+COPY --from=builder /app/scripts ./scripts
+
 USER nextjs
 EXPOSE 3000
 ENV PORT=3000 HOSTNAME=0.0.0.0
