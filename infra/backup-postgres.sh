@@ -36,6 +36,22 @@ if [ -n "${BACKUP_PASSPHRASE:-}" ]; then
   exit 1
 fi
 
+# Falha cedo e com mensagem clara se faltar ferramenta. Sem isto o cron
+# quebraria de madrugada com "command not found" e ninguém veria.
+for ferramenta in age aws; do
+  command -v "$ferramenta" >/dev/null 2>&1 || {
+    echo "ERRO: $ferramenta não está instalado. Rode: apt install -y age awscli" >&2
+    exit 1
+  }
+done
+if [ -n "${CONTAINER_POSTGRES:-}" ]; then
+  command -v docker >/dev/null 2>&1 || { echo "ERRO: docker não encontrado." >&2; exit 1; }
+  docker inspect "$CONTAINER_POSTGRES" >/dev/null 2>&1 || {
+    echo "ERRO: container nao encontrado. Confira o nome com: docker ps" >&2
+    exit 1
+  }
+fi
+
 RETENCAO_DIAS="${RETENCAO_DIAS:-30}"
 PING_SUCESSO="${HEALTHCHECK_URL:-}"    # ex.: https://hc-ping.com/SEU-UUID
 
@@ -50,8 +66,15 @@ trap limpar EXIT
 echo "[$(date)] iniciando backup"
 
 # ---------------------------------------------------------------- 1. dump
-pg_dump --format=custom --compress=9 --no-owner --no-privileges \
-  --file="${TEMP}/${ARQUIVO}" "$DATABASE_URL"
+# O Postgres roda em container (EasyPanel), então o pg_dump não existe no host:
+# ele roda DENTRO do container e o resultado sai pela saída padrão.
+# CONTAINER_POSTGRES é o nome do container — veja com "docker ps".
+if [ -n "${CONTAINER_POSTGRES:-}" ]; then
+  docker exec -i "$CONTAINER_POSTGRES" pg_dump --format=custom --compress=9 --no-owner --no-privileges "$DATABASE_URL" > "${TEMP}/${ARQUIVO}"
+else
+  # Postgres instalado no próprio host
+  pg_dump --format=custom --compress=9 --no-owner --no-privileges --file="${TEMP}/${ARQUIVO}" "$DATABASE_URL"
+fi
 
 TAMANHO=$(stat -c%s "${TEMP}/${ARQUIVO}")
 echo "dump gerado: ${TAMANHO} bytes"
