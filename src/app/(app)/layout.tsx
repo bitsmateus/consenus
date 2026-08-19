@@ -48,17 +48,37 @@ export default async function LayoutDaAplicacao({ children }: { children: React.
   // Obrigatoriedade do segundo fator, imposta no servidor a cada requisição.
   // Lê do banco, não do token: o token é emitido no login e ficaria velho logo
   // depois de a pessoa ativar o segundo fator.
-  const registro = await db.usuario.findUnique({
-    where: { id: usuario.id },
-    select: { totpAtivo: true },
-  });
-  const caminho = (await headers()).get("x-caminho") ?? "";
+  const cabecalhos = await headers();
 
-  if (
-    segundoFatorPendente({ papel: usuario.papel, totpAtivo: registro?.totpAtivo ?? false }) &&
-    !caminho.startsWith(ROTA_DE_SEGURANCA)
-  ) {
-    redirect(ROTA_DE_SEGURANCA);
+  // Requisição de Server Action NÃO é navegação: quem decide o destino é a
+  // própria ação, que responde com o próprio redirecionamento. Desviar daqui no
+  // meio dessa resposta entrega dois destinos ao navegador e o resultado é tela
+  // branca — o formulário salva e a tela morre. A trava volta a valer no GET
+  // seguinte, que é quando a pessoa de fato navega.
+  if (!cabecalhos.has("next-action")) {
+    const registro = await db.usuario.findUnique({
+      where: { id: usuario.id },
+      select: { totpAtivo: true },
+    });
+
+    if (!registro) {
+      // Sessão apontando para usuário inexistente. Antes isto virava
+      // "segundo fator pendente" e desviava em silêncio, escondendo o problema
+      // real. Agora aparece no log e o acesso segue — as consultas já filtram
+      // por usuário e não devolvem nada mesmo.
+      console.error("[seguranca] usuário da sessão não encontrado:", usuario.id);
+    }
+
+    const caminho = cabecalhos.get("x-caminho") ?? "";
+
+    if (
+      registro &&
+      segundoFatorPendente({ papel: usuario.papel, totpAtivo: registro.totpAtivo }) &&
+      !caminho.startsWith(ROTA_DE_SEGURANCA)
+    ) {
+      console.info("[seguranca] segundo fator pendente, desviando de", caminho || "(sem caminho)");
+      redirect(ROTA_DE_SEGURANCA);
+    }
   }
 
   const equipe = usuario.papel === Papel.ADMIN || usuario.papel === Papel.OPERADOR;
