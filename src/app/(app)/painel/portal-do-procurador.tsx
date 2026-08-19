@@ -56,11 +56,14 @@ export async function PortalDoProcurador({
   });
 
   const termo = busca?.trim().toLowerCase();
+  const digitos = termo?.replace(/\D/g, "") ?? "";
   const filtradas = termo
     ? linhas.filter(
         (l) =>
           l.representado.toLowerCase().includes(termo) ||
-          l.documento.includes(termo.replace(/\D/g, ""))
+          // só compara documento quando o termo tem dígitos: includes("") é
+          // sempre verdadeiro e faria a busca por texto casar com tudo
+          (digitos.length > 0 && l.documento.includes(digitos))
       )
     : linhas;
 

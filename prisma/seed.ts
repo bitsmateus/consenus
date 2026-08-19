@@ -421,13 +421,59 @@ async function main() {
     }
   }
 
+  // ---------------------------------------------------------------- acesso externo
+  // Contas de Interessado e de Procurador, para treinamento e para os testes de
+  // isolamento. O que cada uma enxerga sai do filtro de autorização, não daqui:
+  //   Marcos   — Interessado no 2026.0003, já com sessão realizada  -> vê 1
+  //   Francisco— Interessado no 2026.0001, ainda sem sessão         -> vê 0
+  //   Helena   — procuradora no 0001 (fechado) e no 0003 (liberado) -> vê 1
+  const EXTERNOS: { email: string; nome: string; papel: Papel; pessoa: string }[] = [
+    {
+      email: "marcos@exemplo.com.br",
+      nome: "Marcos Vinícius Tavares",
+      papel: Papel.PARTE,
+      pessoa: "marcos",
+    },
+    {
+      email: "francisco@exemplo.com.br",
+      nome: "Francisco Davi Coelho",
+      papel: Papel.PARTE,
+      pessoa: "francisco",
+    },
+    {
+      email: "helena@exemplo.adv.br",
+      nome: "Helena Vasconcelos",
+      papel: Papel.PROCURADOR,
+      pessoa: "helena",
+    },
+  ];
+
+  for (const externo of EXTERNOS) {
+    await db.usuario.upsert({
+      where: { email: externo.email },
+      update: { pessoaId: id(externo.pessoa) },
+      create: {
+        nome: externo.nome,
+        email: externo.email,
+        senhaHash,
+        papel: externo.papel,
+        pessoaId: id(externo.pessoa),
+      },
+    });
+  }
+
   const [totalPessoas, totalAtos] = await Promise.all([db.pessoa.count(), db.ato.count()]);
 
   console.log("Dados de demonstração criados.");
   console.log(`  ${totalPessoas} pessoas · ${totalAtos} procedimentos`);
   console.log("");
-  console.log("  Administrador: admin@consensusone.com.br / Consensus@2026");
-  console.log("  Operador:      operador@consensusone.com.br / Consensus@2026");
+  console.log("  Senha de todas as contas: Consensus@2026");
+  console.log("");
+  console.log("  Interno   admin@consensusone.com.br      (exige verificação em duas etapas)");
+  console.log("  Interno   operador@consensusone.com.br   (exige verificação em duas etapas)");
+  console.log("  Externo   marcos@exemplo.com.br          Interessado, vê 1 procedimento");
+  console.log("  Externo   francisco@exemplo.com.br       Interessado, ainda sem sessão: vê 0");
+  console.log("  Externo   helena@exemplo.adv.br          Procuradora, vê 1 de 2 que representa");
 }
 
 main()

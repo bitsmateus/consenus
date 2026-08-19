@@ -88,14 +88,24 @@ implementado junto.
 
 ## Sprint 4 — Homologação e entrega (dias 15 a 20)
 
-- [ ] Testes ponta a ponta cobrindo o fluxo inteiro
-- [ ] Testes de isolamento entre partes
-- [ ] Dados de demonstração para o treinamento
-- [ ] Ajustes da homologação
-- [ ] Publicação em produção no domínio definitivo
-- [ ] Backup automático configurado e restauração testada
-- [ ] Treinamento da equipe
-- [ ] Entrega de credenciais, código-fonte e documentação
+- [x] Testes ponta a ponta cobrindo o fluxo inteiro
+- [x] Testes de isolamento entre partes
+- [x] Dados de demonstração para o treinamento
+- [x] Entrega de código-fonte e documentação — ver `docs/11-entrega.md`
+- [ ] **Publicação em produção no domínio definitivo** — depende de acesso ao VPS
+- [ ] **Backup automático configurado e restauração testada** — depende do VPS
+- [ ] **Ajustes da homologação** — depende do retorno do cliente
+- [ ] **Treinamento da equipe** — depende de agenda com o cliente
+
+Os quatro itens em aberto não são de desenvolvimento: exigem o servidor e o
+cliente. Os roteiros estão prontos em `infra/` — endurecimento, variáveis,
+crontab e checklist pós-deploy.
+
+São 23 testes ponta a ponta, em dois arquivos: `fluxo-completo.spec.ts`
+percorre os cinco passos até o arquivamento, e `isolamento.spec.ts` entra com
+conta de Interessado e de Procurador e confere, pela porta da frente, o que cada
+perfil enxerga e o que não enxerga. O CI passou a subir MinIO e rodar o seed,
+sem os quais os dois arquivos não teriam como rodar.
 
 **➜ ENTREGA DA ETAPA 1 — 3ª parcela e início da mensalidade**
 
