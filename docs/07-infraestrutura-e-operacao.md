@@ -13,19 +13,30 @@ Decisão fechada em 13/08/2026.
                     ├────────────────┤
                     │  App Next.js   │  container
                     │  PostgreSQL 16 │  container
+                    │  MinIO         │  container — DOCUMENTOS
                     │  Caddy / SSL   │  gerenciado pelo EasyPanel
                     └───────┬────────┘
                             │
-              ┌─────────────┴─────────────┐
-              ▼                           ▼
-   Magalu Object Storage         Cloudflare R2
-   (documentos, br-se1)          (backup criptografado)
-   território nacional           réplica fora do país
+                            ▼
+                     Cloudflare R2
+                     backup do banco (criptografado)
+                     réplica dos documentos (EM CLARO)
+                     fora do país
 ```
 
-**Os arquivos NÃO ficam no disco do VPS.** Documento em disco de VPS não tem
-replicação: o disco morre, o documento morre junto. Object storage tem
-redundância embutida. Isso não é opcional.
+> **Atenção — este parágrafo descrevia a intenção, não o que existe.**
+>
+> O texto original dizia que os arquivos não ficam no disco do VPS, porque
+> disco de VPS não tem redundância: o disco morre, o documento morre junto.
+> O argumento continua válido.
+>
+> Só que, em produção, **os documentos ficam sim no disco do VPS**, no MinIO
+> local. O cliente optou por esse arranjo em 20/08/2026, ciente da alternativa.
+> A redundância existe, mas por fora: o `sincronizar-arquivos.sh` replica os
+> documentos para o Cloudflare R2 uma vez por dia — o que significa que a
+> perda máxima de documentos é de **24 horas**, contra as 12 horas do banco.
+>
+> Ver a seção "Object storage" abaixo para as consequências completas.
 
 ## Provisionamento — passo a passo
 
@@ -78,9 +89,27 @@ externa descrita em `infra/checklist-pos-deploy.md`.
 
 ### 4. Object storage
 
-- Bucket `consensus-one` na Magalu, região **br-se1**, **privado**
-- Bucket `consensus-one-backup` no Cloudflare R2
+**Arranjo em produção, decidido em 20/08/2026:** os documentos ficam num
+**MinIO no próprio VPS**, exposto em `arquivos.consensusone.com.br`. A Magalu
+Object Storage foi avaliada e descartada pelo cliente.
+
+- Bucket `consensus-one` no MinIO local, **privado**
+- Bucket `consensus-one-backup` no Cloudflare R2 (backup do banco e réplica
+  diária dos documentos)
 - Chaves de acesso separadas por ambiente
+
+O que isso custa, e que precisa estar consciente:
+
+| Consequência | Situação |
+|---|---|
+| Criptografia em repouso | **ausente** — MinIO exigiria KES/KMS, com a chave na mesma máquina |
+| Documento no disco do VPS | sim — perder o VPS é perder a origem, restando a réplica no R2 |
+| Território nacional | atendido: o VPS é em São Paulo |
+| Réplica fora do país | os documentos vão **em claro** para o R2, ver `docs/04` |
+
+Migrar para object storage externo continua sendo a recomendação técnica, e
+fica barato enquanto o volume é pequeno (~R$ 5/mês). Quanto mais tarde, mais
+caro — mover documento com valor jurídico exige janela e conferência.
 
 ### 5. Backup — a parte que não pode falhar
 

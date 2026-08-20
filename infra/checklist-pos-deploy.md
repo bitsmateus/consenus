@@ -149,7 +149,7 @@ derrubar o serviço na hora.
 
 - [ ] **`[local]`** o bucket é privado — objeto não abre sem assinatura:
 
-      curl -sI https://br-se1.magaluobjects.com/consensus-one/
+      curl -sI https://arquivos.consensusone.com.br/consensus-one/
 
       Esperado: `403`. Se listar arquivo, o bucket está público. Falha grave.
 

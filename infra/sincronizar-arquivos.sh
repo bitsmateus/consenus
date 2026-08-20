@@ -2,9 +2,12 @@
 #
 # Réplica dos documentos para um segundo provedor.
 #
-# Os arquivos ficam em object storage (Magalu, território nacional). Este
-# script mantém uma cópia espelhada no Cloudflare R2, para o caso de perda
-# do provedor principal.
+# Os arquivos ficam no MinIO do proprio VPS (Sao Paulo, territorio nacional).
+# Este script mantem uma copia espelhada no Cloudflare R2 — e aqui ela e a
+# UNICA redundancia que existe, porque a origem e um disco so.
+#
+# ATENCAO: a copia vai EM CLARO. O banco e cifrado com age antes de sair do
+# servidor; os documentos, nao. Risco registrado em docs/04.
 #
 # Rodar 1x por dia:
 #   0 4 * * * /caminho/infra/sincronizar-arquivos.sh >> /var/log/sync.log 2>&1

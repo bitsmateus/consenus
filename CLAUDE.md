@@ -26,7 +26,7 @@ funcionalidade que não esteja lá, e não remova nenhuma que esteja.
 - PostgreSQL + Prisma
 - Auth.js (NextAuth) com credenciais e Argon2id
 - Zod para toda validação de entrada
-- Object storage S3-compatível (Magalu Cloud em produção, MinIO em local)
+- Object storage S3-compatível (MinIO em produção e em local — ver Infraestrutura)
 - Playwright para gerar PDF e para testes ponta a ponta
 - Vitest para testes unitários
 
@@ -91,10 +91,16 @@ no celular. Teste em 375px de largura.
 
 ## Infraestrutura
 
-Produção roda num VPS Hostinger (São Paulo) gerenciado pelo EasyPanel, com app
-e Postgres em containers. Documentos ficam em object storage da Magalu Cloud
-(br-se1) — **nunca no disco do servidor**. Backup do banco 2x ao dia,
-criptografado, no Cloudflare R2.
+Produção roda num VPS Hostinger (São Paulo) gerenciado pelo EasyPanel, com app,
+Postgres e **MinIO** em containers. Backup do banco 2x ao dia, criptografado,
+no Cloudflare R2.
+
+> **Os documentos ficam no MinIO do próprio VPS**, servido em
+> `arquivos.consensusone.com.br`, e **não** na Magalu Cloud. Decisão do cliente
+> em 20/08/2026, após a alternativa ter sido apresentada. O arranjo mantém o
+> dado em território nacional, mas **não há criptografia em repouso** — MinIO
+> exige KES/KMS para isso, e a chave viveria na mesma máquina que os arquivos.
+> Risco residual e controles compensatórios em `docs/04`.
 
 O deploy é feito pelo `Dockerfile` da raiz, que já roda `prisma migrate deploy`
 na subida. Detalhes em `docs/07-infraestrutura-e-operacao.md`.

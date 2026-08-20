@@ -53,11 +53,11 @@ NEXT_PUBLIC_URL_VERIFICACAO=https://consensusone.com.br/verificar
 NODE_ENV=production
 TZ=America/Sao_Paulo
 
-S3_ENDPOINT=https://br-se1.magaluobjects.com
+S3_ENDPOINT=https://arquivos.consensusone.com.br
 S3_REGION=br-se1
 S3_BUCKET=consensus-one
-S3_ACCESS_KEY_ID=CHAVE_DA_MAGALU
-S3_SECRET_ACCESS_KEY=SEGREDO_DA_MAGALU
+S3_ACCESS_KEY_ID=CHAVE_DO_MINIO
+S3_SECRET_ACCESS_KEY=SEGREDO_DO_MINIO
 S3_FORCE_PATH_STYLE=true
 
 SMTP_HOST=DO_PROVEDOR
@@ -144,7 +144,7 @@ senha dele depois de fechar — a atual já trafegou em texto claro.
 2. `infra/endurecer-servidor.sh` — e confirmar num segundo terminal que o SSH
    ainda entra antes de fechar o primeiro
 3. DNS de `sistema` e `homologacao`
-4. Bucket na Magalu Cloud, região `br-se1`, **privado**
+4. Bucket `consensus-one` no MinIO do VPS, **privado** (ver docs/07)
 5. Postgres e app no EasyPanel, com as variáveis acima
 6. Domínio e SSL do app
 7. Primeiro administrador pelo console

@@ -18,7 +18,7 @@ MAILTO=""
 # dump do banco às 3h e às 15h (perda máxima de 12 horas — docs/07, limite 1)
 0 3,15 * * *  set -a; . /opt/consensus/.env.backup; set +a; /opt/consensus/backup-postgres.sh >> /var/log/consensus-backup.log 2>&1
 
-# réplica dos documentos Magalu -> R2, às 4h
+# réplica dos documentos MinIO do VPS -> R2, às 4h
 0 4 * * *     set -a; . /opt/consensus/.env.backup; set +a; /opt/consensus/sincronizar-arquivos.sh >> /var/log/consensus-sync.log 2>&1
 
 # lembrete mensal do teste de restauração (dia 1, 9h) — o teste é MANUAL e

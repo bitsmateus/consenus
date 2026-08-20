@@ -18,7 +18,7 @@ Duas listas separadas, e a separação importa:
 |---|---|---|
 | `DATABASE_URL` | senha gerada pelo template Postgres do EasyPanel | **usa o host interno**, ver abaixo |
 | `AUTH_SECRET` | `openssl rand -base64 32` | trocar invalida todas as sessões |
-| `S3_ACCESS_KEY_ID` | Magalu Cloud → chaves de acesso | chave exclusiva de produção |
+| `S3_ACCESS_KEY_ID` | MinIO do VPS → chaves de acesso | chave exclusiva de produção |
 | `S3_SECRET_ACCESS_KEY` | idem | idem |
 | `SMTP_USER` | provedor de e-mail | |
 | `SMTP_PASSWORD` | provedor de e-mail | |
@@ -40,7 +40,7 @@ errada. O tráfego não sai do host.
 | Variável | Valor de produção |
 |---|---|
 | `AUTH_URL` | `https://sistema.consensusone.com.br` |
-| `S3_ENDPOINT` | `https://br-se1.magaluobjects.com` |
+| `S3_ENDPOINT` | `https://arquivos.consensusone.com.br` (MinIO do próprio VPS — ver docs/07) |
 | `S3_REGION` | `br-se1` |
 | `S3_BUCKET` | `consensus-one` |
 | `S3_FORCE_PATH_STYLE` | `true` |
@@ -88,7 +88,7 @@ AWS_SECRET_ACCESS_KEY="..."
 AWS_DEFAULT_REGION="auto"
 
 # ---- origem dos documentos, para a réplica diária ----
-S3_ENDPOINT="https://br-se1.magaluobjects.com"
+S3_ENDPOINT="https://arquivos.consensusone.com.br"
 S3_BUCKET="consensus-one"
 S3_REGION="br-se1"
 
