@@ -12,7 +12,7 @@ import { registrarAuditoria } from "@/lib/auditoria";
 import { configuracaoDoSistema } from "@/lib/configuracao";
 import { db } from "@/lib/db";
 import { ErroDeNegocio, FluxoInvalido } from "@/lib/erros";
-import { FUSO, calcularPrazoDocumentacao } from "@/lib/prazos";
+import { FUSO, calcularPrazoDocumentacao, interpretarDataDeCiencia } from "@/lib/prazos";
 import { validarArquivo, extensaoDoTipo } from "@/lib/mime";
 import { emitirDocumento } from "@/lib/emissao";
 import { enviarArquivo, gerarUrlDeDownload, montarChave } from "@/lib/storage";
@@ -264,30 +264,80 @@ export async function registrarEnvio(
     throw erro;
   }
 }
-/** Vincula o laudo de AR já anexado ao envio correspondente. */
+/**
+ * Vincula o laudo de AR ao envio e registra a DATA DE RECEBIMENTO nele impressa.
+ *
+ * Essa data não é detalhe de cadastro: a Carta-Convite conta os 15 dias "do
+ * recebimento desta comunicação", e não da emissão. Como a carta vai por AR
+ * digital, entre uma coisa e outra passam dias — contar da emissão encurta o
+ * prazo de quem recebeu, e o modelo prevê encerramento administrativo do
+ * cadastro para quem perder esse prazo. Ver docs/02 e docs/08.
+ *
+ * Quando o laudo é o da carta ao Solicitante, o prazo é RECALCULADO a partir
+ * da ciência e deixa de ser provisório.
+ */
 export async function vincularLaudo(entrada: FormData): Promise<void> {
   const usuario = await exigirEquipe();
   const atoId = String(entrada.get("atoId") ?? "");
   const envioId = String(entrada.get("envioId") ?? "");
   const laudoId = String(entrada.get("laudoId") ?? "");
+  const dataInformada = String(entrada.get("dataCiencia") ?? "");
   if (!atoId || !envioId || !laudoId) throw new ErroDeNegocio("Dados incompletos.");
   await exigirAcessoAoAto(atoId, db);
+
+  const recebidoEm = interpretarDataDeCiencia(dataInformada);
+
   const laudo = await db.documento.findFirst({
     where: { id: laudoId, atoId, tipo: TipoDocumento.LAUDO_AR },
     select: { id: true, nomeArquivo: true },
   });
   if (!laudo) throw new ErroDeNegocio("Laudo de AR não encontrado neste procedimento.");
-  await db.envio.update({
-    where: { id: envioId },
-    data: { comprovanteId: laudo.id, status: "ENTREGUE", entregueEm: new Date() },
+
+  const envio = await db.envio.findFirst({
+    where: { id: envioId, atoId },
+    select: { id: true, documento: { select: { tipo: true } } },
   });
-  await db.eventoAto.create({
-    data: {
-      atoId,
-      tipo: TipoEvento.OBSERVACAO,
-      descricao: `Laudo de AR anexado ao envio: ${laudo.nomeArquivo}.`,
-      usuarioId: usuario.id,
-    },
+  if (!envio) throw new ErroDeNegocio("Envio não encontrado neste procedimento.");
+
+  const ehCartaAoSolicitante =
+    envio.documento.tipo === TipoDocumento.CARTA_CONVITE_SOLICITANTE;
+
+  await db.$transaction(async (tx) => {
+    await tx.envio.update({
+      where: { id: envioId },
+      data: { comprovanteId: laudo.id, status: "ENTREGUE", entregueEm: recebidoEm },
+    });
+
+    if (ehCartaAoSolicitante) {
+      const config = await tx.configuracaoSistema.findFirst();
+      const prazo = calcularPrazoDocumentacao(
+        recebidoEm,
+        config?.prazoDocumentacaoDias ?? 15
+      );
+      await tx.ato.update({
+        where: { id: atoId },
+        data: { dataCienciaSolicitante: recebidoEm, prazoDocumentacaoAte: prazo },
+      });
+      await tx.eventoAto.create({
+        data: {
+          atoId,
+          tipo: TipoEvento.OBSERVACAO,
+          descricao:
+            `Ciência do Interessado Solicitante em ${formatarData(recebidoEm)}. ` +
+            `Prazo da documentação recalculado para ${formatarData(prazo)}.`,
+          usuarioId: usuario.id,
+        },
+      });
+    }
+
+    await tx.eventoAto.create({
+      data: {
+        atoId,
+        tipo: TipoEvento.OBSERVACAO,
+        descricao: `Laudo de AR anexado ao envio: ${laudo.nomeArquivo}.`,
+        usuarioId: usuario.id,
+      },
+    });
   });
   await registrarAuditoria({
     usuarioId: usuario.id,

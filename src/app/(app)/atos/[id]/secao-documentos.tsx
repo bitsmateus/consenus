@@ -2,6 +2,7 @@ import { TipoDocumento } from "@prisma/client";
 import { vincularLaudo } from "@/acoes/documentos";
 import { Botao } from "@/components/ui/botao";
 import { Etiqueta } from "@/components/ui/etiqueta";
+import { Campo } from "@/components/ui/campo";
 import { Selecao } from "@/components/ui/selecao";
 import { formatarTamanho } from "@/lib/mime";
 import { formatarDataHora } from "@/lib/formato";
@@ -167,6 +168,17 @@ export function SecaoDeDocumentos({
                   opcoes={laudos.map((l) => ({ valor: l.id, rotulo: l.nomeArquivo }))}
                 />
               </div>
+
+              {/* A carta conta os 15 dias do RECEBIMENTO, não da emissão. Esta
+                  data vem impressa no laudo e é o que torna o prazo definitivo. */}
+              <Campo
+                rotulo="Data de recebimento (consta no laudo)"
+                name="dataCiencia"
+                type="date"
+                max={new Date().toISOString().slice(0, 10)}
+                dica="No laudo da Carta-Convite ao Solicitante, esta data recalcula o prazo da documentação."
+                required
+              />
               <Botao type="submit" variante="secundario">
                 Vincular laudo ao envio
               </Botao>

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { Papel, PapelNoAto } from "@prisma/client";
+import { Papel, PapelNoAto, StatusAto } from "@prisma/client";
 import { removerParte } from "@/acoes/atos";
 import { CabecalhoDePagina } from "@/components/ui/cabecalho-de-pagina";
 import { Etiqueta } from "@/components/ui/etiqueta";
@@ -15,7 +15,7 @@ import {
   formatarData,
   formatarDataHora,
 } from "@/lib/formato";
-import { diasRestantes, situacaoDoPrazo } from "@/lib/prazos";
+import { diasRestantes, prazoEhProvisorio, situacaoDoPrazo } from "@/lib/prazos";
 import { exigirUsuario } from "@/lib/sessao";
 import { FormularioDeObservacao } from "./observacao";
 import { FormularioDeVinculo } from "./vinculos";
@@ -49,6 +49,9 @@ export default async function PaginaDoAto({ params }: { params: Promise<{ id: st
   const prazo = ato.prazoDocumentacaoAte;
   const situacao = prazo ? situacaoDoPrazo(prazo) : null;
   const restantes = prazo ? diasRestantes(prazo) : null;
+  // sem a ciência registrada, o prazo foi contado da emissão e não do
+  // recebimento — serve de referência, não de fundamento (docs/02)
+  const prazoProvisorio = prazoEhProvisorio(ato.dataCienciaSolicitante);
 
   return (
     <>
@@ -59,6 +62,31 @@ export default async function PaginaDoAto({ params }: { params: Promise<{ id: st
       />
 
       <div className="flex-1 p-4 md:p-6">
+        <div className="mb-4 rounded-lg border border-dourado-200 bg-dourado-50 p-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-dourado-700">
+            Etapa atual
+          </p>
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-medium text-carvao-700">{ROTULO_STATUS[ato.status]}</p>
+            <Etiqueta tom={TOM_DO_STATUS[ato.status]}>{ROTULO_STATUS[ato.status]}</Etiqueta>
+          </div>
+          <p className="mt-2 text-xs leading-relaxed text-carvao-600">
+            {ato.status === StatusAto.RASCUNHO &&
+              "O procedimento está em abertura. Emita a Carta-Convite ao Interessado Solicitante para iniciar o prazo documental."}
+            {(ato.status === StatusAto.AGUARDANDO_DOCUMENTACAO ||
+              ato.status === StatusAto.DOCUMENTACAO_EM_ANALISE) &&
+              "A documentação do Interessado Solicitante está em análise. A conferência item a item libera a confirmação da data da sessão."}
+            {ato.status === StatusAto.DATA_CONFIRMADA &&
+              "A data da sessão foi validada. A próxima ação é a Carta-Convite ao Interessado Convidado."}
+            {ato.status === StatusAto.CONVIDADO_CONVOCADO &&
+              "O Interessado Convidado já foi convocado. Agora é necessário registrar a sessão e seguir para a ata."}
+            {ato.status === StatusAto.SESSAO_REALIZADA &&
+              "A sessão foi registrada. A ata e, se houver acordo, o termo de acordo encerram o procedimento."}
+            {ato.status === StatusAto.CANCELADO &&
+              "O procedimento foi cancelado e segue sem continuidade de fluxo."}
+          </p>
+        </div>
+
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="space-y-6 lg:col-span-2">
             {/* ---------------------------------------------- interessados */}
@@ -235,7 +263,7 @@ export default async function PaginaDoAto({ params }: { params: Promise<{ id: st
                 <p className="tabular text-sm font-medium text-carvao-700">
                   {formatarData(prazo)}
                 </p>
-                <div className="mt-2">
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
                   {situacao === "vencido" ? (
                     <Etiqueta tom="encerrado">Vencido</Etiqueta>
                   ) : situacao === "vence_em_breve" ? (
@@ -245,7 +273,21 @@ export default async function PaginaDoAto({ params }: { params: Promise<{ id: st
                   ) : (
                     <Etiqueta tom="sucesso">Faltam {restantes} dias</Etiqueta>
                   )}
+                  {prazoProvisorio && <Etiqueta tom="atencao">Provisório</Etiqueta>}
                 </div>
+
+                {prazoProvisorio ? (
+                  <p className="mt-2 text-[11px] leading-relaxed text-carvao-500">
+                    Contado da emissão. A carta conta os dias do{" "}
+                    <strong>recebimento</strong>: registre a data do laudo de AR para
+                    o prazo valer. Enquanto isso, não encerre o cadastro por perda de
+                    prazo.
+                  </p>
+                ) : (
+                  <p className="mt-2 text-[11px] text-carvao-500">
+                    Contado da ciência em {formatarData(ato.dataCienciaSolicitante)}.
+                  </p>
+                )}
               </div>
             )}
 

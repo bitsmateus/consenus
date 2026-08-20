@@ -57,11 +57,36 @@ export function SecaoDeFluxo({
     ato.status === StatusAto.CANCELADO ||
     (temAta && ato.status !== StatusAto.SESSAO_REALIZADA);
 
+  const proximoPasso =
+    ato.status === StatusAto.RASCUNHO
+      ? "Emitir a Carta-Convite ao Interessado Solicitante"
+      : ato.status === StatusAto.AGUARDANDO_DOCUMENTACAO ||
+          ato.status === StatusAto.DOCUMENTACAO_EM_ANALISE
+        ? "Conferir a documentação do Interessado Solicitante"
+        : ato.status === StatusAto.DATA_CONFIRMADA
+          ? "Emitir a Carta-Convite ao Interessado Convidado"
+          : ato.status === StatusAto.CONVIDADO_CONVOCADO
+            ? "Registrar a sessão"
+            : ato.status === StatusAto.SESSAO_REALIZADA && !temAta
+              ? "Lavrar a Ata"
+              : temAta && cabeAcordo && !temTermo
+                ? "Preencher o Termo de Acordo"
+                : null;
+
   return (
     <section>
       <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-carvao-500">
         Condução do procedimento
       </h2>
+
+      {proximoPasso && !encerrado && (
+        <div className="mb-4 rounded-lg border border-dourado-200 bg-dourado-50 p-3">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-dourado-700">
+            Próxima ação
+          </p>
+          <p className="mt-1 text-sm font-medium text-carvao-700">{proximoPasso}</p>
+        </div>
+      )}
 
       {/* ---------------------------------------------- passo 2 */}
       {ato.status === StatusAto.RASCUNHO && (

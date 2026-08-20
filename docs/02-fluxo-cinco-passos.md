@@ -51,10 +51,37 @@ respeitar exatamente esta sequência e os bloqueios entre passos.
 
 ## Prazos
 
-| Prazo | Padrão | Onde fica |
-|---|---|---|
-| Envio da documentação pelo Interessado Solicitante | 15 dias corridos da 1ª carta | `ConfiguracaoSistema.prazoDocumentacaoDias` |
-| Data da sessão | D+20 da criação do ato | `ConfiguracaoSistema.diasAteSessao` |
+| Prazo | Padrão | Conta a partir de | Onde fica |
+|---|---|---|---|
+| Envio da documentação pelo Interessado Solicitante | 15 dias corridos | **recebimento** da 1ª carta | `ConfiguracaoSistema.prazoDocumentacaoDias` |
+| Data da sessão | 20 dias corridos | criação do ato | `ConfiguracaoSistema.diasAteSessao` |
 
-Nunca fixe esses números no código. O cliente ainda vai confirmar se são fixos
-ou parametrizáveis (item 5 do Anexo III do contrato).
+Nunca fixe esses números no código. São 15 dias, confirmados pelo cliente em
+14/08/2026 (`docs/09`, item 1).
+
+### O prazo conta do recebimento, não da emissão
+
+A Carta-Convite diz, textualmente:
+
+> *"o Interessado Solicitante deverá encaminhar à Consensus One, no prazo de até
+> **15 (quinze) dias**, contados do **recebimento** desta comunicação"*
+
+Não é detalhe de redação: é o marco inicial. Como a carta vai por AR digital,
+entre emitir e receber passam dias — contar da emissão encurta o prazo de quem
+recebeu, e o modelo prevê **encerramento administrativo do cadastro** para quem
+o perder (`docs/08`). Fundamentar isso numa contagem começada cedo demais é
+indefensável.
+
+Como o sistema trata:
+
+1. Ao emitir a 1ª carta, `prazoDocumentacaoAte` é calculado da **emissão** e
+   fica **provisório** — a tela do procedimento marca assim, com a ressalva de
+   não encerrar cadastro enquanto for provisório.
+2. Ao vincular o laudo de AR, o operador informa a **data de recebimento nele
+   impressa**. Ela vai para `Ato.dataCienciaSolicitante`, o prazo é
+   **recalculado** a partir dela e deixa de ser provisório.
+3. A mudança entra na linha do tempo, com as duas datas.
+
+Quando a integração com o AR Digital existir (Etapa 2), ela preenche esse mesmo
+campo automaticamente — o valor dela não é poupar digitação, é trazer a data
+que o prazo exige.

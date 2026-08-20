@@ -11,11 +11,11 @@ import { sair } from "@/acoes/autenticacao";
 const ROTA_DE_SEGURANCA = "/seguranca";
 
 /**
- * Itens do menu. `sprint` marca a tela ainda não construída: ela continua
- * visível, para o rito completo aparecer, mas não vira link — rota inexistente
- * devolve 404, e o Next ainda faria prefetch dela em toda página.
+ * Itens do menu do sistema.
+ * Mantém apenas rotas já disponibilizadas ao usuário, sem placeholders de
+ * desenvolvimento na interface.
  */
-type ItemDeMenu = { href: string; rotulo: string; sprint?: number };
+type ItemDeMenu = { href: string; rotulo: string };
 
 const MENU_EQUIPE: ItemDeMenu[] = [
   { href: "/painel", rotulo: "Painel" },
@@ -25,7 +25,6 @@ const MENU_EQUIPE: ItemDeMenu[] = [
   { href: "/seguranca", rotulo: "Segurança" },
   { href: "/documentos", rotulo: "Documentos" },
   { href: "/auditoria", rotulo: "Auditoria" },
-  { href: "/agenda", rotulo: "Agenda", sprint: 4 },
 ];
 
 const MENU_EXTERNO: ItemDeMenu[] = [
@@ -102,28 +101,15 @@ export default async function LayoutDaAplicacao({ children }: { children: React.
         </div>
 
         <nav className="mt-4 flex flex-col gap-px px-2">
-          {menu.map((item) =>
-            item.sprint ? (
-              <span
-                key={item.href}
-                title={`Disponível na Sprint ${item.sprint}`}
-                className="flex cursor-default items-center justify-between gap-2 rounded-md px-3 py-2 text-sm text-white/25"
-              >
-                {item.rotulo}
-                <span className="text-[9px] uppercase tracking-wider text-dourado-400/50">
-                  em breve
-                </span>
-              </span>
-            ) : (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="rounded-md px-3 py-2 text-sm text-white/75 transition-colors hover:bg-white/5 hover:text-white"
-              >
-                {item.rotulo}
-              </Link>
-            )
-          )}
+          {menu.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="rounded-md px-3 py-2 text-sm text-white/75 transition-colors hover:bg-white/5 hover:text-white"
+            >
+              {item.rotulo}
+            </Link>
+          ))}
         </nav>
 
         <div className="mt-auto border-t border-white/10 px-5 pt-4">

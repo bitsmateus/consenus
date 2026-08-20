@@ -47,6 +47,14 @@ export default async function Painel({
       )
     : [];
 
+  const acaoPrioritaria = equipe
+    ? vencidos[0] ??
+      recentes.find((a) => a.status === StatusAto.AGUARDANDO_DOCUMENTACAO) ??
+      recentes.find((a) => a.status === StatusAto.DATA_CONFIRMADA) ??
+      recentes[0] ??
+      null
+    : null;
+
   return (
     <>
       <CabecalhoDePagina
@@ -71,6 +79,31 @@ export default async function Painel({
       />
 
       <div className="flex-1 p-4 md:p-6">
+        {acaoPrioritaria && (
+          <div className="mb-4 rounded-lg border border-dourado-200 bg-dourado-50 p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-dourado-700">
+              Próxima ação
+            </p>
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+              <Link href={`/atos/${acaoPrioritaria.id}`} className="text-sm font-medium text-carvao-700 hover:text-dourado-600">
+                {acaoPrioritaria.numero}
+              </Link>
+              <Etiqueta tom={TOM_DO_STATUS[acaoPrioritaria.status]}>
+                {ROTULO_STATUS[acaoPrioritaria.status]}
+              </Etiqueta>
+            </div>
+            <p className="mt-2 text-xs text-carvao-600">
+              {acaoPrioritaria.status === StatusAto.AGUARDANDO_DOCUMENTACAO
+                ? "Conferir documentação e liberar a data da sessão."
+                : acaoPrioritaria.status === StatusAto.DATA_CONFIRMADA
+                  ? "Emitir a Carta-Convite ao Interessado Convidado."
+                  : vencidos.length > 0
+                    ? "Revisar prazo vencido e ajustar a condução do procedimento."
+                    : "Acompanhar o procedimento mais recente e avançar para o próximo passo."}
+            </p>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <Cartao numero={emAndamento} rotulo="Em andamento" />
           <Cartao numero={aguardando} rotulo="Aguardando documentação" destaque />

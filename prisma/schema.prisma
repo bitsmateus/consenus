@@ -161,6 +161,13 @@ model Ato {
   // prazos calculados na criação, a partir de ConfiguracaoSistema
   prazoDocumentacaoAte DateTime? @db.Timestamptz(3)
 
+  /// Data em que o Interessado Solicitante RECEBEU a 1ª Carta-Convite, lida do
+  /// laudo de AR. A carta conta os 15 dias do recebimento, não da emissão:
+  /// "no prazo de até 15 (quinze) dias, contados do recebimento desta
+  /// comunicação". Enquanto for nulo, prazoDocumentacaoAte é PROVISÓRIO e não
+  /// serve de fundamento para encerrar o cadastro por perda de prazo.
+  dataCienciaSolicitante DateTime? @db.Timestamptz(3)
+
   observacoes String?
 
   criadoPorId String
