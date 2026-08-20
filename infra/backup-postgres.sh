@@ -55,7 +55,10 @@ fi
 RETENCAO_DIAS="${RETENCAO_DIAS:-30}"
 PING_SUCESSO="${HEALTHCHECK_URL:-}"    # ex.: https://hc-ping.com/SEU-UUID
 
-TZ=America/Sao_Paulo
+# Precisa de "export": sem ele TZ fica sendo variável só do shell, e o `date`,
+# que é programa externo, não a enxerga — o carimbo sairia em UTC e o nome do
+# arquivo não bateria com o horário em que o cron disparou.
+export TZ=America/Sao_Paulo
 CARIMBO="$(date +%Y-%m-%d_%H%M)"
 TEMP="$(mktemp -d)"
 ARQUIVO="consensus-one_${CARIMBO}.dump"

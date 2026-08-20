@@ -139,7 +139,7 @@ e não tem segunda via? Todos os backups viram bytes inúteis.
 
 | Data | Backup testado | Resultado | Quem |
 |---|---|---|---|
-| | | | |
+| 19/08/2026 | `consensus-one_2026-08-19_2307.dump.enc` | ✅ Íntegro — 1 usuário, 2 pessoas, 2 atos, 1 documento, batendo com a produção | Mateus |
 
 Esta tabela é sua defesa. Se um dia der problema e o cliente perguntar se
 havia backup, você mostra o histórico de testes — não uma promessa.

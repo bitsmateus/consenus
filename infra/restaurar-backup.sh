@@ -21,6 +21,39 @@ set -Eeuo pipefail
 : "${PGHOST:?defina PGHOST}"
 : "${PGUSER:?defina PGUSER}"
 
+for ferramenta in age aws pg_restore psql createdb dropdb; do
+  command -v "$ferramenta" >/dev/null 2>&1 || {
+    echo "ERRO: $ferramenta nao esta instalado." >&2
+    exit 1
+  }
+done
+
+# O pg_restore precisa ser da MESMA versao maior do servidor de destino.
+# Um cliente mais novo emite parametros que o servidor antigo desconhece — o
+# 17, por exemplo, manda "SET transaction_timeout" e o 16 recusa. O restore
+# morre no meio com uma mensagem que nao diz o que fazer. Melhor parar aqui.
+VERSAO_CLIENTE="$(pg_restore --version | grep -oE '[0-9]+' | head -n1)"
+VERSAO_SERVIDOR="$(psql --dbname=postgres --tuples-only --no-align \
+  --command 'SHOW server_version' 2>/dev/null | grep -oE '^[0-9]+' || true)"
+
+if [ -z "$VERSAO_SERVIDOR" ]; then
+  echo "ERRO: nao consegui falar com o servidor em $PGHOST como $PGUSER." >&2
+  echo "Confira PGHOST, PGUSER e PGPASSWORD." >&2
+  exit 1
+fi
+
+if [ "$VERSAO_CLIENTE" != "$VERSAO_SERVIDOR" ]; then
+  echo "ERRO: pg_restore e versao ${VERSAO_CLIENTE}, servidor e versao ${VERSAO_SERVIDOR}." >&2
+  echo "" >&2
+  echo "Use um pg_restore da versao ${VERSAO_SERVIDOR}. Duas saidas:" >&2
+  echo "  a) apontar o PATH para os binarios da versao certa; ou" >&2
+  echo "  b) restaurar de dentro do proprio container do Postgres, que ja" >&2
+  echo "     tem a versao correspondente:" >&2
+  echo "       docker cp dump CONTAINER:/tmp/b.dump" >&2
+  echo "       docker exec CONTAINER pg_restore -U \$PGUSER --dbname=BANCO /tmp/b.dump" >&2
+  exit 1
+fi
+
 BANCO_TESTE="restauracao_teste_$(date +%s)"
 TEMP="$(mktemp -d)"
 
