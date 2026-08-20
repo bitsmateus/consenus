@@ -13,42 +13,42 @@ datasource db {
 // ---------------------------------------------------------------- usuários
 
 enum Papel {
-  ADMIN        // administra o sistema e a equipe
-  OPERADOR     // colaborador da câmara: conduz todo o fluxo
-  PARTE        // acesso externo, restrito ao próprio ato
-  PROCURADOR   // acesso externo, vê TODOS os atos em que representa alguém
+  ADMIN // administra o sistema e a equipe
+  OPERADOR // colaborador da câmara: conduz todo o fluxo
+  PARTE // acesso externo, restrito ao próprio ato
+  PROCURADOR // acesso externo, vê TODOS os atos em que representa alguém
 }
 
 model Usuario {
-  id             String    @id @default(cuid())
-  nome           String
-  email          String    @unique
-  senhaHash      String
-  papel          Papel     @default(OPERADOR)
-  ativo          Boolean   @default(true)
+  id        String  @id @default(cuid())
+  nome      String
+  email     String  @unique
+  senhaHash String
+  papel     Papel   @default(OPERADOR)
+  ativo     Boolean @default(true)
 
   // segundo fator (obrigatório para ADMIN e OPERADOR)
-  totpSecret     String?
-  totpAtivo      Boolean   @default(false)
+  totpSecret String?
+  totpAtivo  Boolean @default(false)
 
   // proteção contra força bruta
-  tentativasFalhas Int      @default(0)
-  bloqueadoAte     DateTime?
-  ultimoLoginEm    DateTime?
+  tentativasFalhas Int       @default(0)
+  bloqueadoAte     DateTime? @db.Timestamptz(3)
+  ultimoLoginEm    DateTime? @db.Timestamptz(3)
 
   // vínculo do perfil externo com a pessoa cadastrada
-  pessoaId       String?   @unique
-  pessoa         Pessoa?   @relation(fields: [pessoaId], references: [id])
+  pessoaId String? @unique
+  pessoa   Pessoa? @relation(fields: [pessoaId], references: [id])
 
-  atosCriados    Ato[]          @relation("AtoCriadoPor")
-  eventos        EventoAto[]
-  auditoria      LogAuditoria[]
-  documentos     Documento[]    @relation("DocumentoEnviadoPor")
-  conferencias   ConferenciaDeDocumento[]
-  termos         TermoDeAcordo[]
+  atosCriados  Ato[]                    @relation("AtoCriadoPor")
+  eventos      EventoAto[]
+  auditoria    LogAuditoria[]
+  documentos   Documento[]              @relation("DocumentoEnviadoPor")
+  conferencias ConferenciaDeDocumento[]
+  termos       TermoDeAcordo[]
 
-  criadoEm       DateTime  @default(now())
-  atualizadoEm   DateTime  @updatedAt
+  criadoEm     DateTime @default(now()) @db.Timestamptz(3)
+  atualizadoEm DateTime @updatedAt @db.Timestamptz(3)
 
   @@index([email])
 }
@@ -63,41 +63,41 @@ enum TipoPessoa {
 /// Natureza do procurador. Um ato pode ser representado por qualquer um deles,
 /// tanto do lado do Solicitante quanto do Convidado.
 enum TipoProcurador {
-  ADVOGADO                 // pessoa física com OAB
-  ESCRITORIO_ADVOCACIA     // pessoa jurídica
-  EMPRESA_CONSULTORIA      // consultoria que encaminha o caso
-  REPRESENTANTE_EMPRESA    // pessoa física que representa a consultoria/empresa
+  ADVOGADO // pessoa física com OAB
+  ESCRITORIO_ADVOCACIA // pessoa jurídica
+  EMPRESA_CONSULTORIA // consultoria que encaminha o caso
+  REPRESENTANTE_EMPRESA // pessoa física que representa a consultoria/empresa
 }
 
 model Pessoa {
-  id           String     @id @default(cuid())
-  tipo         TipoPessoa
-  nome         String
-  documento    String     @unique   // CPF ou CNPJ, apenas dígitos
-  email        String?
-  telefone     String?
-  logradouro   String?
-  numero       String?
-  complemento  String?
-  bairro       String?
-  cidade       String?
-  uf           String?    @db.VarChar(2)
-  cep          String?
+  id          String     @id @default(cuid())
+  tipo        TipoPessoa
+  nome        String
+  documento   String     @unique // CPF ou CNPJ, apenas dígitos
+  email       String?
+  telefone    String?
+  logradouro  String?
+  numero      String?
+  complemento String?
+  bairro      String?
+  cidade      String?
+  uf          String?    @db.VarChar(2)
+  cep         String?
 
   // ---- quando a pessoa atua como procuradora ----
   tipoProcurador TipoProcurador?
-  oab            String?          // advogado ou escritório
+  oab            String? // advogado ou escritório
   /// empresa/escritório ao qual este representante está vinculado
   vinculadoAId   String?
-  vinculadoA     Pessoa?          @relation("Vinculo", fields: [vinculadoAId], references: [id])
-  representantes Pessoa[]         @relation("Vinculo")
+  vinculadoA     Pessoa?         @relation("Vinculo", fields: [vinculadoAId], references: [id])
+  representantes Pessoa[]        @relation("Vinculo")
 
-  usuario      Usuario?
-  participacoes ParteDoAto[]
+  usuario         Usuario?
+  participacoes   ParteDoAto[]
   enviosRecebidos Envio[]
 
-  criadoEm     DateTime   @default(now())
-  atualizadoEm DateTime   @updatedAt
+  criadoEm     DateTime @default(now()) @db.Timestamptz(3)
+  atualizadoEm DateTime @updatedAt @db.Timestamptz(3)
 
   @@index([documento])
   @@index([nome])
@@ -106,18 +106,18 @@ model Pessoa {
 // ---------------------------------------------------------------- ato
 
 enum StatusAto {
-  RASCUNHO                 // cadastro iniciado
-  AGUARDANDO_DOCUMENTACAO  // 1a carta enviada ao solicitante, data reservada
-  DOCUMENTACAO_EM_ANALISE  // solicitante enviou, operador confere
-  DATA_CONFIRMADA          // operador validou os documentos, data efetivada
-  CONVIDADO_CONVOCADO      // 2a carta enviada ao convidado
-  SESSAO_REALIZADA         // aguardando lavratura da ata
-  COMPOSICAO_INTEGRAL      // desfechos previstos no modelo de ata do cliente
+  RASCUNHO // cadastro iniciado
+  AGUARDANDO_DOCUMENTACAO // 1a carta enviada ao solicitante, data reservada
+  DOCUMENTACAO_EM_ANALISE // solicitante enviou, operador confere
+  DATA_CONFIRMADA // operador validou os documentos, data efetivada
+  CONVIDADO_CONVOCADO // 2a carta enviada ao convidado
+  SESSAO_REALIZADA // aguardando lavratura da ata
+  COMPOSICAO_INTEGRAL // desfechos previstos no modelo de ata do cliente
   COMPOSICAO_PARCIAL
   REDESIGNADA
   ENCERRADO_SEM_COMPOSICAO
   SESSAO_PREJUDICADA
-  CANCELADO                // solicitante não enviou a documentação no prazo
+  CANCELADO // solicitante não enviou a documentação no prazo
 }
 
 /// Desfecho registrado na Ata — as cinco opções do modelo oficial
@@ -136,77 +136,77 @@ enum ModalidadeSessao {
 }
 
 model Ato {
-  id                  String     @id @default(cuid())
-  numero              String     @unique   // ex.: 2026.0001
-  status              StatusAto  @default(RASCUNHO)
+  id     String    @id @default(cuid())
+  numero String    @unique // ex.: 2026.0001
+  status StatusAto @default(RASCUNHO)
 
-  objeto              String?    // "Objeto do Procedimento" — vai nos documentos
+  objeto String? // "Objeto do Procedimento" — vai nos documentos
 
   // agenda
-  dataReservada       DateTime?  // provisória, criada no passo 2
-  dataConfirmada      DateTime?  // efetivada no passo 3
-  modalidade          ModalidadeSessao @default(VIDEOCONFERENCIA)
+  dataReservada        DateTime?        @db.Timestamptz(3) // provisória, criada no passo 2
+  dataConfirmada       DateTime?        @db.Timestamptz(3) // efetivada no passo 3
+  modalidade           ModalidadeSessao @default(VIDEOCONFERENCIA)
   linkVideoconferencia String?
-  idReuniao           String?    // "ID da reunião" do Zoom
-  senhaReuniao        String?    // "Senha" do Zoom
-  localPresencial     String?
+  idReuniao            String? // "ID da reunião" do Zoom
+  senhaReuniao         String? // "Senha" do Zoom
+  localPresencial      String?
 
   // realização
-  horaInicio          DateTime?
-  horaEncerramento    DateTime?
-  desfecho            DesfechoSessao?
-  motivoPrejudicada   String?
-  observacoesSessao   String?
+  horaInicio        DateTime?       @db.Timestamptz(3)
+  horaEncerramento  DateTime?       @db.Timestamptz(3)
+  desfecho          DesfechoSessao?
+  motivoPrejudicada String?
+  observacoesSessao String?
 
   // prazos calculados na criação, a partir de ConfiguracaoSistema
-  prazoDocumentacaoAte DateTime?
+  prazoDocumentacaoAte DateTime? @db.Timestamptz(3)
 
-  observacoes         String?
+  observacoes String?
 
-  criadoPorId         String
-  criadoPor           Usuario    @relation("AtoCriadoPor", fields: [criadoPorId], references: [id])
+  criadoPorId String
+  criadoPor   Usuario @relation("AtoCriadoPor", fields: [criadoPorId], references: [id])
 
-  partes              ParteDoAto[]
-  documentos          Documento[]
-  eventos             EventoAto[]
-  envios              Envio[]
-  conferencias        ConferenciaDeDocumento[]
-  termoDeAcordo       TermoDeAcordo?
+  partes        ParteDoAto[]
+  documentos    Documento[]
+  eventos       EventoAto[]
+  envios        Envio[]
+  conferencias  ConferenciaDeDocumento[]
+  termoDeAcordo TermoDeAcordo?
 
-  criadoEm            DateTime   @default(now())
-  atualizadoEm        DateTime   @updatedAt
+  criadoEm     DateTime @default(now()) @db.Timestamptz(3)
+  atualizadoEm DateTime @updatedAt @db.Timestamptz(3)
 
   @@index([status])
   @@index([dataConfirmada])
 }
 
 enum PapelNoAto {
-  SOLICITANTE   // "Interessado Solicitante" — quem provoca o procedimento
-  CONVIDADO     // "Interessado Convidado" — a outra parte
+  SOLICITANTE // "Interessado Solicitante" — quem provoca o procedimento
+  CONVIDADO // "Interessado Convidado" — a outra parte
   PROCURADOR
   CONCILIADOR
 }
 
 model ParteDoAto {
-  id          String     @id @default(cuid())
-  atoId       String
-  ato         Ato        @relation(fields: [atoId], references: [id], onDelete: Cascade)
-  pessoaId    String
-  pessoa      Pessoa     @relation(fields: [pessoaId], references: [id])
-  papel       PapelNoAto
+  id       String     @id @default(cuid())
+  atoId    String
+  ato      Ato        @relation(fields: [atoId], references: [id], onDelete: Cascade)
+  pessoaId String
+  pessoa   Pessoa     @relation(fields: [pessoaId], references: [id])
+  papel    PapelNoAto
 
   /// quando papel = PROCURADOR, indica qual parte ele representa.
   /// Um mesmo procurador pode representar o Solicitante em um ato e o
   /// Convidado em outro — a natureza vem de Pessoa.tipoProcurador.
-  representaId String?
-  representa   ParteDoAto?  @relation("Representacao", fields: [representaId], references: [id])
+  representaId  String?
+  representa    ParteDoAto?  @relation("Representacao", fields: [representaId], references: [id])
   representados ParteDoAto[] @relation("Representacao")
 
   /// registrado na sessão, para o item "III – DO COMPARECIMENTO" da ata
-  compareceu  Boolean?
+  compareceu         Boolean?
   observacaoPresenca String?
 
-  criadoEm    DateTime   @default(now())
+  criadoEm DateTime @default(now()) @db.Timestamptz(3)
 
   @@unique([atoId, pessoaId, papel])
   @@index([atoId])
@@ -218,27 +218,27 @@ model ParteDoAto {
 /// docs/08: o passo 3 confere item a item, não "recebeu ou não" — assim o
 /// operador sabe exatamente o que falta antes de confirmar a data.
 enum ItemDaDocumentacao {
-  CONTRATO_PRESTACAO_SERVICOS  // I   — com a Empresa de Consultoria e Assessoria Técnica
-  PROCURACAO                   // II  — quando aplicável
-  CONTRATO_FINANCIAMENTO       // III
-  PROVA_TECNICA                // IV
-  DOCUMENTOS_PESSOAIS          // V
+  CONTRATO_PRESTACAO_SERVICOS // I   — com a Empresa de Consultoria e Assessoria Técnica
+  PROCURACAO // II  — quando aplicável
+  CONTRATO_FINANCIAMENTO // III
+  PROVA_TECNICA // IV
+  DOCUMENTOS_PESSOAIS // V
 }
 
 model ConferenciaDeDocumento {
-  id             String             @id @default(cuid())
-  atoId          String
-  ato            Ato                @relation(fields: [atoId], references: [id], onDelete: Cascade)
-  item           ItemDaDocumentacao
+  id    String             @id @default(cuid())
+  atoId String
+  ato   Ato                @relation(fields: [atoId], references: [id], onDelete: Cascade)
+  item  ItemDaDocumentacao
 
-  conferido      Boolean            @default(false)
+  conferido    Boolean @default(false)
   /// "procuração, quando aplicável": nem todo procedimento tem procurador
-  naoAplicavel   Boolean            @default(false)
-  observacao     String?
+  naoAplicavel Boolean @default(false)
+  observacao   String?
 
   conferidoPorId String?
-  conferidoPor   Usuario?           @relation(fields: [conferidoPorId], references: [id])
-  conferidoEm    DateTime?
+  conferidoPor   Usuario?  @relation(fields: [conferidoPorId], references: [id])
+  conferidoEm    DateTime? @db.Timestamptz(3)
 
   @@unique([atoId, item])
   @@index([atoId])
@@ -251,33 +251,33 @@ model ConferenciaDeDocumento {
 /// e quitação são decisão jurídica do cliente, não do operador que lavra o
 /// termo no fim de uma sessão. Ver docs/09, item 9.
 model TermoDeAcordo {
-  id                       String   @id @default(cuid())
-  atoId                    String   @unique
-  ato                      Ato      @relation(fields: [atoId], references: [id], onDelete: Cascade)
+  id    String @id @default(cuid())
+  atoId String @unique
+  ato   Ato    @relation(fields: [atoId], references: [id], onDelete: Cascade)
 
-  objetoDoAcordo           String   // Cláusula Primeira
-  obrigacoesPrimeiraParte  String   // Cláusula Segunda
-  obrigacoesSegundaParte   String   // Cláusula Terceira
-  condicoesEspecificas     String?  // Cláusula Quarta
-  prazosDeCumprimento      String?  // Seção V, § 1º
-  formaDeCumprimento       String?  // Seção V, § 2º
-  formaDePagamento         String?  // Seção V, § 3º
-  demaisCondicoes          String?  // Seção V, § 4º
+  objetoDoAcordo          String // Cláusula Primeira
+  obrigacoesPrimeiraParte String // Cláusula Segunda
+  obrigacoesSegundaParte  String // Cláusula Terceira
+  condicoesEspecificas    String? // Cláusula Quarta
+  prazosDeCumprimento     String? // Seção V, § 1º
+  formaDeCumprimento      String? // Seção V, § 2º
+  formaDePagamento        String? // Seção V, § 3º
+  demaisCondicoes         String? // Seção V, § 4º
 
-  criadoPorId              String?
-  criadoPor                Usuario? @relation(fields: [criadoPorId], references: [id])
-  criadoEm                 DateTime @default(now())
-  atualizadoEm             DateTime @updatedAt
+  criadoPorId  String?
+  criadoPor    Usuario? @relation(fields: [criadoPorId], references: [id])
+  criadoEm     DateTime @default(now()) @db.Timestamptz(3)
+  atualizadoEm DateTime @updatedAt @db.Timestamptz(3)
 }
 
 // ---------------------------------------------------------------- documentos
 
 enum TipoDocumento {
   // ---- emitidos pela esteira, com código CO-XX-ANO-NNNNNN ----
-  CARTA_CONVITE_SOLICITANTE   // CO-CC  · comunica cadastro e pede documentação
-  CARTA_CONVITE_CONVIDADO     // CO-CC  · convoca a outra parte
-  ATA                         // CO-ATA · obrigatória em toda sessão, encerra a esteira
-  TERMO_ACORDO                // CO-TA  · quando há composição
+  CARTA_CONVITE_SOLICITANTE // CO-CC  · comunica cadastro e pede documentação
+  CARTA_CONVITE_CONVIDADO // CO-CC  · convoca a outra parte
+  ATA // CO-ATA · obrigatória em toda sessão, encerra a esteira
+  TERMO_ACORDO // CO-TA  · quando há composição
 
   // ---- recebidos ou anexados, sem código próprio ----
   DOCUMENTO_DA_PARTE
@@ -291,30 +291,30 @@ enum TipoDocumento {
 }
 
 model Documento {
-  id                String        @id @default(cuid())
-  atoId             String
-  ato               Ato           @relation(fields: [atoId], references: [id], onDelete: Cascade)
-  tipo              TipoDocumento
+  id    String        @id @default(cuid())
+  atoId String
+  ato   Ato           @relation(fields: [atoId], references: [id], onDelete: Cascade)
+  tipo  TipoDocumento
 
   /// Código único impresso no cabeçalho e codificado no QR Code.
   /// Opcional de propósito: só os documentos emitidos pela esteira têm código.
   /// Documento da parte, laudo de AR e assinado são anexos, não recebem número.
-  codigoVerificacao String?       @unique
-  emitidoPelaCamara Boolean       @default(false)  // true = gerado pelo sistema
+  codigoVerificacao String? @unique
+  emitidoPelaCamara Boolean @default(false) // true = gerado pelo sistema
 
-  nomeArquivo       String
-  chaveStorage      String        // caminho no bucket
-  mimeType          String
-  tamanhoBytes      Int
-  hashSha256        String        // integridade do arquivo
+  nomeArquivo  String
+  chaveStorage String // caminho no bucket
+  mimeType     String
+  tamanhoBytes Int
+  hashSha256   String // integridade do arquivo
 
-  enviadoPorId      String?
-  enviadoPor        Usuario?      @relation("DocumentoEnviadoPor", fields: [enviadoPorId], references: [id])
+  enviadoPorId String?
+  enviadoPor   Usuario? @relation("DocumentoEnviadoPor", fields: [enviadoPorId], references: [id])
 
-  envios            Envio[]
-  comprovanteDe     Envio[]       @relation("ComprovanteDoEnvio")
+  envios        Envio[]
+  comprovanteDe Envio[] @relation("ComprovanteDoEnvio")
 
-  criadoEm          DateTime      @default(now())
+  criadoEm DateTime @default(now()) @db.Timestamptz(3)
 
   @@index([atoId])
   @@index([codigoVerificacao])
@@ -336,25 +336,25 @@ enum StatusEnvio {
 }
 
 model Envio {
-  id             String      @id @default(cuid())
+  id             String    @id @default(cuid())
   atoId          String
-  ato            Ato         @relation(fields: [atoId], references: [id], onDelete: Cascade)
+  ato            Ato       @relation(fields: [atoId], references: [id], onDelete: Cascade)
   documentoId    String
-  documento      Documento   @relation(fields: [documentoId], references: [id])
+  documento      Documento @relation(fields: [documentoId], references: [id])
   destinatarioId String
-  destinatario   Pessoa      @relation(fields: [destinatarioId], references: [id])
+  destinatario   Pessoa    @relation(fields: [destinatarioId], references: [id])
 
-  canal          CanalEnvio
-  status         StatusEnvio @default(PENDENTE)
-  enviadoEm      DateTime?
-  entregueEm     DateTime?
+  canal      CanalEnvio
+  status     StatusEnvio @default(PENDENTE)
+  enviadoEm  DateTime?   @db.Timestamptz(3)
+  entregueEm DateTime?   @db.Timestamptz(3)
 
   // laudo de AR arquivado como documento
-  comprovanteId  String?
-  comprovante    Documento?  @relation("ComprovanteDoEnvio", fields: [comprovanteId], references: [id])
+  comprovanteId String?
+  comprovante   Documento? @relation("ComprovanteDoEnvio", fields: [comprovanteId], references: [id])
 
-  observacao     String?
-  criadoEm       DateTime    @default(now())
+  observacao String?
+  criadoEm   DateTime @default(now()) @db.Timestamptz(3)
 
   @@index([atoId])
 }
@@ -381,15 +381,15 @@ enum TipoEvento {
 }
 
 model EventoAto {
-  id         String     @id @default(cuid())
-  atoId      String
-  ato        Ato        @relation(fields: [atoId], references: [id], onDelete: Cascade)
-  tipo       TipoEvento
-  descricao  String
-  usuarioId  String?
-  usuario    Usuario?   @relation(fields: [usuarioId], references: [id])
-  metadados  Json?
-  criadoEm   DateTime   @default(now())
+  id        String     @id @default(cuid())
+  atoId     String
+  ato       Ato        @relation(fields: [atoId], references: [id], onDelete: Cascade)
+  tipo      TipoEvento
+  descricao String
+  usuarioId String?
+  usuario   Usuario?   @relation(fields: [usuarioId], references: [id])
+  metadados Json?
+  criadoEm  DateTime   @default(now()) @db.Timestamptz(3)
 
   @@index([atoId, criadoEm])
 }
@@ -400,13 +400,13 @@ model LogAuditoria {
   id         String   @id @default(cuid())
   usuarioId  String?
   usuario    Usuario? @relation(fields: [usuarioId], references: [id])
-  acao       String   // LOGIN, DOWNLOAD_DOCUMENTO, ALTEROU_ATO, ...
-  entidade   String   // Ato, Documento, Usuario
+  acao       String // LOGIN, DOWNLOAD_DOCUMENTO, ALTEROU_ATO, ...
+  entidade   String // Ato, Documento, Usuario
   entidadeId String?
   ip         String?
   userAgent  String?
   metadados  Json?
-  criadoEm   DateTime @default(now())
+  criadoEm   DateTime @default(now()) @db.Timestamptz(3)
 
   @@index([usuarioId, criadoEm])
   @@index([entidade, entidadeId])
@@ -415,14 +415,14 @@ model LogAuditoria {
 // ---------------------------------------------------------------- configuração
 
 model ConfiguracaoSistema {
-  id                      Int      @id @default(1)
-  nomeCamara              String   @default("Consensus One")
+  id                    Int      @id @default(1)
+  nomeCamara            String   @default("Consensus One")
   /// 15 dias, conforme a Carta-Convite ao Interessado Solicitante
-  prazoDocumentacaoDias   Int      @default(15)
+  prazoDocumentacaoDias Int      @default(15)
   /// aviso mínimo para mudar a modalidade da sessão
-  horasAvisoModalidade    Int      @default(48)
-  diasAteSessao           Int      @default(20)
-  urlVerificacao          String   @default("https://consensusone.com.br/verificar")
-  emailRemetente          String?
-  atualizadoEm            DateTime @updatedAt
+  horasAvisoModalidade  Int      @default(48)
+  diasAteSessao         Int      @default(20)
+  urlVerificacao        String   @default("https://consensusone.com.br/verificar")
+  emailRemetente        String?
+  atualizadoEm          DateTime @updatedAt @db.Timestamptz(3)
 }

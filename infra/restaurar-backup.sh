@@ -101,6 +101,25 @@ psql --dbname="$BANCO_TESTE" --tuples-only --command "
   SELECT 'Ato mais recente: ' || COALESCE(max(\"criadoEm\")::text, 'nenhum') FROM \"Ato\";
 "
 echo "============================================="
+
+# As colunas de data sao TIMESTAMP sem fuso: guardam hora de parede, nao
+# instante. Restaurar num servidor com fuso diferente do de origem desloca
+# TODOS os carimbos, e a contagem de linhas continua batendo — falha que passa
+# despercebida exatamente quando mais custa. Producao roda em Etc/UTC.
+FUSO_DESTINO="$(psql --dbname="$BANCO_TESTE" --tuples-only --no-align \
+  --command "SELECT current_setting('TimeZone')")"
+
 echo ""
-echo "Se os números acima fazem sentido, o backup está íntegro."
-echo "Anote a data deste teste na planilha de operação."
+echo "Fuso do servidor de destino: ${FUSO_DESTINO}"
+
+if [ "$FUSO_DESTINO" != "UTC" ] && [ "$FUSO_DESTINO" != "Etc/UTC" ]; then
+  echo ""
+  echo "AVISO: o destino nao esta em UTC." >&2
+  echo "A producao grava em Etc/UTC. Restaurar aqui mantem os numeros das" >&2
+  echo "contagens, mas desloca todos os carimbos de data — prazos inclusive." >&2
+  echo "Alinhe o fuso do destino antes de tratar este teste como valido." >&2
+fi
+
+echo ""
+echo "Se os números acima fazem sentido E o fuso é UTC, o backup está íntegro."
+echo "Anote a data deste teste na planilha de operação (docs/07)."
