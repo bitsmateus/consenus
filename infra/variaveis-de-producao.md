@@ -60,7 +60,8 @@ todo documento emitido.
 
 ### A3. Não vão no EasyPanel
 
-`BACKUP_S3_*`, `RETENCAO_DIAS` e `HEALTHCHECK_URL` são do script de backup, que
+`BACKUP_S3_*`, `RETENCAO_DIAS`, `HEALTHCHECK_URL` e `HEALTHCHECK_SYNC_URL` são
+dos scripts de backup e de réplica, que
 roda no host pelo cron — não dentro do container. Pôr essas chaves no app só
 aumenta a superfície de exposição sem nenhum ganho.
 
@@ -94,7 +95,8 @@ S3_REGION="br-se1"
 
 # ---- operação ----
 RETENCAO_DIAS="30"
-HEALTHCHECK_URL="https://hc-ping.com/SEU-UUID"
+HEALTHCHECK_URL="https://hc-ping.com/UUID-DO-BACKUP"
+HEALTHCHECK_SYNC_URL="https://hc-ping.com/UUID-DA-REPLICA"
 
 # ---- destinatário da cifra: chave PÚBLICA, não é segredo ----
 BACKUP_CHAVE_PUBLICA="age1..."
