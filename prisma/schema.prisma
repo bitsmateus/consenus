@@ -46,6 +46,7 @@ model Usuario {
   documentos   Documento[]              @relation("DocumentoEnviadoPor")
   conferencias ConferenciaDeDocumento[]
   termos       TermoDeAcordo[]
+  assinaturas  OperacaoAssinatura[]     @relation("AssinaturaSolicitadaPor")
 
   criadoEm     DateTime @default(now()) @db.Timestamptz(3)
   atualizadoEm DateTime @updatedAt @db.Timestamptz(3)
@@ -179,6 +180,7 @@ model Ato {
   envios        Envio[]
   conferencias  ConferenciaDeDocumento[]
   termoDeAcordo TermoDeAcordo?
+  assinaturas   OperacaoAssinatura[]
 
   criadoEm     DateTime @default(now()) @db.Timestamptz(3)
   atualizadoEm DateTime @updatedAt @db.Timestamptz(3)
@@ -321,6 +323,11 @@ model Documento {
   envios        Envio[]
   comprovanteDe Envio[] @relation("ComprovanteDoEnvio")
 
+  /// quando este documento foi enviado para assinatura
+  emAssinatura       OperacaoAssinatura? @relation("DocumentoEmAssinatura")
+  /// quando este documento É o PDF assinado que voltou
+  assinaturaDeOrigem OperacaoAssinatura? @relation("DocumentoAssinadoDaOperacao")
+
   criadoEm DateTime @default(now()) @db.Timestamptz(3)
 
   @@index([atoId])
@@ -366,6 +373,76 @@ model Envio {
   @@index([atoId])
 }
 
+// ------------------------------------------------------------ assinatura digital
+
+/// Estado da operação de assinatura na D4Sign (Etapa 2).
+/// ARQUIVADA é estado NOSSO, não deles: significa que o PDF assinado já foi
+/// baixado e guardado aqui. Enquanto não estiver arquivada, o documento
+/// assinado só existe na D4Sign — e depender disso seria depender de terceiro.
+enum StatusAssinatura {
+  AGUARDANDO // criada, ninguém assinou ainda
+  PARCIAL // ao menos um signatário assinou
+  CONCLUIDA // todos assinaram; o assinado ainda não foi baixado
+  ARQUIVADA // assinado baixado e guardado no nosso repositório
+  CANCELADA
+  FALHOU // erro ao baixar ou arquivar — exige ação do operador
+}
+
+/// Uma operação de assinatura = um documento emitido (Ata ou Termo de Acordo)
+/// enviado à D4Sign. O documento assinado que volta vira outro Documento,
+/// do tipo DOCUMENTO_ASSINADO, ligado aqui por `assinadoId`.
+model OperacaoAssinatura {
+  id          String    @id @default(cuid())
+  atoId       String
+  ato         Ato       @relation(fields: [atoId], references: [id], onDelete: Cascade)
+  documentoId String    @unique // um documento vai para assinatura uma vez só
+  documento   Documento @relation("DocumentoEmAssinatura", fields: [documentoId], references: [id])
+
+  /// UUID do documento na D4Sign. É por ele que o webhook nos encontra e é com
+  /// ele que se baixa o PDF assinado.
+  identificadorExterno String @unique
+
+  status StatusAssinatura @default(AGUARDANDO)
+
+  /// quantos signatários foram enviados e quantos já assinaram, para a tela
+  totalSignatarios Int @default(0)
+  jaAssinaram      Int @default(0)
+
+  /// o PDF assinado, depois de baixado e guardado
+  assinadoId String?    @unique
+  assinado   Documento? @relation("DocumentoAssinadoDaOperacao", fields: [assinadoId], references: [id])
+
+  /// última falha técnica, para o operador saber o que aconteceu
+  ultimoErro String?
+
+  solicitadaPorId String?
+  solicitadaPor   Usuario? @relation("AssinaturaSolicitadaPor", fields: [solicitadaPorId], references: [id])
+
+  concluidaEm  DateTime? @db.Timestamptz(3)
+  criadoEm     DateTime  @default(now()) @db.Timestamptz(3)
+  atualizadoEm DateTime  @updatedAt @db.Timestamptz(3)
+
+  @@index([atoId])
+  @@index([status])
+}
+
+/// Webhook já processado. A D4Sign reenvia até 7 vezes ao longo de ~27 horas
+/// quando não recebe resposta, então a mesma notificação chega mais de uma vez
+/// em operação normal — sem esta trava, um reenvio arquivaria o mesmo documento
+/// assinado duas vezes.
+model WebhookAssinatura {
+  id    String @id @default(cuid())
+  /// documento + tipo do aviso + signatário. O signatário entra porque o aviso
+  /// de assinatura dispara uma vez por pessoa, todos com o mesmo UUID.
+  chave String @unique
+
+  identificadorExterno String
+  tipoDoAviso          String
+  recebidoEm           DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([identificadorExterno])
+}
+
 // ---------------------------------------------------------------- linha do tempo
 
 enum TipoEvento {
@@ -381,6 +458,10 @@ enum TipoEvento {
   SESSAO_REALIZADA
   ATA_GERADA
   TERMO_GERADO
+  ASSINATURA_SOLICITADA
+  ASSINATURA_REGISTRADA
+  ASSINATURA_CONCLUIDA
+  ASSINATURA_CANCELADA
   DOCUMENTO_ASSINADO_ANEXADO
   ATO_CONCLUIDO
   ATO_CANCELADO

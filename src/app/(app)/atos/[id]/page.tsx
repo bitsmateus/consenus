@@ -20,6 +20,7 @@ import { exigirUsuario } from "@/lib/sessao";
 import { FormularioDeObservacao } from "./observacao";
 import { FormularioDeVinculo } from "./vinculos";
 import { SecaoDeDocumentos } from "./secao-documentos";
+import { assinaturaDigitalAtiva } from "@/lib/d4sign";
 import { SecaoDeFluxo } from "./secao-fluxo";
 
 export const metadata = { title: "Procedimento — Consensus One" };
@@ -202,10 +203,22 @@ export default async function PaginaDoAto({ params }: { params: Promise<{ id: st
             {/* ---------------------------------------------- documentos */}
             <SecaoDeDocumentos
               atoId={ato.id}
-              documentos={ato.documentos}
+              documentos={ato.documentos.map((doc) => ({
+                ...doc,
+                assinatura: doc.emAssinatura
+                  ? {
+                      status: doc.emAssinatura.status,
+                      totalSignatarios: doc.emAssinatura.totalSignatarios,
+                      jaAssinaram: doc.emAssinatura.jaAssinaram,
+                      temAssinado: Boolean(doc.emAssinatura.assinadoId),
+                      ultimoErro: doc.emAssinatura.ultimoErro,
+                    }
+                  : null,
+              }))}
               envios={ato.envios}
               interessados={interessados.map((p) => ({ id: p.pessoa.id, nome: p.pessoa.nome }))}
               equipe={equipe}
+              assinaturaAtiva={assinaturaDigitalAtiva()}
             />
 
             {/* ---------------------------------------------- linha do tempo */}

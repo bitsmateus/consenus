@@ -142,7 +142,19 @@ export async function buscarAtoEm(where: Prisma.AtoWhereInput) {
       },
       documentos: {
         orderBy: { criadoEm: "desc" },
-        include: { enviadoPor: { select: { nome: true } } },
+        include: {
+          enviadoPor: { select: { nome: true } },
+          // situação da assinatura eletrônica, quando o documento foi enviado
+          emAssinatura: {
+            select: {
+              status: true,
+              totalSignatarios: true,
+              jaAssinaram: true,
+              assinadoId: true,
+              ultimoErro: true,
+            },
+          },
+        },
       },
       conferencias: { include: { conferidoPor: { select: { nome: true } } } },
       termoDeAcordo: true,

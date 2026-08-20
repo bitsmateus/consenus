@@ -7,6 +7,7 @@ import { Selecao } from "@/components/ui/selecao";
 import { formatarTamanho } from "@/lib/mime";
 import { formatarDataHora } from "@/lib/formato";
 import { FormularioDeAnexo, FormularioDeEnvio } from "./documentos";
+import { Assinatura, type AssinaturaDoDocumento } from "./assinatura";
 
 const ROTULO_TIPO: Record<TipoDocumento, string> = {
   CARTA_CONVITE_SOLICITANTE: "Carta-Convite ao Solicitante",
@@ -30,7 +31,12 @@ type Documento = {
   hashSha256: string;
   emitidoPelaCamara: boolean;
   criadoEm: Date;
+  /** null = ainda não foi para assinatura eletrônica */
+  assinatura: AssinaturaDoDocumento | null;
 };
+
+/** Só a Ata e o Termo de Acordo são assinados. Anexo não se assina. */
+const ASSINAVEIS: TipoDocumento[] = [TipoDocumento.ATA, TipoDocumento.TERMO_ACORDO];
 
 type Envio = {
   id: string;
@@ -48,12 +54,14 @@ export function SecaoDeDocumentos({
   envios,
   interessados,
   equipe,
+  assinaturaAtiva,
 }: {
   atoId: string;
   documentos: Documento[];
   envios: Envio[];
   interessados: { id: string; nome: string }[];
   equipe: boolean;
+  assinaturaAtiva: boolean;
 }) {
   const emitidos = documentos.filter((d) => d.emitidoPelaCamara);
   const laudos = documentos.filter((d) => d.tipo === TipoDocumento.LAUDO_AR);
@@ -101,6 +109,10 @@ export function SecaoDeDocumentos({
                   </a>
                 </div>
               </div>
+
+              {equipe && assinaturaAtiva && ASSINAVEIS.includes(doc.tipo) && (
+                <Assinatura documentoId={doc.id} assinatura={doc.assinatura} />
+              )}
             </li>
           ))}
         </ul>

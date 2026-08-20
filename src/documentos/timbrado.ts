@@ -138,8 +138,11 @@ export const ESTILO_DO_CORPO = `
   .sessao dt { font-size: 8.5pt; color: ${DOURADO}; text-transform: uppercase; letter-spacing: .3pt; }
   .sessao dd { margin: 0 0 2mm; font-family: 'Courier New', monospace; font-size: 9.5pt; }
   .assinatura { margin-top: 14mm; text-align: center; }
-  .assinatura .linha { border-top: .4pt solid ${CARVAO}; width: 70mm; margin: 0 auto 1.5mm; }
-  .assinatura .cargo { font-size: 8.5pt; }
+  /* Fora de .assinatura de propósito: na Ata e no Termo, as linhas das partes
+     ficam dentro de uma <table>, sem esse ancestral. Enquanto o seletor era
+     ".assinatura .linha", quatro das cinco linhas da Ata saíam sem linha. */
+  .linha { border-top: .4pt solid ${CARVAO}; width: 70mm; margin: 0 auto 1.5mm; }
+  .cargo { font-size: 8.5pt; }
 `;
 
 /** Monta o documento completo, pronto para o motor de PDF. */

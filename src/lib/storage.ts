@@ -1,7 +1,7 @@
 /**
  * Armazenamento de arquivos, compatível com a API S3.
  *
- * Produção: Magalu Cloud Object Storage — dados em território nacional.
+ * Produção: MinIO no próprio VPS, servido em arquivos.consensusone.com.br.
  * Local:    MinIO via docker compose.
  * Backup:   Cloudflare R2, cópia criptografada fora do país.
  *
@@ -29,10 +29,10 @@ const BUCKET = process.env.S3_BUCKET!;
 /**
  * Criptografia em repouso, exigida por docs/04.
  *
- * A Magalu Cloud aceita SSE-S3 e em produção isso fica ligado. O MinIO local
- * recusa se não tiver KMS configurado, então em desenvolvimento a variável fica
- * vazia. O padrão é LIGADO: esquecer de definir mantém a proteção, não a
- * remove.
+ * O MinIO só aceita SSE-S3 com KES/KMS configurado, e não é o caso nem aqui
+ * nem em produção — a variável fica vazia nos dois, e o risco residual está
+ * aceito e documentado em docs/04. O padrão continua LIGADO: esquecer de
+ * definir mantém a proteção, não a remove.
  */
 const CRIPTOGRAFIA_NO_SERVIDOR =
   process.env.S3_CRIPTOGRAFIA === undefined ? "AES256" : process.env.S3_CRIPTOGRAFIA || undefined;
@@ -67,6 +67,22 @@ export async function enviarArquivo(params: {
     hashSha256: calcularHash(params.conteudo),
     tamanhoBytes: params.conteudo.length,
   };
+}
+
+/**
+ * Lê o arquivo de volta, para uso do próprio servidor.
+ *
+ * Não é caminho de download do usuário — para isso existe a URL pré-assinada
+ * abaixo, que é a única forma de um arquivo chegar ao navegador. Este aqui
+ * serve a quem precisa do conteúdo em memória, como o envio para assinatura
+ * eletrônica.
+ */
+export async function baixarArquivo(chave: string): Promise<Buffer> {
+  const resposta = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: chave }));
+  if (!resposta.Body) {
+    throw new Error(`Arquivo não encontrado no repositório: ${chave}`);
+  }
+  return Buffer.from(await resposta.Body.transformToByteArray());
 }
 
 /** Nunca devolva a chave crua ao cliente. Sempre esta URL, sempre com expiração. */

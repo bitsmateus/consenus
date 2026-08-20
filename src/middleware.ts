@@ -3,7 +3,8 @@ import NextAuth from "next-auth";
 import { configuracaoDeAutenticacao } from "@/auth.config";
 
 /**
- * Proteção de rotas. Públicas: /entrar, /verificar e os endpoints do Auth.js.
+ * Proteção de rotas. Públicas: /entrar, /verificar, os endpoints do Auth.js e
+ * o webhook da assinatura eletrônica.
  * A autorização fina (quem vê qual ato) NÃO acontece aqui — está em
  * src/lib/sessao.ts, no servidor, a cada consulta. Ver CLAUDE.md, regra 2.
  *
@@ -17,7 +18,11 @@ function ehPublica(pathname: string): boolean {
   return (
     pathname.startsWith("/entrar") ||
     pathname.startsWith("/verificar") ||
-    pathname.startsWith("/api/auth")
+    pathname.startsWith("/api/auth") ||
+    // Webhook da D4Sign: quem chama é servidor deles, não tem como ter
+    // sessão. A defesa não é a sessão — é o token secreto no caminho e o
+    // Content-Hmac, conferidos dentro da rota.
+    pathname.startsWith("/api/webhooks/d4sign")
   );
 }
 

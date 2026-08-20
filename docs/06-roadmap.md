@@ -111,6 +111,16 @@ sem os quais os dois arquivos não teriam como rodar.
 
 ## Etapa 2 — após a Etapa 1
 
-Automação de envios, integrações via API com ForSign e AR Digital, e agente de
-IA no WhatsApp e no site. Prazo definido depois de obter a documentação técnica
-das APIs, conforme Cláusula 3ª, § 4º do contrato.
+Automação de envios, integrações via API com a plataforma de assinatura e com o
+AR Digital, e agente de IA no WhatsApp e no site. Prazo definido depois de obter
+a documentação técnica das APIs, conforme Cláusula 3ª, § 4º do contrato.
+
+**Assinatura eletrônica — entregue.** O contrato diz "ForSign"; o fornecedor que
+a câmara usa é a **D4Sign**, e é com ela que o sistema está integrado (decisão
+de 20/08/2026, credenciais fornecidas pelo cliente). Alinhar o texto contratual
+é pendência com o cliente. Detalhes em `docs/12-assinatura-eletronica.md`.
+
+Dois pontos ainda dependem do cliente, não de desenvolvimento:
+- **ampliar o limite de requisições da D4Sign**, hoje em 10 por hora — cerca de
+  um procedimento por hora, o que trava o uso real;
+- **integração com o AR Digital**, à espera de identificar o fornecedor atual.
