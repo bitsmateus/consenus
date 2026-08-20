@@ -15,6 +15,10 @@
  * corpo, ele não muda, e um aviso capturado pode ser repetido. É por isso que
  * a camada 3 existe, e é nela que a segurança de fato se apoia.
  *
+ * O aviso é aceito tanto em form-data quanto em JSON: a D4Sign tem um botão no
+ * painel que alterna entre os dois, e não vale deixar o retorno das assinaturas
+ * na dependência de ninguém clicar nele.
+ *
  * Responder 5xx é proposital em falha técnica: a D4Sign reenvia (até 7 vezes,
  * ao longo de ~27 horas) e o documento acaba arquivado sozinho. Responder 200
  * escondendo o erro perderia o aviso para sempre.
@@ -36,17 +40,12 @@ export async function POST(
     return NextResponse.json({ erro: "não autorizado" }, { status: 404 });
   }
 
-  // a D4Sign envia form-data, não JSON
-  let formulario: FormData;
-  try {
-    formulario = await requisicao.formData();
-  } catch {
-    return NextResponse.json({ erro: "corpo ilegível" }, { status: 400 });
-  }
+  const campos = await lerCampos(requisicao);
+  if (!campos) return NextResponse.json({ erro: "corpo ilegível" }, { status: 400 });
 
-  const uuid = String(formulario.get("uuid") ?? "");
-  const tipoDoAviso = String(formulario.get("type_post") ?? "");
-  const emailDoSignatario = String(formulario.get("email") ?? "") || null;
+  const uuid = campos.uuid;
+  const tipoDoAviso = campos.type_post;
+  const emailDoSignatario = campos.email || null;
 
   if (!uuid || !tipoDoAviso) {
     return NextResponse.json({ erro: "aviso sem documento" }, { status: 400 });
@@ -100,6 +99,40 @@ export async function POST(
   // faria o reenvio ser descartado como repetido e o documento nunca chegaria
   await registrarAviso(chave, uuid, tipoDoAviso);
   return NextResponse.json({ ok: true });
+}
+
+/**
+ * Lê os campos do aviso, venha ele como form-data ou como JSON.
+ *
+ * A D4Sign manda form-data por padrão, mas o painel tem um botão "Alterar para
+ * json" ao lado dessa configuração. Aceitar os dois custa dez linhas e evita
+ * que um clique de alguém no painel derrube o retorno das assinaturas sem
+ * ninguém entender por quê.
+ */
+async function lerCampos(
+  requisicao: Request
+): Promise<{ uuid: string; type_post: string; email: string } | null> {
+  const tipo = requisicao.headers.get("content-type") ?? "";
+
+  try {
+    if (tipo.includes("application/json")) {
+      const corpo = (await requisicao.json()) as Record<string, unknown>;
+      return {
+        uuid: String(corpo.uuid ?? ""),
+        type_post: String(corpo.type_post ?? ""),
+        email: String(corpo.email ?? ""),
+      };
+    }
+
+    const formulario = await requisicao.formData();
+    return {
+      uuid: String(formulario.get("uuid") ?? ""),
+      type_post: String(formulario.get("type_post") ?? ""),
+      email: String(formulario.get("email") ?? ""),
+    };
+  } catch {
+    return null;
+  }
 }
 
 async function registrarAviso(chave: string, identificadorExterno: string, tipoDoAviso: string) {
