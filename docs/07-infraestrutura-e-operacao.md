@@ -32,9 +32,14 @@ Decisão fechada em 13/08/2026.
 >
 > Só que, em produção, **os documentos ficam sim no disco do VPS**, no MinIO
 > local. O cliente optou por esse arranjo em 20/08/2026, ciente da alternativa.
-> A redundância existe, mas por fora: o `sincronizar-arquivos.sh` replica os
-> documentos para o Cloudflare R2 uma vez por dia — o que significa que a
-> perda máxima de documentos é de **24 horas**, contra as 12 horas do banco.
+> A redundância vem de fora: o `sincronizar-arquivos.sh` replica os documentos
+> cifrados para o Cloudflare R2 uma vez por dia, o que põe a perda máxima de
+> documentos em **24 horas**, contra as 12 horas do banco.
+>
+> **Essa réplica não funcionou até 20/08/2026.** O script mandava um único
+> `--endpoint-url` para origem e destino, procurava os documentos dentro do R2,
+> não achava nada e terminava com sucesso — o cron registrava "concluída" todo
+> dia sem copiar um arquivo sequer. Corrigido; ver a seção de object storage.
 >
 > Ver a seção "Object storage" abaixo para as consequências completas.
 
@@ -105,11 +110,32 @@ O que isso custa, e que precisa estar consciente:
 | Criptografia em repouso | **ausente** — MinIO exigiria KES/KMS, com a chave na mesma máquina |
 | Documento no disco do VPS | sim — perder o VPS é perder a origem, restando a réplica no R2 |
 | Território nacional | atendido: o VPS é em São Paulo |
-| Réplica fora do país | os documentos vão **em claro** para o R2, ver `docs/04` |
+| Réplica fora do país | os documentos vão **cifrados** com `age` para o R2 |
 
 Migrar para object storage externo continua sendo a recomendação técnica, e
 fica barato enquanto o volume é pequeno (~R$ 5/mês). Quanto mais tarde, mais
 caro — mover documento com valor jurídico exige janela e conferência.
+
+#### A réplica dos documentos estava quebrada
+
+Descoberto em 20/08/2026: o bucket do R2 só continha `postgres/`. Nenhum
+documento havia sido replicado, nunca. O `sincronizar-arquivos.sh` usava um
+`--endpoint-url` só para os dois lados e não tinha as credenciais da origem,
+então listava um caminho inexistente dentro do R2 e saía com sucesso.
+
+Foi reescrito e agora: usa credenciais e endpoint separados para origem e
+destino; **cifra cada arquivo com a chave pública `age`** antes do envio, como
+o dump do banco; copia só o que falta, de modo idempotente; e avisa quando a
+origem vem vazia, que é o sintoma de credencial errada.
+
+**Para recuperar um documento da réplica** — na sua máquina, com a chave
+privada:
+
+```bash
+aws s3 cp s3://consensus-one-backup/replica-atos/CAMINHO.age . \
+  --endpoint-url "$BACKUP_S3_ENDPOINT"
+age --decrypt --identity consensus-backup.key --output documento.pdf CAMINHO.age
+```
 
 ### 5. Backup — a parte que não pode falhar
 

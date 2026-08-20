@@ -98,6 +98,12 @@ HEALTHCHECK_URL="https://hc-ping.com/SEU-UUID"
 
 # ---- destinatário da cifra: chave PÚBLICA, não é segredo ----
 BACKUP_CHAVE_PUBLICA="age1..."
+
+# A sincronização dos documentos lê da ORIGEM (MinIO do VPS) e escreve no
+# DESTINO (R2). São provedores diferentes, com credenciais diferentes — as
+# AWS_* acima valem para o destino, e estas para a origem:
+S3_ACCESS_KEY_ID="chave do MinIO"
+S3_SECRET_ACCESS_KEY="segredo do MinIO"
 ```
 
 Sobre o `127.0.0.1` no `DATABASE_URL` do host: isso **não** contraria a regra.

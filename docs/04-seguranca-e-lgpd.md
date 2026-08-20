@@ -88,7 +88,7 @@ backup fora do VPS (`infra/variaveis-de-producao.md`).
 | Toda leitura e download em `LogAuditoria` | ativo |
 | TLS no transporte | ativo |
 | Dado em território nacional (VPS em São Paulo) | atendido |
-| Réplica diária para o Cloudflare R2 | ativa |
+| Réplica diária para o Cloudflare R2, cifrada com `age` | ativa desde 20/08/2026 |
 | Servidor endurecido: SSH por chave, ufw, fail2ban | `infra/endurecer-servidor.sh` |
 
 ### O que continua exposto
@@ -97,11 +97,11 @@ backup fora do VPS (`infra/variaveis-de-producao.md`).
    camada de cifra entre o invasor e o arquivo. Idem para quem tiver acesso ao
    disco físico ou a um snapshot do VPS feito pela Hostinger.
 
-2. **A réplica no Cloudflare R2 vai em claro.** O `sincronizar-arquivos.sh` faz
-   `aws s3 sync` sem cifrar. Isso é assimétrico e merece atenção: o **banco** é
-   cifrado com `age` antes de sair do servidor, mas os **documentos** — que
-   contêm dados pessoais das partes e o conteúdo dos acordos — saem sem
-   proteção para um provedor fora do país.
+2. ~~A réplica no Cloudflare R2 vai em claro.~~ **Corrigido em 20/08/2026.**
+   O `sincronizar-arquivos.sh` agora cifra cada documento com a chave pública
+   `age` antes do envio, como já era feito com o dump do banco. Antes disso a
+   réplica sequer existia: o script estava quebrado e nunca copiou nada, o que
+   foi descoberto na mesma investigação.
 
 3. **Perda de até 24 horas de documentos** se o VPS for perdido, contra 12
    horas do banco, porque a réplica é diária.
