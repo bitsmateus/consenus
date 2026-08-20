@@ -449,15 +449,27 @@ async function main() {
   ];
 
   for (const externo of EXTERNOS) {
+    const pessoaId = id(externo.pessoa);
+    const usuarioAtual = await db.usuario.findFirst({
+      where: { OR: [{ email: externo.email }, { pessoaId }] },
+    });
+
+    if (usuarioAtual && usuarioAtual.email !== externo.email) {
+      await db.usuario.update({
+        where: { id: usuarioAtual.id },
+        data: { email: externo.email, nome: externo.nome, papel: externo.papel, pessoaId },
+      });
+    }
+
     await db.usuario.upsert({
       where: { email: externo.email },
-      update: { pessoaId: id(externo.pessoa) },
+      update: { nome: externo.nome, papel: externo.papel, pessoaId },
       create: {
         nome: externo.nome,
         email: externo.email,
         senhaHash,
         papel: externo.papel,
-        pessoaId: id(externo.pessoa),
+        pessoaId,
       },
     });
   }
