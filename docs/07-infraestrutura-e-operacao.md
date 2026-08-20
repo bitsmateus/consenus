@@ -186,6 +186,9 @@ e não tem segunda via? Todos os backups viram bytes inúteis.
 
 ### Todo mês
 - [ ] **Rodar `infra/restaurar-backup.sh` e registrar o resultado abaixo**
+- [ ] **Recuperar um documento da réplica no R2 e conferir que abre** — a
+      réplica dos documentos merece a mesma desconfiança que o dump do banco:
+      cópia que nunca foi aberta não é cópia. Receita abaixo
 - [ ] Aplicar atualizações do sistema e reiniciar se houver kernel novo
 - [ ] Revisar log de auditoria em busca de acesso estranho
 - [ ] Conferir se as imagens Docker estão atualizadas
@@ -198,6 +201,28 @@ e não tem segunda via? Todos os backups viram bytes inúteis.
 
 Esta tabela é sua defesa. Se um dia der problema e o cliente perguntar se
 havia backup, você mostra o histórico de testes — não uma promessa.
+
+### Como conferir a réplica de um documento
+
+Na **sua máquina**, nunca no servidor — precisa da chave privada `age`.
+
+```bash
+export AWS_ACCESS_KEY_ID="..." AWS_SECRET_ACCESS_KEY="..." AWS_DEFAULT_REGION=auto
+EP="https://SEU_ACCOUNT_ID.r2.cloudflarestorage.com"
+
+# escolha qualquer um dos replicados
+ALVO=$(aws s3 ls s3://consensus-one-backup/replica-atos/ --recursive \
+       --endpoint-url "$EP" | awk '{print $4}' | tail -n1)
+
+aws s3 cp "s3://consensus-one-backup/${ALVO}" /tmp/doc.age --endpoint-url "$EP"
+age --decrypt --identity consensus-backup.key --output /tmp/doc.pdf /tmp/doc.age
+
+head -c 5 /tmp/doc.pdf     # tem que sair %PDF-
+rm -f /tmp/doc.age /tmp/doc.pdf
+```
+
+Sai `%PDF-`, o documento está íntegro e a chave abre a réplica. Registre na
+tabela abaixo, junto com o teste do banco.
 
 ## Limites conhecidos desta escolha
 
