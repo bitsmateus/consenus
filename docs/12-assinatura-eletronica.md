@@ -133,6 +133,19 @@ As cinco linhas de assinatura do modelo oficial continuam impressas como
 sempre, e o texto da Ata já prevê a forma: *"segue a presente Ata assinada
 eletronicamente pelos participantes"*.
 
+## As credenciais só aparecem uma vez
+
+A D4Sign exibe o `tokenAPI` e o `cryptKey` **apenas no momento em que a chave é
+criada**. Não há botão de revelar depois: o mascaramento é do servidor. O mesmo
+vale para a Secret Key do HMAC.
+
+Consequência prática: quem cria uma chave e não copia na hora perde os valores
+para sempre, e a chave vira peso morto ocupando uma das três vagas da conta.
+Foi o que aconteceu com a chave chamada "ConsensusOne" — ver `docs/09`, item 9.
+
+**Ao criar qualquer credencial da D4Sign, copie para o gerenciador de senhas
+antes de fechar a tela.**
+
 ## Configuração
 
 Todas em `.env.example`. Nenhuma no repositório.

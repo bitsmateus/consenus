@@ -192,8 +192,36 @@ lavrando o termo no fim de uma sessão.
 | 5 | Cláusulas fixas do Termo de Acordo não são editáveis? | ✅ Sim, travadas |
 | 6 | A "Empresa de Consultoria e Assessoria Técnica" é fixa ou varia? | ✅ Texto fixo |
 
-**Nenhuma pendência.** O escopo documental está fechado e a Sprint 2 pode correr
-inteira sem novas consultas ao cliente.
+**Escopo documental fechado.** A Sprint 2 pode correr inteira sem novas
+consultas ao cliente sobre documentos.
+
+## Pendências da assinatura eletrônica — Etapa 2
+
+Abertas em 20/08/2026. Nenhuma é de desenvolvimento: todas dependem do cliente.
+
+| # | Pergunta ao Dr. Sergio | Por que importa |
+|---|---|---|
+| 7 | Quantos procedimentos por mês a câmara projeta? | O plano Advanced dá **20 envios/mês**, e o escritório usa a mesma conta. Cada procedimento gasta 1 (ata) ou 2 (ata + termo). É o teto de atendimento da câmara, não um detalhe técnico. |
+| 8 | Ampliar o limite de **10 requisições/hora** da D4Sign | Um envio consome 4 chamadas mais uma por signatário. Duas atas seguidas na mesma hora já esbarram. |
+| 9 | Alguém guardou os valores da chave de API "ConsensusOne"? | Os valores só aparecem na criação. Se ninguém guardou, a chave é peso morto e deve ser removida para liberar vaga (o painel permite 3). |
+| 10 | O contrato diz **ForSign**; o fornecedor é a **D4Sign** | `docs/01` e `docs/06` prometem integração com a ForSign. Texto contratual a alinhar. |
+| 11 | Conta da D4Sign aparece como **não verificada** | Pode limitar envio em produção. Conferir antes da virada. |
+| 12 | Cadastro de NFe em branco; cartão em nome de "eferreira ac ltda" | A câmara paga R$ 59,90/mês sem receber nota. Não é técnico, mas o contador vai cobrar. |
+
+### ⚠️ Dívida assumida: a chave de API em uso é a da NX Netscale
+
+A integração entrou em produção usando a chave **"NX DIGITAL"**, e não a da
+Consensus One, porque os valores da chave do cliente são irrecuperáveis (a
+D4Sign os exibe apenas na criação).
+
+Isso contraria o princípio de o cliente não ficar dependente da NX: no dia em
+que essa chave for revogada, ou a NX sair de cena, a esteira de assinatura da
+câmara para junto.
+
+**Trocar antes da virada para uso real.** O custo é uma variável de ambiente e
+um rebuild — nenhuma linha de código. O caminho é: confirmar o item 9, remover
+a chave morta, criar uma chave nova com o nome do cliente e **copiar os valores
+na hora**, porque não haverá segunda chance.
 
 ### Sobre o item 6
 
