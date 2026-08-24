@@ -30,7 +30,8 @@ export type AcaoAuditada =
   | "CONSULTOU_VERIFICACAO"
   | "VARREDURA_SUSPEITA"
   | "CRIOU_USUARIO"
-  | "ALTEROU_PERMISSAO";
+  | "ALTEROU_PERMISSAO"
+  | "RECUPEROU_ACESSO";
 
 export async function registrarAuditoria(params: {
   usuarioId?: string | null;

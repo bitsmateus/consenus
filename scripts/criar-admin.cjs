@@ -1,9 +1,9 @@
 /**
- * Cria o PRIMEIRO administrador do sistema.
+ * Cria uma conta de administrador pelo console do container.
  *
- * Existe porque há um ovo e uma galinha: criar conta pela interface exige estar
- * logado como administrador, e o seed de demonstração se recusa a rodar em
- * produção. Sem este script, sobe o sistema e ninguém consegue entrar.
+ * Existe por causa de um ovo e uma galinha: criar conta pela interface exige
+ * estar logado como administrador, e o seed de demonstração se recusa a rodar
+ * em produção. Sem este script, sobe o sistema e ninguém consegue entrar.
  *
  * CommonJS de propósito: roda dentro do container de produção, onde não há tsx
  * nem as dependências de desenvolvimento.
@@ -14,8 +14,17 @@
  *   ADMIN_SENHA="uma senha longa e única" \
  *   node scripts/criar-admin.cjs
  *
- * Recusa criar um segundo administrador: depois do primeiro, contas saem da
- * tela de Equipe, com a criação registrada em LogAuditoria.
+ * Por padrão só cria o PRIMEIRO administrador: havendo um admin ativo, o
+ * caminho certo é a tela de Equipe, que registra quem criou a conta. Esse
+ * registro é a razão da recusa — conta criada por fora nasce sem responsável.
+ *
+ * Quando não há como usar a tela — ninguém consegue mais entrar como admin —,
+ * repita o comando com PERMITIR_SEGUNDO_ADMIN=sim. A criação continua indo
+ * para o LogAuditoria, marcada como feita pelo console.
+ *
+ * Antes disso, considere o scripts/recuperar-admin.cjs: se o problema é senha
+ * ou autenticador perdido, recuperar a conta existente preserva o histórico
+ * dela e não deixa mais um administrador solto no sistema.
  */
 const { PrismaClient } = require("@prisma/client");
 const argon2 = require("argon2");
@@ -52,9 +61,27 @@ async function main() {
   conferirSenha(senha);
 
   const jaExiste = await db.usuario.count({ where: { papel: "ADMIN", ativo: true } });
-  if (jaExiste > 0) {
+  const forcado = (process.env.PERMITIR_SEGUNDO_ADMIN || "").trim().toLowerCase() === "sim";
+
+  if (jaExiste > 0 && !forcado) {
     console.error("ERRO: já existe administrador ativo.");
-    console.error("Crie as demais contas pela tela de Equipe, que registra quem criou.");
+    console.error("");
+    console.error("O caminho normal é a tela de Equipe, que registra quem criou a conta.");
+    console.error("Se você perdeu o acesso ao admin existente, há duas saídas:");
+    console.error("  recuperar aquela conta ..... node scripts/recuperar-admin.cjs");
+    console.error("  criar outra assim mesmo .... repita com PERMITIR_SEGUNDO_ADMIN=sim");
+    process.exit(1);
+  }
+
+  const repetido = await db.usuario.findUnique({
+    where: { email },
+    select: { papel: true, ativo: true },
+  });
+  if (repetido) {
+    console.error(`ERRO: já existe conta com o e-mail ${email} (perfil ${repetido.papel}).`);
+    if (repetido.papel === "ADMIN") {
+      console.error("Para retomar essa conta, use o scripts/recuperar-admin.cjs.");
+    }
     process.exit(1);
   }
 
@@ -67,18 +94,32 @@ async function main() {
     },
   });
 
+  // Nunca registre a senha nem o hash: docs/04 e o cabeçalho de lib/auditoria.
   await db.logAuditoria.create({
     data: {
       usuarioId: usuario.id,
       acao: "CRIOU_USUARIO",
       entidade: "Usuario",
       entidadeId: usuario.id,
-      metadados: { email: usuario.email, papel: "ADMIN", origem: "criar-admin.cjs" },
+      metadados: {
+        email: usuario.email,
+        papel: "ADMIN",
+        origem: "criar-admin.cjs",
+        // conta nascida pelo console não tem criador identificado: fica o aviso
+        // de que este registro não aponta responsável, ao contrário da tela.
+        semResponsavelIdentificado: true,
+        adminAdicional: forcado,
+      },
     },
   });
 
   console.log("");
   console.log(`Administrador criado: ${usuario.email}`);
+  if (forcado) {
+    console.log("");
+    console.log(`Atenção: o sistema já tinha ${jaExiste} administrador(es) ativo(s).`);
+    console.log("Revise a tela de Equipe e desative o que não for mais usado.");
+  }
   console.log("");
   console.log("No primeiro acesso o sistema vai exigir a verificação em duas etapas:");
   console.log("tenha um aplicativo autenticador à mão antes de entrar.");

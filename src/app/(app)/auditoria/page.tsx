@@ -30,6 +30,7 @@ const ROTULO: Record<string, string> = {
   VARREDURA_SUSPEITA: "Alerta de varredura de códigos",
   CRIOU_USUARIO: "Criou conta",
   ALTEROU_PERMISSAO: "Alterou permissões",
+  RECUPEROU_ACESSO: "Recuperou acesso de administrador",
 };
 
 /** Ações que merecem destaque numa revisão de segurança. */
@@ -39,6 +40,7 @@ const SENSIVEIS = new Set([
   "DESATIVOU_SEGUNDO_FATOR",
   "VARREDURA_SUSPEITA",
   "ALTEROU_PERMISSAO",
+  "RECUPEROU_ACESSO",
 ]);
 
 export default async function PaginaDeAuditoria({
