@@ -12,11 +12,12 @@
     "db:down": "docker compose down",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
-    "db:seed": "tsx prisma/seed.ts",
+    "db:seed": "tsx --env-file-if-exists=.env prisma/seed.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "criar-admin": "node scripts/criar-admin.cjs"
+    "criar-admin": "node scripts/criar-admin.cjs",
+    "recuperar-admin": "node scripts/recuperar-admin.cjs"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

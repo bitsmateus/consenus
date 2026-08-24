@@ -1,4 +1,22 @@
+import { existsSync } from "node:fs";
 import { defineConfig } from "@playwright/test";
+
+/**
+ * Carrega o .env antes de tudo.
+ *
+ * Os testes de isolamento falam com o banco direto, pelo Prisma, para preparar
+ * conta e zerar segundo fator — não é só o servidor de desenvolvimento que
+ * precisa das variáveis. O Playwright não lê .env sozinho, e o Prisma 6 deixou
+ * de ler também, então numa máquina limpa isto morria em "Environment variable
+ * not found: DATABASE_URL".
+ *
+ * Só carrega se o arquivo existir: no CI não há .env e as variáveis já vêm do
+ * workflow. E `loadEnvFile` segue a regra do `--env-file`, que não sobrescreve
+ * variável já definida no ambiente.
+ */
+if (existsSync(".env")) {
+  process.loadEnvFile(".env");
+}
 
 export default defineConfig({
   testDir: "./tests/e2e",
