@@ -118,6 +118,15 @@ test.describe("acesso sem sessão", () => {
     await page.getByRole("button", { name: "Entrar" }).click();
 
     await expect(page.locator("p[role=alert]")).toContainText(/E-mail ou senha incorretos/);
+
+    // A tentativa é proposital, mas não pode ficar contando contra a conta: são
+    // cinco falhas para bloquear, e cinco execuções seguidas deste arquivo
+    // deixariam o operador trancado para os outros testes. No CI o banco nasce
+    // limpo e isso nunca aparece; local, envenena a rodada seguinte.
+    await db.usuario.updateMany({
+      where: { email: CONTAS.operador },
+      data: { tentativasFalhas: 0, bloqueadoAte: null },
+    });
   });
 
   test("a página de verificação é pública", async ({ page }) => {
