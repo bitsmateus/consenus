@@ -11,8 +11,9 @@ Prazo contratual: 15 a 20 dias corridos da assinatura.
 - [x] Migração inicial do banco
 - [x] Login com e-mail e senha, papéis e sessão, com segundo fator obrigatório
       para ADMIN e OPERADOR
-- [ ] Ambientes de homologação e produção provisionados — artefatos prontos em
-      `infra/`, execução depende do acesso ao VPS
+- [x] Produção provisionada e no ar pelo EasyPanel (23/08/2026), a partir dos
+      roteiros de `infra/`
+- [ ] Homologação em ambiente separado — confirmar com o cliente se haverá
 
 **Demonstrável:** tela de login com a marca da Consensus One
 
@@ -92,12 +93,14 @@ implementado junto.
 - [x] Testes de isolamento entre partes
 - [x] Dados de demonstração para o treinamento
 - [x] Entrega de código-fonte e documentação — ver `docs/11-entrega.md`
-- [ ] **Publicação em produção no domínio definitivo** — depende de acesso ao VPS
+- [x] **Publicação em produção** — no ar pelo EasyPanel (23/08/2026)
+- [ ] **Checklist pós-deploy executado** — `infra/checklist-pos-deploy.md`, hoje
+      sem nenhum item marcado. É o que separa "está no ar" de "está entregue"
 - [ ] **Backup automático configurado e restauração testada** — depende do VPS
 - [ ] **Ajustes da homologação** — depende do retorno do cliente
 - [ ] **Treinamento da equipe** — depende de agenda com o cliente
 
-Os quatro itens em aberto não são de desenvolvimento: exigem o servidor e o
+Os itens em aberto não são de desenvolvimento: exigem o servidor e o
 cliente. Os roteiros estão prontos em `infra/` — endurecimento, variáveis,
 crontab e checklist pós-deploy.
 
@@ -108,6 +111,25 @@ perfil enxerga e o que não enxerga. O CI passou a subir MinIO e rodar o seed,
 sem os quais os dois arquivos não teriam como rodar.
 
 **➜ ENTREGA DA ETAPA 1 — 3ª parcela e início da mensalidade**
+
+## Correções pós-publicação
+
+Ajustes feitos depois de o sistema subir, fora do escopo das sprints:
+
+- **Menu do celular.** O menu lateral é `hidden md:flex` e não havia nada no
+  lugar abaixo de 768px: quem entrava pelo telefone ficava sem navegação
+  nenhuma. Pegava justamente o Interessado, que é quem consulta pelo celular.
+- **Menu lateral fixo.** Rolava junto com a página, porque era filho flex de um
+  container `min-h-screen` e esticava até a altura do conteúdo.
+- **Equipe e Auditoria somem para o OPERADOR.** As duas páginas chamam
+  `exigirAdmin()`; o menu as oferecia assim mesmo e o operador tomava erro ao
+  clicar. A autorização já estava certa — era a interface que mentia.
+- **`scripts/recuperar-admin.cjs`.** Redefine a senha e zera o segundo fator do
+  administrador pelo console, para quando ninguém mais consegue entrar. O
+  sistema não tem "esqueci minha senha", por decisão de projeto.
+- **`PERMITIR_SEGUNDO_ADMIN`** no `criar-admin.cjs`, para criar administrador
+  adicional pelo console quando a tela de Equipe está fora de alcance. A recusa
+  continua sendo o padrão.
 
 ## Etapa 2 — após a Etapa 1
 
