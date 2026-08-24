@@ -11,6 +11,7 @@ import {
 } from "@prisma/client";
 import { z } from "zod";
 import { registrarAuditoria } from "@/lib/auditoria";
+import { criarReuniao, videoconferenciaAtiva } from "@/lib/zoom";
 import { configuracaoDoSistema } from "@/lib/configuracao";
 import { db } from "@/lib/db";
 import { ErroDeNegocio } from "@/lib/erros";
@@ -88,7 +89,7 @@ export async function criarAto(
             objeto: objeto || null,
             modalidade: modalidade ?? ModalidadeSessao.VIDEOCONFERENCIA,
             observacoes: observacoes || null,
-            dataReservada: calcularDataDaSessao(agora, config.diasAteSessao),
+            dataReservada: calcularDataDaSessao(agora, config.diasAteSessao, config.horaDaSessao),
             prazoDocumentacaoAte: calcularPrazoDocumentacao(agora, config.prazoDocumentacaoDias),
             criadoPorId: usuario.id,
             partes: {
@@ -134,6 +135,8 @@ export async function criarAto(
         entidadeId: ato.id,
         metadados: { numero: ato.numero },
       });
+
+      await agendarVideoconferencia(ato, config, usuario.id);
       break;
     } catch (erro) {
       const colisaoDeNumero =
@@ -374,4 +377,64 @@ export async function renomearAto(
   revalidatePath("/atos/" + atoId);
   revalidatePath("/atos");
   return {};
+}
+
+/**
+ * Agenda a Sessão Privada de Conciliação no Zoom e grava link, ID e senha.
+ *
+ * Roda FORA da transação e engole a falha de propósito: a reunião é
+ * conveniência, o procedimento é o registro. Se o Zoom estiver fora do ar, o
+ * cadastro não pode cair junto — a falha vai para a linha do tempo e o
+ * operador informa os dados por fora, como fazia antes da integração.
+ *
+ * Só para sessão que tem videoconferência: presencial não precisa de sala.
+ */
+async function agendarVideoconferencia(
+  ato: { id: string; numero: string; modalidade: ModalidadeSessao; dataReservada: Date | null },
+  config: { duracaoSessaoMinutos: number },
+  usuarioId: string
+): Promise<void> {
+  const temVideo =
+    ato.modalidade === ModalidadeSessao.VIDEOCONFERENCIA ||
+    ato.modalidade === ModalidadeSessao.HIBRIDA;
+
+  if (!temVideo || !ato.dataReservada || !videoconferenciaAtiva()) return;
+
+  try {
+    const reuniao = await criarReuniao({
+      numeroDoAto: ato.numero,
+      quando: ato.dataReservada,
+      duracaoMinutos: config.duracaoSessaoMinutos,
+    });
+
+    await db.ato.update({
+      where: { id: ato.id },
+      data: {
+        linkVideoconferencia: reuniao.link,
+        idReuniao: reuniao.idReuniao,
+        senhaReuniao: reuniao.senha,
+      },
+    });
+
+    await db.eventoAto.create({
+      data: {
+        atoId: ato.id,
+        tipo: TipoEvento.ATO_CRIADO,
+        descricao: `Sala da videoconferência agendada no Zoom (reunião ${reuniao.idReuniao}).`,
+        usuarioId,
+      },
+    });
+  } catch (erro) {
+    console.error("[zoom] falha ao agendar a sessão do ato", ato.numero, erro);
+
+    await db.eventoAto.create({
+      data: {
+        atoId: ato.id,
+        tipo: TipoEvento.OBSERVACAO,
+        descricao:
+          "Não foi possível agendar a sala no Zoom. Informe link, ID e senha da reunião antes de emitir a Carta-Convite.",
+        usuarioId,
+      },
+    });
+  }
 }

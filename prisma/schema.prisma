@@ -515,6 +515,10 @@ model ConfiguracaoSistema {
   /// aviso mínimo para mudar a modalidade da sessão
   horasAvisoModalidade  Int      @default(48)
   diasAteSessao         Int      @default(20)
+  /// horário padrão da sessão, usado na Carta-Convite e no agendamento do Zoom
+  horaDaSessao          String   @default("14:00")
+  /// duração prevista, para a reunião do Zoom nascer com fim previsto
+  duracaoSessaoMinutos  Int      @default(90)
   urlVerificacao        String   @default("https://consensusone.com.br/verificar")
   emailRemetente        String?
   atualizadoEm          DateTime @updatedAt @db.Timestamptz(3)

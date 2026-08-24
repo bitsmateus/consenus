@@ -128,3 +128,32 @@ describe("sessão registrada antes da data marcada", () => {
     expect(sessaoAntesDaDataMarcada(sessao, madrugadaDoMesmoDia)).toBe(false);
   });
 });
+
+describe("horário da sessão", () => {
+  it("a sessão nasce no horário da câmara, não à meia-noite", () => {
+    const sessao = calcularDataDaSessao(CRIACAO, 20, "14:00");
+    const hora = new Intl.DateTimeFormat("pt-BR", {
+      timeZone: FUSO,
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(sessao);
+    expect(hora).toBe("14:00");
+  });
+
+  it("respeita horário configurado diferente", () => {
+    const sessao = calcularDataDaSessao(CRIACAO, 20, "09:30");
+    const hora = new Intl.DateTimeFormat("pt-BR", {
+      timeZone: FUSO,
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(sessao);
+    expect(hora).toBe("09:30");
+  });
+
+  it("mudar o horário não muda o dia da sessão", () => {
+    expect(diasRestantes(calcularDataDaSessao(CRIACAO, 20, "09:30"), CRIACAO)).toBe(20);
+    expect(diasRestantes(calcularDataDaSessao(CRIACAO, 20, "23:00"), CRIACAO)).toBe(20);
+  });
+});

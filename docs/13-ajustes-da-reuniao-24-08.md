@@ -123,7 +123,7 @@ Nada aqui é desenvolvimento parado por nossa causa.
 | **AR Digital** — documentação da API | AR Digital, prometida para quarta |
 | **Assinatura eletrônica** — testar de ponta a ponta | Nós, mas ver a ressalva abaixo |
 | **Modelos de carta convite** — enviar cópia para validação do texto | NX enviar, Sergio validar |
-| **Zoom** — gerar o link da sessão pelo sistema | Credenciais da conta Zoom da câmara |
+| **Zoom** — credenciais da conta da câmara | Sergio (a integração já está feita) |
 | **Contato do TI da Mais Credit** — assunto CRM/WhatsApp, fora deste sistema | Sergio encaminhar ao Pedro |
 
 **Sobre a assinatura, três pontos que precisam ser ditos ao cliente:**
@@ -136,9 +136,21 @@ Nada aqui é desenvolvimento parado por nossa causa.
 3. A integração está rodando com uma **chave de API da NX**, não da Consensus
    One. Precisa ser trocada antes do uso real — `docs/09`, item 9.
 
-**Sobre o Zoom:** hoje o sistema tem os três campos (link, ID e senha) para o
-operador colar à mão. Gerar o link automaticamente é integração nova, e o
-contrato coloca automação e integrações na **Etapa 2** (`docs/01`).
+**Sobre o Zoom — implementado em 24/08.** Estava fora do escopo da Etapa 1, e
+o cliente assumiu a inclusão. A reunião passa a ser agendada junto com o
+procedimento, e a Carta-Convite ao Interessado Solicitante já sai com link, ID
+e senha.
+
+Dois achados no caminho:
+
+- os três campos da videoconferência **nunca eram preenchidos por ninguém** —
+  só lidos pelas cartas, que saíam sempre com "a ser informado";
+- a sessão nascia à meia-noite, então a carta anunciava **"às 00:00 horas"**.
+  Agora há horário e duração em `ConfiguracaoSistema`, configuráveis.
+
+Falta apenas o Sergio criar o app *Server-to-Server OAuth* no Zoom Marketplace
+e passar as três credenciais. Sem elas o sistema segue inteiro, com o
+preenchimento manual de antes.
 
 ---
 

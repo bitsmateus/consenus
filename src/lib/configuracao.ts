@@ -11,6 +11,8 @@ const PADRAO = {
   prazoDocumentacaoDias: 15,
   horasAvisoModalidade: 48,
   diasAteSessao: 20,
+  horaDaSessao: "14:00",
+  duracaoSessaoMinutos: 90,
 };
 
 /**
@@ -24,5 +26,7 @@ export const configuracaoDoSistema = cache(async () => {
     prazoDocumentacaoDias: registro?.prazoDocumentacaoDias ?? PADRAO.prazoDocumentacaoDias,
     horasAvisoModalidade: registro?.horasAvisoModalidade ?? PADRAO.horasAvisoModalidade,
     diasAteSessao: registro?.diasAteSessao ?? PADRAO.diasAteSessao,
+    horaDaSessao: registro?.horaDaSessao ?? PADRAO.horaDaSessao,
+    duracaoSessaoMinutos: registro?.duracaoSessaoMinutos ?? PADRAO.duracaoSessaoMinutos,
   };
 });

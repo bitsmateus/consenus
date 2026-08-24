@@ -16,6 +16,7 @@ import { db } from "@/lib/db";
 import { emitirDocumento } from "@/lib/emissao";
 import { ErroDeNegocio, FluxoInvalido } from "@/lib/erros";
 import { DESFECHOS_COM_ACORDO } from "@/lib/desfechos";
+import { cancelarReuniao, videoconferenciaAtiva } from "@/lib/zoom";
 import { FUSO, sessaoAntesDaDataMarcada } from "@/lib/prazos";
 import { faltamItens } from "@/lib/documentacao";
 import { exigirAcessoAoAto, exigirEquipe } from "@/lib/sessao";
@@ -612,7 +613,10 @@ export async function cancelarAto(entrada: FormData): Promise<void> {
 
   await exigirAcessoAoAto(atoId, db);
 
-  const ato = await db.ato.findUnique({ where: { id: atoId }, select: { status: true } });
+  const ato = await db.ato.findUnique({
+    where: { id: atoId },
+    select: { status: true, idReuniao: true },
+  });
   if (!ato) throw new ErroDeNegocio("Procedimento não encontrado.");
   if (ato.status === StatusAto.SESSAO_REALIZADA || ato.status === StatusAto.CANCELADO) {
     throw new FluxoInvalido("Este procedimento não pode mais ser encerrado administrativamente.");
@@ -637,6 +641,16 @@ export async function cancelarAto(entrada: FormData): Promise<void> {
     entidadeId: atoId,
     metadados: { evento: "CANCELADO", motivo },
   });
+
+  // Sala órfã no Zoom é convite aberto para uma sessão que não vai acontecer.
+  // Falhar aqui não desfaz o encerramento, que já está registrado.
+  if (ato.idReuniao && videoconferenciaAtiva()) {
+    try {
+      await cancelarReuniao(ato.idReuniao);
+    } catch (erro) {
+      console.error("[zoom] falha ao cancelar a reunião", ato.idReuniao, erro);
+    }
+  }
 
   revalidatePath(`/atos/${atoId}`);
 }

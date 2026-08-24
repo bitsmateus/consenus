@@ -13,9 +13,25 @@ export function agoraEmSaoPaulo(): Date {
   return toZonedTime(new Date(), FUSO);
 }
 
-/** Data provisória da sessão: D+N a partir da criação do ato */
-export function calcularDataDaSessao(criadoEm: Date, diasAteSessao: number): Date {
-  return fromZonedTime(startOfDay(addDays(toZonedTime(criadoEm, FUSO), diasAteSessao)), FUSO);
+/**
+ * Data provisória da sessão: D+N a partir da criação do ato, no horário
+ * padrão da câmara.
+ *
+ * O horário existe por dois motivos. A Carta-Convite anuncia "às HH:MM horas",
+ * e sem hora definida ela saía dizendo "às 00:00 horas". E a reunião do Zoom
+ * precisa de um instante para ser agendada, não de um dia.
+ *
+ * Vem da configuração, nunca fixo no código (CLAUDE.md, regra 12).
+ */
+export function calcularDataDaSessao(
+  criadoEm: Date,
+  diasAteSessao: number,
+  horaDaSessao = "14:00"
+): Date {
+  const dia = startOfDay(addDays(toZonedTime(criadoEm, FUSO), diasAteSessao));
+  const [hora, minuto] = horaDaSessao.split(":").map(Number);
+  dia.setHours(hora ?? 0, minuto ?? 0, 0, 0);
+  return fromZonedTime(dia, FUSO);
 }
 
 /**
