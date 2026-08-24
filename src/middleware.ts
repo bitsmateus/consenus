@@ -4,7 +4,7 @@ import { configuracaoDeAutenticacao } from "@/auth.config";
 
 /**
  * Proteção de rotas. Públicas: /entrar, /verificar, os endpoints do Auth.js e
- * o webhook da assinatura eletrônica.
+ * os webhooks da assinatura eletrônica e do AR digital.
  * A autorização fina (quem vê qual ato) NÃO acontece aqui — está em
  * src/lib/sessao.ts, no servidor, a cada consulta. Ver CLAUDE.md, regra 2.
  *
@@ -22,7 +22,11 @@ function ehPublica(pathname: string): boolean {
     // Webhook da D4Sign: quem chama é servidor deles, não tem como ter
     // sessão. A defesa não é a sessão — é o token secreto no caminho e o
     // Content-Hmac, conferidos dentro da rota.
-    pathname.startsWith("/api/webhooks/d4sign")
+    pathname.startsWith("/api/webhooks/d4sign") ||
+    // Webhook da AR Online, mesma razão. A defesa é o valor fixo do header
+    // Authorization e, sobretudo, o fato de o aviso não virar conteúdo:
+    // o laudo é buscado na API deles pelo protocolo já gravado aqui.
+    pathname.startsWith("/api/webhooks/ar-online")
   );
 }
 

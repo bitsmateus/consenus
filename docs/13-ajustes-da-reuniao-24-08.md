@@ -120,7 +120,7 @@ Nada aqui é desenvolvimento parado por nossa causa.
 
 | Item | De quem depende |
 |---|---|
-| **AR Digital** — documentação da API | AR Digital, prometida para quarta |
+| **AR Digital** — cadastrar a URL do webhook | suporte@ar-online.com.br (integração feita em 24/08) |
 | **Assinatura eletrônica** — testar de ponta a ponta | Nós, mas ver a ressalva abaixo |
 | **Modelos de carta convite** — enviar cópia para validação do texto | NX enviar, Sergio validar |
 | **Zoom** — credenciais da conta da câmara | Sergio (a integração já está feita) |

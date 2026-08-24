@@ -8,6 +8,7 @@ import {
   TipoEvento,
 } from "@prisma/client";
 import { z } from "zod";
+import { envioAutomaticoAtivo, enviarNotificacao } from "@/lib/ar-online";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { configuracaoDoSistema } from "@/lib/configuracao";
 import { db } from "@/lib/db";
@@ -15,7 +16,7 @@ import { ErroDeNegocio, FluxoInvalido } from "@/lib/erros";
 import { FUSO, calcularPrazoDocumentacao, interpretarDataDeCiencia } from "@/lib/prazos";
 import { validarArquivo, extensaoDoTipo } from "@/lib/mime";
 import { emitirDocumento } from "@/lib/emissao";
-import { enviarArquivo, gerarUrlDeDownload, montarChave } from "@/lib/storage";
+import { baixarArquivo, enviarArquivo, gerarUrlDeDownload, montarChave } from "@/lib/storage";
 import { exigirAcessoAoAto, exigirEquipe } from "@/lib/sessao";
 import { cartaAoSolicitante } from "@/documentos/carta-convite";
 import { ROTULO_MODALIDADE } from "@/lib/formato";
@@ -228,7 +229,8 @@ export async function registrarEnvio(
       select: { id: true, tipo: true, codigoVerificacao: true },
     });
     if (!documento) throw new ErroDeNegocio("Documento não pertence a este procedimento.");
-    await db.envio.create({
+
+    const registro = await db.envio.create({
       data: {
         atoId,
         documentoId,
@@ -238,6 +240,12 @@ export async function registrarEnvio(
         enviadoEm: new Date(),
       },
     });
+
+    // Canal AR digital com a integração ligada: dispara de verdade, em vez de
+    // só anotar que alguém enviou por fora.
+    if (canal === CanalEnvio.AR_DIGITAL && envioAutomaticoAtivo()) {
+      await dispararPelaArOnline(registro.id, atoId, documentoId, destinatarioId);
+    }
     const eventoDeEnvio =
       documento.tipo === TipoDocumento.CARTA_CONVITE_CONVIDADO
         ? TipoEvento.CARTA_CONVIDADO_ENVIADA
@@ -369,4 +377,94 @@ export async function obterUrlDeDownload(documentoId: string): Promise<string> {
     metadados: { atoId: documento.atoId },
   });
   return gerarUrlDeDownload(documento.chaveStorage, documento.nomeArquivo);
+}
+
+/**
+ * Dispara a notificação pela AR Online e guarda o protocolo.
+ *
+ * Engole a falha de propósito: o envio já está registrado, e o operador
+ * continua podendo mandar por fora. Derrubar o registro porque a AR Online
+ * está fora do ar seria trocar um problema pequeno por um grande.
+ *
+ * O anexo é o próprio PDF emitido: a Carta-Convite tem que chegar junto do
+ * aviso, não só a notificação de que ela existe.
+ */
+async function dispararPelaArOnline(
+  envioId: string,
+  atoId: string,
+  documentoId: string,
+  destinatarioId: string
+): Promise<void> {
+  try {
+    const [ato, documento, destinatario, config] = await Promise.all([
+      db.ato.findUnique({
+        where: { id: atoId },
+        select: {
+          numero: true,
+          objeto: true,
+          partes: {
+            where: { papel: PapelNoAto.SOLICITANTE },
+            select: { pessoa: { select: { nome: true } } },
+          },
+        },
+      }),
+      db.documento.findUnique({
+        where: { id: documentoId },
+        select: { chaveStorage: true, nomeArquivo: true, tipo: true },
+      }),
+      db.pessoa.findUnique({
+        where: { id: destinatarioId },
+        select: { nome: true, email: true, telefone: true },
+      }),
+      configuracaoDoSistema(),
+    ]);
+
+    if (!ato || !documento || !destinatario) return;
+
+    const { protocolo, canais } = await enviarNotificacao({
+      destinatario,
+      assunto: `Carta-Convite — Procedimento ${ato.numero}`,
+      conteudoHtml:
+        `<p>Prezado(a) ${destinatario.nome},</p>` +
+        `<p>Segue a Carta-Convite do Procedimento Privado de Composição Consensual ` +
+        `nº ${ato.numero}, administrado pela ${config.nomeCamara}.</p>` +
+        `<p>O documento em anexo traz a data, o horário e a modalidade da Sessão ` +
+        `Privada de Conciliação.</p>`,
+      referencia: envioId,
+      anexo: {
+        nome: documento.nomeArquivo,
+        conteudo: await baixarArquivo(documento.chaveStorage),
+      },
+      variaveisDoTemplate: {
+        NOME_EMPRESA: config.nomeCamara,
+        PROCEDIMENTO: ato.objeto ?? "Procedimento Privado de Composição Consensual",
+        N_PROCEDIMENTO: ato.numero,
+        SOLICITANTE: ato.partes[0]?.pessoa.nome ?? destinatario.nome,
+      },
+    });
+
+    await db.envio.update({
+      where: { id: envioId },
+      data: { protocoloExterno: protocolo },
+    });
+
+    await db.eventoAto.create({
+      data: {
+        atoId,
+        tipo: TipoEvento.OBSERVACAO,
+        descricao: `Enviado pela AR Online (${canais.join(" e ")}), protocolo ${protocolo}.`,
+      },
+    });
+  } catch (erro) {
+    console.error("[ar-online] falha ao enviar", envioId, erro);
+
+    await db.eventoAto.create({
+      data: {
+        atoId,
+        tipo: TipoEvento.OBSERVACAO,
+        descricao:
+          "O disparo automático pela AR Online falhou. O envio segue registrado; confirme por fora e anexe o laudo quando chegar.",
+      },
+    });
+  }
 }

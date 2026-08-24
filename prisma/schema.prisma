@@ -365,6 +365,11 @@ model Envio {
 
   canal      CanalEnvio
   status     StatusEnvio @default(PENDENTE)
+
+  /// protocolo da AR Online (o "idEmail"), quando o envio saiu pela integração
+  protocoloExterno String? @unique
+  /// última descrição de status recebida da AR Online, como ela escreve
+  statusExterno    String?
   enviadoEm  DateTime?   @db.Timestamptz(3)
   entregueEm DateTime?   @db.Timestamptz(3)
 
