@@ -11,6 +11,7 @@ import { emitirCartaAoSolicitante } from "@/acoes/documentos";
 import { Botao } from "@/components/ui/botao";
 import { Etiqueta } from "@/components/ui/etiqueta";
 import { formatarData } from "@/lib/formato";
+import { sessaoAntesDaDataMarcada } from "@/lib/prazos";
 import { FormularioDaSessao, FormularioDoTermo } from "./formularios-da-sessao";
 
 type Conferencia = {
@@ -210,6 +211,8 @@ export function SecaoDeFluxo({
               nome: p.pessoa.nome,
               papel: p.papel,
             }))}
+            dataDaSessao={formatarData(ato.dataConfirmada ?? ato.dataReservada)}
+            antesDaData={sessaoAntesDaDataMarcada(ato.dataConfirmada ?? ato.dataReservada)}
           />
         </div>
       )}

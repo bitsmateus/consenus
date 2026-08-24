@@ -12,6 +12,7 @@ import { expect, test } from "@playwright/test";
 import {
   CONTAS,
   abrirProcedimento,
+  alerta,
   cnpjValido,
   cpfValido,
   db,
@@ -202,6 +203,15 @@ test.describe("um procedimento do cadastro ao arquivamento", () => {
     await page.getByLabel("Hora de início").fill("14:00");
     await page.getByLabel("Hora de encerramento").fill("15:30");
     await page.getByLabel("Desfecho").selectOption({ label: "Composição consensual integral" });
+
+    // A sessão é sempre D+20, então aqui ela ainda não chegou. Sem confirmar a
+    // antecipação, o servidor recusa — registrar lavra ata e libera documento
+    // ao Interessado, e não pode acontecer por descuido.
+    await page.getByRole("button", { name: "Registrar sessão" }).click();
+    await expect(alerta(page)).toContainText(/ainda não chegou/);
+    await expect(page.getByRole("button", { name: "Lavrar a Ata" })).toHaveCount(0);
+
+    await page.getByLabel(/Confirmo que a sessão foi realizada/).check();
     await page.getByRole("button", { name: "Registrar sessão" }).click();
 
     await expect(page.getByRole("button", { name: "Lavrar a Ata" })).toBeVisible({

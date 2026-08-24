@@ -15,7 +15,7 @@ import { configuracaoDoSistema } from "@/lib/configuracao";
 import { db } from "@/lib/db";
 import { emitirDocumento } from "@/lib/emissao";
 import { ErroDeNegocio, FluxoInvalido } from "@/lib/erros";
-import { FUSO } from "@/lib/prazos";
+import { FUSO, sessaoAntesDaDataMarcada } from "@/lib/prazos";
 import { faltamItens } from "@/lib/documentacao";
 import { exigirAcessoAoAto, exigirEquipe } from "@/lib/sessao";
 import { cartaAoConvidado } from "@/documentos/carta-convite";
@@ -263,6 +263,8 @@ const sessao = z.object({
   desfecho: z.nativeEnum(DesfechoSessao),
   motivoPrejudicada: z.string().trim().optional(),
   observacoesSessao: z.string().trim().optional(),
+  // caixa marcada na tela quando a sessão é registrada antes da data marcada
+  confirmaAntecipacao: z.string().optional(),
 });
 
 /** Situação final do procedimento, conforme o desfecho registrado na ata. */
@@ -291,8 +293,15 @@ export async function registrarSessao(
     return { erro: analise.error.issues[0]?.message ?? "Dados inválidos." };
   }
 
-  const { atoId, horaInicio, horaEncerramento, desfecho, motivoPrejudicada, observacoesSessao } =
-    analise.data;
+  const {
+    atoId,
+    horaInicio,
+    horaEncerramento,
+    desfecho,
+    motivoPrejudicada,
+    observacoesSessao,
+    confirmaAntecipacao,
+  } = analise.data;
 
   try {
     await exigirAcessoAoAto(atoId, db);
@@ -307,6 +316,19 @@ export async function registrarSessao(
     }
     if (desfecho === DesfechoSessao.SESSAO_PREJUDICADA && !motivoPrejudicada) {
       throw new FluxoInvalido("Sessão prejudicada exige o registro do motivo.");
+    }
+
+    // Registrar antes da data marcada é permitido — sessão antecipada de comum
+    // acordo existe —, mas nunca por descuido: o registro lavra ata e libera os
+    // documentos ao Interessado. A tela pede a confirmação; a checagem é aqui,
+    // porque esconder a caixa no navegador não é controle de nada.
+    const antecipada = sessaoAntesDaDataMarcada(ato.dataConfirmada ?? ato.dataReservada);
+    if (antecipada && !confirmaAntecipacao) {
+      throw new FluxoInvalido(
+        "Esta sessão está marcada para " +
+          formatarData(ato.dataConfirmada ?? ato.dataReservada) +
+          ", que ainda não chegou. Confirme na tela que ela foi mesmo realizada antes da data."
+      );
     }
 
     const base = ato.dataConfirmada ?? ato.dataReservada ?? new Date();
@@ -344,9 +366,13 @@ export async function registrarSessao(
         data: {
           atoId,
           tipo: TipoEvento.SESSAO_REALIZADA,
-          descricao: `Sessão Privada de Conciliação realizada. Desfecho registrado: ${desfecho}.`,
+          descricao:
+            `Sessão Privada de Conciliação realizada. Desfecho registrado: ${desfecho}.` +
+            (antecipada
+              ? ` Registrada antes da data marcada, ${formatarData(ato.dataConfirmada ?? ato.dataReservada)}.`
+              : ""),
           usuarioId: usuario.id,
-          metadados: { desfecho },
+          metadados: { desfecho, antecipada },
         },
       });
     });
@@ -356,7 +382,7 @@ export async function registrarSessao(
       acao: "ALTEROU_ATO",
       entidade: "Ato",
       entidadeId: atoId,
-      metadados: { evento: "SESSAO_REALIZADA", desfecho },
+      metadados: { evento: "SESSAO_REALIZADA", desfecho, antecipada },
     });
 
     revalidatePath(`/atos/${atoId}`);

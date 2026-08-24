@@ -16,9 +16,14 @@ import { ROTULO_DESFECHO } from "@/lib/formato";
 export function FormularioDaSessao({
   atoId,
   partes,
+  dataDaSessao,
+  antesDaData,
 }: {
   atoId: string;
   partes: { id: string; nome: string; papel: string }[];
+  dataDaSessao: string;
+  /** A data marcada ainda não chegou. Calculado no servidor, no fuso da câmara. */
+  antesDaData: boolean;
 }) {
   const [estado, acao, pendente] = useActionState<EstadoDeFormulario, FormData>(
     registrarSessao,
@@ -34,6 +39,25 @@ export function FormularioDaSessao({
         <p role="alert" className="mb-3 rounded-md bg-erro-bg px-3 py-2 text-xs text-erro">
           {estado.erro}
         </p>
+      )}
+
+      {antesDaData && (
+        <div className="mb-4 rounded-md bg-atencao-bg px-3 py-2.5">
+          <p className="text-xs leading-relaxed text-atencao">
+            Esta sessão está marcada para <strong>{dataDaSessao}</strong>, que ainda
+            não chegou. Registrar agora lavra a ata e libera os documentos aos
+            Interessados.
+          </p>
+          <label className="mt-2 flex items-start gap-2 text-xs text-atencao">
+            <input
+              type="checkbox"
+              name="confirmaAntecipacao"
+              value="sim"
+              className="mt-0.5 accent-dourado-600"
+            />
+            <span>Confirmo que a sessão foi realizada antes da data marcada.</span>
+          </label>
+        </div>
       )}
 
       <div className="grid gap-x-3 sm:grid-cols-2">

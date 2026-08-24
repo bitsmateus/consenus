@@ -47,6 +47,26 @@ export function diasRestantes(prazoFinal: Date, referencia = new Date()): number
 }
 
 /**
+ * A data marcada para a sessão ainda não chegou.
+ *
+ * Registrar a sessão não espera a data — e não deve mesmo, porque sessão
+ * antecipada de comum acordo existe. Mas registrar por engano a sessão de um
+ * procedimento que só ocorre semanas depois lavra ata de algo que não houve e
+ * libera os documentos ao Interessado antes da hora. Daí o aviso.
+ *
+ * Compara por dia de calendário no fuso da câmara: registrar no próprio dia da
+ * sessão é o caso normal e não dispara nada, mesmo que o horário informado
+ * seja anterior ao relógio.
+ */
+export function sessaoAntesDaDataMarcada(
+  dataDaSessao: Date | null | undefined,
+  referencia = new Date()
+): boolean {
+  if (!dataDaSessao) return false;
+  return diasRestantes(dataDaSessao, referencia) > 0;
+}
+
+/**
  * Um prazo contado da emissão é provisório: o marco real é o recebimento, que
  * só se conhece quando o laudo de AR chega. Prazo provisório não pode
  * fundamentar o encerramento administrativo do cadastro (docs/08).

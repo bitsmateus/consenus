@@ -6,6 +6,7 @@ import {
   diasRestantes,
   interpretarDataDeCiencia,
   prazoEhProvisorio,
+  sessaoAntesDaDataMarcada,
   situacaoDoPrazo,
 } from "@/lib/prazos";
 
@@ -90,5 +91,40 @@ describe("data de ciência — o prazo conta do recebimento", () => {
     expect(prazoEhProvisorio(null)).toBe(true);
     expect(prazoEhProvisorio(undefined)).toBe(true);
     expect(prazoEhProvisorio(new Date("2026-08-06T03:00:00Z"))).toBe(false);
+  });
+});
+
+describe("sessão registrada antes da data marcada", () => {
+  const emSaoPaulo = (iso: string) => new Date(iso);
+
+  it("avisa quando a data ainda vai chegar", () => {
+    const sessao = emSaoPaulo("2026-09-12T14:00:00-03:00");
+    const hoje = emSaoPaulo("2026-08-24T10:00:00-03:00");
+    expect(sessaoAntesDaDataMarcada(sessao, hoje)).toBe(true);
+  });
+
+  it("não avisa no próprio dia da sessão, mesmo antes do horário", () => {
+    const sessao = emSaoPaulo("2026-09-12T14:00:00-03:00");
+    const manha = emSaoPaulo("2026-09-12T08:00:00-03:00");
+    expect(sessaoAntesDaDataMarcada(sessao, manha)).toBe(false);
+  });
+
+  it("não avisa depois da data — registro atrasado é o caso comum", () => {
+    const sessao = emSaoPaulo("2026-09-12T14:00:00-03:00");
+    const depois = emSaoPaulo("2026-09-15T09:00:00-03:00");
+    expect(sessaoAntesDaDataMarcada(sessao, depois)).toBe(false);
+  });
+
+  it("sem data marcada não há o que avisar", () => {
+    expect(sessaoAntesDaDataMarcada(null)).toBe(false);
+    expect(sessaoAntesDaDataMarcada(undefined)).toBe(false);
+  });
+
+  it("usa o fuso da câmara, não o do servidor", () => {
+    // 12/09 às 00h30 em São Paulo ainda é 11/09 às 21h30 em UTC-6, por exemplo.
+    // A virada do dia que vale é a de São Paulo.
+    const sessao = emSaoPaulo("2026-09-12T09:00:00-03:00");
+    const madrugadaDoMesmoDia = emSaoPaulo("2026-09-12T00:30:00-03:00");
+    expect(sessaoAntesDaDataMarcada(sessao, madrugadaDoMesmoDia)).toBe(false);
   });
 });
