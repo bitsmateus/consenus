@@ -4,35 +4,13 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { Papel } from "@prisma/client";
 import { db } from "@/lib/db";
+import { montarMenu } from "@/lib/menu";
 import { exigirUsuario } from "@/lib/sessao";
 import { segundoFatorPendente } from "@/lib/totp";
 import { sair } from "@/acoes/autenticacao";
+import { MenuMobile } from "./menu-mobile";
 
 const ROTA_DE_SEGURANCA = "/seguranca";
-
-/**
- * Itens do menu do sistema.
- * Mantém apenas rotas já disponibilizadas ao usuário, sem placeholders de
- * desenvolvimento na interface.
- */
-type ItemDeMenu = { href: string; rotulo: string };
-
-const MENU_EQUIPE: ItemDeMenu[] = [
-  { href: "/painel", rotulo: "Painel" },
-  { href: "/atos", rotulo: "Procedimentos" },
-  { href: "/pessoas", rotulo: "Interessados" },
-  { href: "/equipe", rotulo: "Equipe" },
-  { href: "/seguranca", rotulo: "Segurança" },
-  { href: "/documentos", rotulo: "Documentos" },
-  { href: "/auditoria", rotulo: "Auditoria" },
-];
-
-const MENU_EXTERNO: ItemDeMenu[] = [
-  { href: "/painel", rotulo: "Procedimentos" },
-  { href: "/seguranca", rotulo: "Segurança" },
-  { href: "/documentos", rotulo: "Documentos" },
-  { href: "/meus-dados", rotulo: "Meus dados" },
-];
 
 const SUBTITULO: Record<Papel, string> = {
   ADMIN: "Administração",
@@ -80,13 +58,12 @@ export default async function LayoutDaAplicacao({ children }: { children: React.
     }
   }
 
-  const equipe = usuario.papel === Papel.ADMIN || usuario.papel === Papel.OPERADOR;
-  const menu = equipe ? MENU_EQUIPE : MENU_EXTERNO;
+  const menu = montarMenu(usuario.papel);
 
   return (
     <div className="flex min-h-screen">
-      <aside className="hidden w-56 flex-none flex-col bg-preto-900 py-5 md:flex">
-        <div className="border-b border-white/10 px-5 pb-4">
+      <aside className="sticky top-0 hidden h-screen w-56 flex-none flex-col bg-preto-900 py-5 md:flex">
+        <div className="flex-none border-b border-white/10 px-5 pb-4">
           <Image
             src="/marca/logo-consensus-one.png"
             alt="Consensus One"
@@ -100,7 +77,7 @@ export default async function LayoutDaAplicacao({ children }: { children: React.
           </p>
         </div>
 
-        <nav className="mt-4 flex flex-col gap-px px-2">
+        <nav className="mt-4 flex flex-1 flex-col gap-px overflow-y-auto px-2">
           {menu.map((item) => (
             <Link
               key={item.href}
@@ -112,7 +89,7 @@ export default async function LayoutDaAplicacao({ children }: { children: React.
           ))}
         </nav>
 
-        <div className="mt-auto border-t border-white/10 px-5 pt-4">
+        <div className="flex-none border-t border-white/10 px-5 pt-4">
           <p className="text-xs font-medium text-white">{usuario.nome}</p>
           <p className="text-[11px] text-white/40">{SUBTITULO[usuario.papel]}</p>
           <form action={sair}>
@@ -121,7 +98,10 @@ export default async function LayoutDaAplicacao({ children }: { children: React.
         </div>
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">{children}</div>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <MenuMobile itens={menu} nome={usuario.nome} subtitulo={SUBTITULO[usuario.papel]} />
+        {children}
+      </div>
     </div>
   );
 }
