@@ -12,9 +12,14 @@
  * Entra como OPERADOR, e não como admin: o fluxo-completo zera o segundo fator
  * da conta admin no beforeAll dele, e os arquivos rodam em paralelo. Disputar
  * a mesma conta dá falha intermitente — o próprio apoio.ts alerta para isso.
+ *
+ * Vai direto na URL do procedimento em vez de clicar na listagem: a rota
+ * /atos/[id] é pesada e, quando este arquivo roda antes dos outros, a primeira
+ * compilação dela estoura o tempo padrão de asserção. O que se quer provar
+ * aqui é a barra, não a navegação — essa já tem cobertura em outros arquivos.
  */
 import { expect, test } from "@playwright/test";
-import { CONTAS, abrirProcedimento, db, entrar } from "./apoio";
+import { CONTAS, db, entrar } from "./apoio";
 
 test.beforeEach(({}, info) => {
   test.skip(info.project.name !== "desktop", "a barra lateral só existe no desktop");
@@ -25,11 +30,16 @@ test.afterAll(async () => {
 });
 
 test("o menu e o Sair continuam à vista depois de rolar a página", async ({ page }) => {
-  await entrar(page, CONTAS.operador);
-
   // procedimento do seed, com sessão realizada: é a página que mais cresce, e
   // nenhum outro arquivo de teste o apaga
-  await abrirProcedimento(page, "2026.0003");
+  const ato = await db.ato.findUnique({ where: { numero: "2026.0003" }, select: { id: true } });
+  expect(ato, "o seed precisa ter rodado").not.toBeNull();
+
+  await entrar(page, CONTAS.operador);
+  await page.goto(`/atos/${ato!.id}`);
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("2026.0003", {
+    timeout: 30_000,
+  });
 
   const barra = page.locator("aside").first();
   const sair = barra.getByRole("button", { name: "Sair" });

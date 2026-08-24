@@ -15,6 +15,7 @@ import { configuracaoDoSistema } from "@/lib/configuracao";
 import { db } from "@/lib/db";
 import { emitirDocumento } from "@/lib/emissao";
 import { ErroDeNegocio, FluxoInvalido } from "@/lib/erros";
+import { DESFECHOS_COM_ACORDO } from "@/lib/desfechos";
 import { FUSO, sessaoAntesDaDataMarcada } from "@/lib/prazos";
 import { faltamItens } from "@/lib/documentacao";
 import { exigirAcessoAoAto, exigirEquipe } from "@/lib/sessao";
@@ -392,12 +393,6 @@ export async function registrarSessao(
     throw erro;
   }
 }
-
-/** Desfechos que autorizam Termo de Acordo. docs/02, regra 4. */
-const DESFECHOS_COM_ACORDO: DesfechoSessao[] = [
-  DesfechoSessao.COMPOSICAO_INTEGRAL,
-  DesfechoSessao.COMPOSICAO_PARCIAL,
-];
 
 /** Lavra a ata. Obrigatória em toda sessão, qualquer que seja o desfecho. */
 export async function gerarAta(entrada: FormData): Promise<void> {

@@ -55,7 +55,9 @@ export async function entrar(pag: Page, email: string): Promise<void> {
   // conta interna cai na tela de segurança até ativar o segundo fator
   if (pag.url().includes("/seguranca")) {
     await pag.getByRole("button", { name: "Configurar agora" }).click();
-    await expect(pag.getByLabel("Código de 6 dígitos")).toBeVisible();
+    // a tela de segurança costuma ser a primeira compilação do servidor de
+    // desenvolvimento nesta rota, e o tempo padrão de 5s não cobre isso
+    await expect(pag.getByLabel("Código de 6 dígitos")).toBeVisible({ timeout: 30_000 });
 
     const chave = (await pag.locator("p.tabular").first().innerText()).trim();
     await pag.getByLabel("Código de 6 dígitos").fill(authenticator.generate(chave));

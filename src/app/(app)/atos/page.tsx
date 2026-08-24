@@ -3,7 +3,13 @@ import { Papel, PapelNoAto, StatusAto } from "@prisma/client";
 import { CabecalhoDePagina } from "@/components/ui/cabecalho-de-pagina";
 import { EstadoVazio } from "@/components/ui/estado-vazio";
 import { Etiqueta } from "@/components/ui/etiqueta";
-import { contarPorProcurador, contarPorStatus, listarAtos } from "@/lib/consultas";
+import {
+  contarPorInteressado,
+  contarPorProcurador,
+  contarPorStatus,
+  listarAtos,
+} from "@/lib/consultas";
+import type { FiltrosDeAtos } from "@/lib/consultas-de-atos";
 import { formatarDocumento } from "@/lib/documentos";
 import {
   ROTULO_STATUS,
@@ -15,7 +21,13 @@ import { exigirUsuario } from "@/lib/sessao";
 
 export const metadata = { title: "Procedimentos — Consensus One" };
 
-type Busca = { busca?: string; status?: string; procurador?: string };
+type Busca = {
+  busca?: string;
+  status?: string;
+  procurador?: string;
+  interessado?: string;
+  situacao?: string;
+};
 
 /** Monta a query string preservando os demais filtros. */
 function comFiltro(atual: Busca, mudanca: Partial<Busca>): string {
@@ -24,6 +36,8 @@ function comFiltro(atual: Busca, mudanca: Partial<Busca>): string {
   if (final.busca) params.set("busca", final.busca);
   if (final.status) params.set("status", final.status);
   if (final.procurador) params.set("procurador", final.procurador);
+  if (final.interessado) params.set("interessado", final.interessado);
+  if (final.situacao) params.set("situacao", final.situacao);
   const query = params.toString();
   return query ? `/atos?${query}` : "/atos";
 }
@@ -41,16 +55,25 @@ export default async function PaginaDeAtos({
       ? (filtrosDaUrl.status as StatusAto)
       : undefined;
 
+  // veio da URL: só entra se for um dos recortes que o painel usa
+  const situacao: FiltrosDeAtos["situacao"] =
+    filtrosDaUrl.situacao === "em_andamento" || filtrosDaUrl.situacao === "prazo_vencido"
+      ? filtrosDaUrl.situacao
+      : undefined;
+
   const filtros = {
     busca: filtrosDaUrl.busca,
     status,
     procuradorId: filtrosDaUrl.procurador,
+    interessadoId: filtrosDaUrl.interessado,
+    situacao,
   };
 
-  const [atos, porStatus, procuradores] = await Promise.all([
+  const [atos, porStatus, procuradores, interessados] = await Promise.all([
     listarAtos(filtros),
     contarPorStatus(filtros),
     contarPorProcurador(filtros),
+    contarPorInteressado(filtros),
   ]);
 
   const equipe = usuario.papel === Papel.ADMIN || usuario.papel === Papel.OPERADOR;
@@ -78,6 +101,10 @@ export default async function PaginaDeAtos({
           {filtrosDaUrl.procurador && (
             <input type="hidden" name="procurador" value={filtrosDaUrl.procurador} />
           )}
+          {filtrosDaUrl.interessado && (
+            <input type="hidden" name="interessado" value={filtrosDaUrl.interessado} />
+          )}
+          {situacao && <input type="hidden" name="situacao" value={situacao} />}
           <input
             name="busca"
             defaultValue={filtrosDaUrl.busca ?? ""}
@@ -133,6 +160,33 @@ export default async function PaginaDeAtos({
           </div>
         )}
 
+        {/* filtro por Interessado — pedido do cliente em 24/08 */}
+        {interessados.length > 0 && (
+          <div className="mb-5">
+            <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-carvao-300">
+              Por interessado
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              <Chip
+                href={comFiltro(filtrosDaUrl, { interessado: undefined })}
+                ativo={!filtrosDaUrl.interessado}
+              >
+                Todos
+              </Chip>
+              {interessados.map((p) => (
+                <Chip
+                  key={p.id}
+                  href={comFiltro(filtrosDaUrl, { interessado: p.id })}
+                  ativo={filtrosDaUrl.interessado === p.id}
+                  titulo={formatarDocumento(p.documento)}
+                >
+                  {p.nome} · {p.total}
+                </Chip>
+              ))}
+            </div>
+          </div>
+        )}
+
         {atos.length === 0 ? (
           <EstadoVazio
             titulo="Nenhum procedimento encontrado"
@@ -160,9 +214,22 @@ export default async function PaginaDeAtos({
                     className="block rounded-lg border border-carvao-100 bg-white p-4 transition-colors hover:border-dourado-600"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="tabular text-sm font-semibold text-preto-900">
-                        {ato.numero}
-                      </span>
+                      <div className="min-w-0">
+                        {ato.titulo ? (
+                          <>
+                            <span className="block truncate text-sm font-semibold text-preto-900">
+                              {ato.titulo}
+                            </span>
+                            <span className="tabular text-[11px] text-carvao-300">
+                              {ato.numero}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="tabular text-sm font-semibold text-preto-900">
+                            {ato.numero}
+                          </span>
+                        )}
+                      </div>
                       <Etiqueta tom={TOM_DO_STATUS[ato.status]}>
                         {ROTULO_STATUS[ato.status]}
                       </Etiqueta>

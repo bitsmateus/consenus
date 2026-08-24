@@ -10,6 +10,8 @@ import {
 import { Botao } from "@/components/ui/botao";
 import { Campo } from "@/components/ui/campo";
 import { Selecao } from "@/components/ui/selecao";
+import { cn } from "@/lib/cn";
+import { desfechosPara } from "@/lib/desfechos";
 import { ROTULO_DESFECHO } from "@/lib/formato";
 
 /** Passo 5 — registro da sessão realizada. */
@@ -29,7 +31,15 @@ export function FormularioDaSessao({
     registrarSessao,
     {}
   );
+  const [acordo, setAcordo] = useState(true);
   const [desfecho, setDesfecho] = useState<DesfechoSessao>(DesfechoSessao.COMPOSICAO_INTEGRAL);
+
+  // trocar a resposta do acordo troca o leque de desfechos: manter o antigo
+  // deixaria "composição integral" selecionado depois de dizer que não houve acordo
+  const trocarAcordo = (novo: boolean) => {
+    setAcordo(novo);
+    setDesfecho(desfechosPara(novo)[0]!);
+  };
 
   return (
     <form action={acao} className="rounded-lg border border-carvao-100 bg-white p-4">
@@ -60,17 +70,6 @@ export function FormularioDaSessao({
         </div>
       )}
 
-      <div className="grid gap-x-3 sm:grid-cols-2">
-        <Campo rotulo="Hora de início" name="horaInicio" type="time" defaultValue="14:00" required />
-        <Campo
-          rotulo="Hora de encerramento"
-          name="horaEncerramento"
-          type="time"
-          defaultValue="15:00"
-          required
-        />
-      </div>
-
       <fieldset className="mb-4">
         <legend className="mb-1.5 block text-xs font-medium text-carvao-700">
           Comparecimento
@@ -97,12 +96,41 @@ export function FormularioDaSessao({
         </p>
       </fieldset>
 
+      <fieldset className="mb-4">
+        <legend className="mb-1.5 block text-xs font-medium text-carvao-700">
+          Houve acordo?
+        </legend>
+        <div className="flex gap-2">
+          {[true, false].map((valor) => (
+            <label
+              key={String(valor)}
+              className={cn(
+                "flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-md border px-3 py-2.5 text-sm",
+                acordo === valor
+                  ? "border-dourado-600 bg-dourado-100 font-medium text-dourado-600"
+                  : "border-carvao-100 text-carvao-700 hover:border-carvao-300"
+              )}
+            >
+              <input
+                type="radio"
+                name="houveAcordo"
+                value={valor ? "sim" : "nao"}
+                checked={acordo === valor}
+                onChange={() => trocarAcordo(valor)}
+                className="sr-only"
+              />
+              {valor ? "Sim, houve acordo" : "Não houve acordo"}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
       <Selecao
         rotulo="Desfecho"
         name="desfecho"
-        defaultValue={DesfechoSessao.COMPOSICAO_INTEGRAL}
+        value={desfecho}
         onChange={(e) => setDesfecho(e.target.value as DesfechoSessao)}
-        opcoes={Object.values(DesfechoSessao).map((d) => ({
+        opcoes={desfechosPara(acordo).map((d) => ({
           valor: d,
           rotulo: ROTULO_DESFECHO[d],
         }))}
@@ -116,6 +144,17 @@ export function FormularioDaSessao({
           required
         />
       )}
+
+      <div className="grid gap-x-3 sm:grid-cols-2">
+        <Campo rotulo="Hora de início" name="horaInicio" type="time" defaultValue="14:00" required />
+        <Campo
+          rotulo="Hora de encerramento"
+          name="horaEncerramento"
+          type="time"
+          defaultValue="15:00"
+          required
+        />
+      </div>
 
       <Campo rotulo="Observações" name="observacoesSessao" placeholder="opcional" />
 

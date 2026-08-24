@@ -22,6 +22,7 @@ import { FormularioDeVinculo } from "./vinculos";
 import { SecaoDeDocumentos } from "./secao-documentos";
 import { assinaturaDigitalAtiva } from "@/lib/d4sign";
 import { SecaoDeFluxo } from "./secao-fluxo";
+import { TituloDoProcedimento } from "./titulo";
 
 export const metadata = { title: "Procedimento — Consensus One" };
 
@@ -57,12 +58,17 @@ export default async function PaginaDoAto({ params }: { params: Promise<{ id: st
   return (
     <>
       <CabecalhoDePagina
-        titulo={`Procedimento ${ato.numero}`}
-        descricao={ato.objeto ?? "Procedimento Privado de Composição Consensual"}
+        titulo={ato.titulo ?? "Procedimento " + ato.numero}
+        descricao={
+          ato.titulo
+            ? "Procedimento " + ato.numero
+            : (ato.objeto ?? "Procedimento Privado de Composição Consensual")
+        }
         acao={<Etiqueta tom={TOM_DO_STATUS[ato.status]}>{ROTULO_STATUS[ato.status]}</Etiqueta>}
       />
 
       <div className="flex-1 p-4 md:p-6">
+        {equipe && <TituloDoProcedimento atoId={ato.id} titulo={ato.titulo} />}
         <div className="mb-4 rounded-lg border border-dourado-200 bg-dourado-50 p-4">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-dourado-700">
             Etapa atual

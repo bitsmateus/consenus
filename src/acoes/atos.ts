@@ -320,3 +320,58 @@ export async function registrarObservacao(
   revalidatePath(`/atos/${atoId}`);
   return {};
 }
+
+const renomeacao = z.object({
+  atoId: z.string().min(1),
+  titulo: z.string().trim().max(120, "O título cabe em 120 caracteres.").optional(),
+});
+
+/**
+ * Título de trabalho do procedimento — pedido do cliente em 24/08.
+ *
+ * É apelido de listagem, não identidade: o número continua sendo o que vai nos
+ * documentos e no código de verificação. Título vazio limpa o campo e a tela
+ * volta a mostrar só o número.
+ */
+export async function renomearAto(
+  _anterior: EstadoDeFormulario,
+  entrada: FormData
+): Promise<EstadoDeFormulario> {
+  const usuario = await exigirEquipe();
+
+  const analise = renomeacao.safeParse(Object.fromEntries(entrada));
+  if (!analise.success) {
+    return { erro: analise.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+
+  const { atoId, titulo } = analise.data;
+  const ato = await exigirAcessoAoAto(atoId, db);
+
+  const novo = titulo || null;
+  if (novo === ato.titulo) return {};
+
+  await db.ato.update({ where: { id: atoId }, data: { titulo: novo } });
+
+  await db.eventoAto.create({
+    data: {
+      atoId,
+      tipo: TipoEvento.OBSERVACAO,
+      descricao: novo
+        ? `Título do procedimento definido como "${novo}".`
+        : "Título do procedimento removido.",
+      usuarioId: usuario.id,
+    },
+  });
+
+  await registrarAuditoria({
+    usuarioId: usuario.id,
+    acao: "ALTEROU_ATO",
+    entidade: "Ato",
+    entidadeId: atoId,
+    metadados: { evento: "TITULO", de: ato.titulo, para: novo },
+  });
+
+  revalidatePath("/atos/" + atoId);
+  revalidatePath("/atos");
+  return {};
+}

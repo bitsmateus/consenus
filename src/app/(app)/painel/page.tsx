@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { Papel, StatusAto } from "@prisma/client";
+import { Papel, PapelNoAto, StatusAto } from "@prisma/client";
 import { CabecalhoDePagina } from "@/components/ui/cabecalho-de-pagina";
+import { cn } from "@/lib/cn";
 import { Etiqueta } from "@/components/ui/etiqueta";
 import { listarAtos } from "@/lib/consultas";
 import { db } from "@/lib/db";
@@ -105,10 +106,26 @@ export default async function Painel({
         )}
 
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          <Cartao numero={emAndamento} rotulo="Em andamento" />
-          <Cartao numero={aguardando} rotulo="Aguardando documentação" destaque />
-          <Cartao numero={total} rotulo="Total de procedimentos" />
-          {equipe && <Cartao numero={vencidos.length} rotulo="Prazo vencido" alerta />}
+          <Cartao
+            numero={emAndamento}
+            rotulo="Em andamento"
+            href="/atos?situacao=em_andamento"
+          />
+          <Cartao
+            numero={aguardando}
+            rotulo="Aguardando documentação"
+            destaque
+            href={"/atos?status=" + StatusAto.AGUARDANDO_DOCUMENTACAO}
+          />
+          <Cartao numero={total} rotulo="Total de procedimentos" href="/atos" />
+          {equipe && (
+            <Cartao
+              numero={vencidos.length}
+              rotulo="Prazo vencido"
+              alerta
+              href="/atos?situacao=prazo_vencido"
+            />
+          )}
         </div>
 
         {vencidos.length > 0 && (
@@ -157,11 +174,17 @@ export default async function Painel({
               {recentes.slice(0, 8).map((ato) => (
                 <li key={ato.id}>
                   <Link
-                    href={`/atos/${ato.id}`}
+                    href={"/atos/" + ato.id}
                     className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-carvao-100 bg-white px-4 py-3 hover:border-dourado-600"
                   >
-                    <span className="tabular text-sm font-medium text-carvao-700">
-                      {ato.numero}
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium text-carvao-700">
+                        {ato.titulo ?? ato.numero}
+                      </span>
+                      <span className="block truncate text-[11px] text-carvao-300">
+                        {ato.titulo && <span className="tabular">{ato.numero} · </span>}
+                        {envolvidos(ato.partes)}
+                      </span>
                     </span>
                     <span className="tabular text-xs text-carvao-500">
                       {formatarData(ato.dataConfirmada ?? ato.dataReservada)}
@@ -185,17 +208,46 @@ function Cartao({
   rotulo,
   destaque,
   alerta,
+  href,
 }: {
   numero: number;
   rotulo: string;
   destaque?: boolean;
   alerta?: boolean;
+  /** Quando informado, o cartão leva à listagem já filtrada. */
+  href?: string;
 }) {
   const cor = alerta && numero > 0 ? "text-erro" : destaque ? "text-dourado-600" : "text-preto-900";
-  return (
-    <div className="rounded-lg border border-carvao-100 bg-white p-4">
-      <p className={`text-2xl font-semibold ${cor}`}>{numero}</p>
+
+  const conteudo = (
+    <>
+      <p className={cn("text-2xl font-semibold", cor)}>{numero}</p>
       <p className="mt-0.5 text-[11px] text-carvao-500">{rotulo}</p>
-    </div>
+    </>
   );
+
+  const moldura = "rounded-lg border border-carvao-100 bg-white p-4";
+
+  if (!href) return <div className={moldura}>{conteudo}</div>;
+
+  return (
+    <Link
+      href={href}
+      className={cn(moldura, "block transition-colors hover:border-dourado-600")}
+    >
+      {conteudo}
+    </Link>
+  );
+}
+
+/**
+ * Quem são os Interessados, para a linha do painel dizer de quem é o
+ * procedimento — antes só aparecia o número, e o operador tinha que abrir cada
+ * um para saber. Pedido do cliente em 24/08.
+ */
+function envolvidos(partes: { papel: PapelNoAto; pessoa: { nome: string } }[]): string {
+  const nome = (papel: PapelNoAto) => partes.find((p) => p.papel === papel)?.pessoa.nome;
+  const solicitante = nome(PapelNoAto.SOLICITANTE);
+  const convidado = nome(PapelNoAto.CONVIDADO);
+  return [solicitante, convidado].filter(Boolean).join(" × ") || "sem partes vinculadas";
 }

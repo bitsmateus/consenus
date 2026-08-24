@@ -14,6 +14,22 @@ import { Papel } from "@prisma/client";
 
 export type ItemDeMenu = { href: string; rotulo: string; somenteAdmin?: boolean };
 
+/**
+ * O item do menu que corresponde à página aberta.
+ *
+ * Casa por prefixo, para /atos/abc continuar destacando "Procedimentos". O
+ * mais específico vence: sem isso "/" de /painel casaria com tudo.
+ */
+export function itemAtivo(caminho: string, itens: ItemDeMenu[]): string | null {
+  const candidatos = itens.filter(
+    (item) => caminho === item.href || caminho.startsWith(item.href + "/")
+  );
+  if (candidatos.length === 0) return null;
+  return candidatos.reduce((maior, item) =>
+    item.href.length > maior.href.length ? item : maior
+  ).href;
+}
+
 export const MENU_EQUIPE: ItemDeMenu[] = [
   { href: "/painel", rotulo: "Painel" },
   { href: "/atos", rotulo: "Procedimentos" },

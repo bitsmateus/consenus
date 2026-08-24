@@ -5,8 +5,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { sair } from "@/acoes/autenticacao";
-
-type ItemDeMenu = { href: string; rotulo: string };
+import { cn } from "@/lib/cn";
+import { itemAtivo, type ItemDeMenu } from "@/lib/menu";
 
 /**
  * Navegação do celular.
@@ -30,6 +30,7 @@ export function MenuMobile({
 }) {
   const [aberto, setAberto] = useState(false);
   const caminho = usePathname();
+  const ativo = itemAtivo(caminho, itens);
 
   // Fecha ao navegar. Sem isto o painel fica aberto por cima da página nova,
   // porque a navegação do Next não desmonta o componente.
@@ -132,7 +133,13 @@ export function MenuMobile({
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="flex min-h-[44px] items-center rounded-md px-3 text-sm text-white/75 transition-colors hover:bg-white/5 hover:text-white"
+                  aria-current={ativo === item.href ? "page" : undefined}
+                  className={cn(
+                    "flex min-h-[44px] items-center rounded-md px-3 text-sm transition-colors",
+                    ativo === item.href
+                      ? "bg-white/10 font-medium text-white"
+                      : "text-white/75 hover:bg-white/5 hover:text-white"
+                  )}
                 >
                   {item.rotulo}
                 </Link>

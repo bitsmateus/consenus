@@ -10,6 +10,7 @@ import {
   buscarAtoEm,
   comFiltros,
   contarPorStatusEm,
+  contarInteressadosEm,
   contarProcuradoresEm,
   listarAtosEm,
   type FiltrosDeAtos,
@@ -34,6 +35,10 @@ export async function contarPorStatus(filtros: FiltrosDeAtos) {
 
 export async function contarPorProcurador(filtros: FiltrosDeAtos) {
   return contarProcuradoresEm(await montarWhereDeAtos({ ...filtros, procuradorId: undefined }));
+}
+
+export async function contarPorInteressado(filtros: FiltrosDeAtos) {
+  return contarInteressadosEm(await montarWhereDeAtos({ ...filtros, interessadoId: undefined }));
 }
 
 export async function buscarAto(id: string) {

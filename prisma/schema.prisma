@@ -143,6 +143,11 @@ model Ato {
 
   objeto String? // "Objeto do Procedimento" — vai nos documentos
 
+  // Apelido de trabalho, editável pelo operador (pedido do cliente em 24/08).
+  // NÃO substitui o número, que é a identidade oficial do procedimento e o que
+  // aparece nos documentos: serve para achar o procedimento na listagem.
+  titulo String?
+
   // agenda
   dataReservada        DateTime?        @db.Timestamptz(3) // provisória, criada no passo 2
   dataConfirmada       DateTime?        @db.Timestamptz(3) // efetivada no passo 3

@@ -3,8 +3,9 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { Papel } from "@prisma/client";
+import { cn } from "@/lib/cn";
 import { db } from "@/lib/db";
-import { montarMenu } from "@/lib/menu";
+import { itemAtivo, montarMenu } from "@/lib/menu";
 import { exigirUsuario } from "@/lib/sessao";
 import { segundoFatorPendente } from "@/lib/totp";
 import { sair } from "@/acoes/autenticacao";
@@ -59,6 +60,9 @@ export default async function LayoutDaAplicacao({ children }: { children: React.
   }
 
   const menu = montarMenu(usuario.papel);
+  // o middleware carimba o caminho no cabeçalho: dá para destacar o item ativo
+  // sem transformar a barra inteira em Client Component
+  const ativo = itemAtivo(cabecalhos.get("x-caminho") ?? "", menu);
 
   return (
     <div className="flex min-h-screen">
@@ -82,7 +86,13 @@ export default async function LayoutDaAplicacao({ children }: { children: React.
             <Link
               key={item.href}
               href={item.href}
-              className="rounded-md px-3 py-2 text-sm text-white/75 transition-colors hover:bg-white/5 hover:text-white"
+              aria-current={ativo === item.href ? "page" : undefined}
+              className={cn(
+                "rounded-md px-3 py-2 text-sm transition-colors",
+                ativo === item.href
+                  ? "bg-white/10 font-medium text-white"
+                  : "text-white/75 hover:bg-white/5 hover:text-white"
+              )}
             >
               {item.rotulo}
             </Link>
@@ -99,7 +109,11 @@ export default async function LayoutDaAplicacao({ children }: { children: React.
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <MenuMobile itens={menu} nome={usuario.nome} subtitulo={SUBTITULO[usuario.papel]} />
+        <MenuMobile
+          itens={menu}
+          nome={usuario.nome}
+          subtitulo={SUBTITULO[usuario.papel]}
+        />
         {children}
       </div>
     </div>

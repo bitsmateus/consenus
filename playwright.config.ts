@@ -20,7 +20,11 @@ if (existsSync(".env")) {
 
 export default defineConfig({
   testDir: "./tests/e2e",
-  timeout: 30_000,
+  // 60s, e não 30: o passo 1 do fluxo cadastra três pessoas e abre o
+  // procedimento, tudo contra um servidor de desenvolvimento que compila rota
+  // sob demanda e ainda atende os outros workers em paralelo. Sozinho o teste
+  // leva segundos; acompanhado, encostava no limite antigo.
+  timeout: 60_000,
   use: {
     baseURL: process.env.URL_BASE ?? "http://localhost:3000",
     locale: "pt-BR",

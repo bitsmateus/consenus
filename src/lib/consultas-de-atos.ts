@@ -10,6 +10,7 @@
  * páginas (CLAUDE.md, regra 3).
  */
 import { PapelNoAto, Prisma, StatusAto } from "@prisma/client";
+import { ESTADOS_FINAIS } from "./autorizacao";
 import { db } from "./db";
 import { apenasDigitos } from "./documentos";
 
@@ -17,6 +18,12 @@ export type FiltrosDeAtos = {
   busca?: string;
   status?: StatusAto;
   procuradorId?: string;
+  interessadoId?: string;
+  /**
+   * Recortes que o painel usa nos cartões, para o clique cair na lista já
+   * filtrada em vez de despejar tudo.
+   */
+  situacao?: "em_andamento" | "prazo_vencido";
 };
 
 /**
@@ -54,6 +61,32 @@ export function comFiltros(
   if (filtros.procuradorId) {
     condicoes.push({
       partes: { some: { pessoaId: filtros.procuradorId, papel: PapelNoAto.PROCURADOR } },
+    });
+  }
+
+  // Interessado é quem figura como Solicitante ou Convidado. Procurador tem
+  // filtro próprio: quem representa não é parte interessada no procedimento.
+  if (filtros.interessadoId) {
+    condicoes.push({
+      partes: {
+        some: {
+          pessoaId: filtros.interessadoId,
+          papel: { in: [PapelNoAto.SOLICITANTE, PapelNoAto.CONVIDADO] },
+        },
+      },
+    });
+  }
+
+  if (filtros.situacao === "em_andamento") {
+    condicoes.push({ status: { notIn: ESTADOS_FINAIS } });
+  }
+
+  // Prazo vencido só faz sentido em procedimento vivo: encerrado não tem mais
+  // prazo a perder.
+  if (filtros.situacao === "prazo_vencido") {
+    condicoes.push({
+      status: { notIn: ESTADOS_FINAIS },
+      prazoDocumentacaoAte: { lt: new Date() },
     });
   }
 
@@ -96,31 +129,10 @@ export async function contarPorStatusEm(where: Prisma.AtoWhereInput) {
  * usuário. Por isso a lista de ids visíveis vem antes do agrupamento.
  */
 export async function contarProcuradoresEm(where: Prisma.AtoWhereInput) {
-  const visiveis = await db.ato.findMany({ where, select: { id: true } });
-  if (visiveis.length === 0) return [];
-
-  const agrupado = await db.parteDoAto.groupBy({
-    by: ["pessoaId"],
-    where: {
-      papel: PapelNoAto.PROCURADOR,
-      atoId: { in: visiveis.map((a) => a.id) },
-    },
-    _count: { _all: true },
+  return contarPessoasPorPapelEm(where, [PapelNoAto.PROCURADOR], {
+    tipoProcurador: true,
+    oab: true,
   });
-  if (agrupado.length === 0) return [];
-
-  const pessoas = await db.pessoa.findMany({
-    where: { id: { in: agrupado.map((l) => l.pessoaId) } },
-    select: { id: true, nome: true, tipoProcurador: true, oab: true },
-  });
-
-  return agrupado
-    .map((linha) => {
-      const pessoa = pessoas.find((p) => p.id === linha.pessoaId);
-      return pessoa ? { ...pessoa, total: linha._count._all } : null;
-    })
-    .filter((x): x is NonNullable<typeof x> => x !== null)
-    .sort((a, b) => b.total - a.total || a.nome.localeCompare(b.nome, "pt-BR"));
 }
 
 export async function buscarAtoEm(where: Prisma.AtoWhereInput) {
@@ -192,4 +204,55 @@ export async function listarPessoas(busca?: string, apenasProcuradores = false) 
     take: 200,
     include: { _count: { select: { participacoes: true } } },
   });
+}
+
+/**
+ * Pessoas com contagem de procedimentos, por papel no ato.
+ *
+ * A contagem sai de ParteDoAto, mas restrita aos atos que o `where` permite:
+ * sem isso o número revelaria a existência de procedimentos fora do alcance do
+ * usuário. Por isso a lista de ids visíveis vem antes do agrupamento.
+ */
+async function contarPessoasPorPapelEm(
+  where: Prisma.AtoWhereInput,
+  papeis: PapelNoAto[],
+  select: Prisma.PessoaSelect
+) {
+  // O recorte de visibilidade entra como filtro da relação, e não como lista de
+  // ids buscada antes: uma consulta em vez de duas, e o banco resolve o vínculo.
+  // A garantia é a mesma — sem isso a contagem denunciaria a existência de
+  // procedimento fora do alcance de quem consulta.
+  const agrupado = await db.parteDoAto.groupBy({
+    by: ["pessoaId"],
+    where: { papel: { in: papeis }, ato: where },
+    _count: { _all: true },
+  });
+  if (agrupado.length === 0) return [];
+
+  const pessoas = await db.pessoa.findMany({
+    where: { id: { in: agrupado.map((l) => l.pessoaId) } },
+    select: { id: true, nome: true, ...select },
+  });
+
+  return agrupado
+    .map((linha) => {
+      const pessoa = pessoas.find((p) => p.id === linha.pessoaId);
+      return pessoa ? { ...pessoa, total: linha._count._all } : null;
+    })
+    .filter((x): x is NonNullable<typeof x> => x !== null)
+    .sort((a, b) => b.total - a.total || a.nome.localeCompare(b.nome, "pt-BR"));
+}
+
+/**
+ * Interessados com contagem de procedimentos.
+ *
+ * Pedido do cliente em 24/08: buscar pelo Interessado, não só pelo procurador
+ * — é como a câmara enxerga a carteira ("todos os procedimentos do Itaú").
+ */
+export async function contarInteressadosEm(where: Prisma.AtoWhereInput) {
+  return contarPessoasPorPapelEm(
+    where,
+    [PapelNoAto.SOLICITANTE, PapelNoAto.CONVIDADO],
+    { documento: true, tipo: true }
+  );
 }

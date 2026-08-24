@@ -1,8 +1,11 @@
 "use client";
 
-import { useActionState } from "react";
-import { PapelNoAto } from "@prisma/client";
+import { useActionState, useState } from "react";
+import { PapelNoAto, TipoPessoa, TipoProcurador } from "@prisma/client";
 import { adicionarParte, type EstadoDeFormulario } from "@/acoes/atos";
+import { cadastrarEVincular } from "@/acoes/pessoas";
+import { Campo } from "@/components/ui/campo";
+import { ROTULO_TIPO_PROCURADOR } from "@/lib/formato";
 import { Botao } from "@/components/ui/botao";
 import { Selecao } from "@/components/ui/selecao";
 
@@ -22,8 +25,9 @@ export function FormularioDeVinculo({
   pessoas: { id: string; rotulo: string }[];
   interessados: { id: string; rotulo: string }[];
 }) {
+  const [nova, setNova] = useState(false);
   const [estado, acao, pendente] = useActionState<EstadoDeFormulario, FormData>(
-    adicionarParte,
+    nova ? cadastrarEVincular : adicionarParte,
     {}
   );
 
@@ -38,13 +42,44 @@ export function FormularioDeVinculo({
       )}
 
       <div className="grid gap-x-3 sm:grid-cols-3">
-        <Selecao
-          rotulo="Pessoa"
-          name="pessoaId"
-          vazio="Selecione"
-          opcoes={pessoas.map((p) => ({ valor: p.id, rotulo: p.rotulo }))}
-          required
-        />
+        {nova ? (
+          <div className="sm:col-span-3">
+            <div className="grid gap-x-3 sm:grid-cols-3">
+              <Selecao
+                rotulo="Tipo"
+                name="tipo"
+                defaultValue={TipoPessoa.FISICA}
+                opcoes={[
+                  { valor: TipoPessoa.FISICA, rotulo: "Pessoa física" },
+                  { valor: TipoPessoa.JURIDICA, rotulo: "Pessoa jurídica" },
+                ]}
+              />
+              <Campo rotulo="Nome ou razão social" name="nome" required />
+              <Campo rotulo="CPF ou CNPJ" name="documento" required />
+            </div>
+            <div className="grid gap-x-3 sm:grid-cols-2">
+              <Selecao
+                rotulo="Natureza"
+                name="tipoProcurador"
+                vazio="—"
+                opcoes={Object.values(TipoProcurador).map((t) => ({
+                  valor: t,
+                  rotulo: ROTULO_TIPO_PROCURADOR[t],
+                }))}
+                dica="Preencha quando for procurador."
+              />
+              <Campo rotulo="OAB" name="oab" placeholder="opcional" />
+            </div>
+          </div>
+        ) : (
+          <Selecao
+            rotulo="Pessoa"
+            name="pessoaId"
+            vazio="Selecione"
+            opcoes={pessoas.map((p) => ({ valor: p.id, rotulo: p.rotulo }))}
+            required
+          />
+        )}
         <Selecao
           rotulo="Papel"
           name="papel"
@@ -63,9 +98,18 @@ export function FormularioDeVinculo({
         />
       </div>
 
-      <Botao type="submit" variante="secundario" carregando={pendente}>
-        Vincular
-      </Botao>
+      <div className="flex flex-wrap items-center gap-3">
+        <Botao type="submit" variante="secundario" carregando={pendente}>
+          {nova ? "Cadastrar e vincular" : "Vincular"}
+        </Botao>
+        <button
+          type="button"
+          onClick={() => setNova((estava) => !estava)}
+          className="text-xs text-dourado-600 hover:underline"
+        >
+          {nova ? "Escolher alguém já cadastrado" : "A pessoa não está cadastrada"}
+        </button>
+      </div>
     </form>
   );
 }

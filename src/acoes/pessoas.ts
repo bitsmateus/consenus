@@ -9,6 +9,7 @@ import { db } from "@/lib/db";
 import { apenasDigitos, documentoEhValido } from "@/lib/documentos";
 import { ErroDeNegocio } from "@/lib/erros";
 import { exigirEquipe } from "@/lib/sessao";
+import { adicionarParte } from "./atos";
 
 export type EstadoDeFormulario = { erro?: string; campo?: string };
 
@@ -17,7 +18,7 @@ const UFS = [
   "PE","PI","PR","RJ","RN","RO","RR","RS","SC","SE","SP","TO",
 ] as const;
 
-const esquema = z.object({
+const esquemaDePessoa = z.object({
   tipo: z.nativeEnum(TipoPessoa),
   nome: z.string().trim().min(3, "Informe o nome completo."),
   documento: z
@@ -44,7 +45,7 @@ const esquema = z.object({
  * As naturezas vêm de docs/10: advogado é CPF+OAB, escritório é CNPJ+OAB,
  * consultoria é CNPJ, representante é CPF.
  */
-function conferirCoerencia(dados: z.infer<typeof esquema>) {
+function conferirCoerencia(dados: z.infer<typeof esquemaDePessoa>) {
   const digitos = apenasDigitos(dados.documento);
   const ehCpf = digitos.length === 11;
 
@@ -76,7 +77,7 @@ function conferirCoerencia(dados: z.infer<typeof esquema>) {
   }
 }
 
-function montarDados(dados: z.infer<typeof esquema>) {
+function montarDadosDePessoa(dados: z.infer<typeof esquemaDePessoa>) {
   return {
     tipo: dados.tipo,
     nome: dados.nome,
@@ -102,7 +103,7 @@ export async function salvarPessoa(
 ): Promise<EstadoDeFormulario> {
   const usuario = await exigirEquipe();
 
-  const analise = esquema.safeParse(Object.fromEntries(entrada));
+  const analise = esquemaDePessoa.safeParse(Object.fromEntries(entrada));
   if (!analise.success) {
     const primeiro = analise.error.issues[0];
     return { erro: primeiro?.message ?? "Dados inválidos.", campo: String(primeiro?.path[0] ?? "") };
@@ -113,7 +114,7 @@ export async function salvarPessoa(
 
   try {
     conferirCoerencia(analise.data);
-    const dados = montarDados(analise.data);
+    const dados = montarDadosDePessoa(analise.data);
 
     if (id) {
       const pessoa = await db.pessoa.update({ where: { id }, data: dados });
@@ -147,4 +148,56 @@ export async function salvarPessoa(
 
   revalidatePath("/pessoas");
   redirect(destino);
+}
+
+/**
+ * Cadastra a pessoa e já a vincula ao procedimento, sem sair da tela.
+ *
+ * Pedido do cliente em 24/08: na hora de lavrar a ata descobre-se que o
+ * advogado do Interessado Convidado não está cadastrado, e hoje é preciso
+ * abandonar o procedimento, ir ao cadastro e voltar. O vínculo reaproveita
+ * `adicionarParte`, para a regra de quem-representa-quem continuar num lugar só.
+ */
+export async function cadastrarEVincular(
+  _anterior: EstadoDeFormulario,
+  entrada: FormData
+): Promise<EstadoDeFormulario> {
+  const usuario = await exigirEquipe();
+
+  const analise = esquemaDePessoa.safeParse(Object.fromEntries(entrada));
+  if (!analise.success) {
+    const primeiro = analise.error.issues[0];
+    return { erro: primeiro?.message ?? "Dados inválidos.", campo: String(primeiro?.path[0] ?? "") };
+  }
+
+  let pessoaId: string;
+  try {
+    conferirCoerencia(analise.data);
+    const pessoa = await db.pessoa.create({ data: montarDadosDePessoa(analise.data) });
+    pessoaId = pessoa.id;
+
+    await registrarAuditoria({
+      usuarioId: usuario.id,
+      acao: "CRIOU_PESSOA",
+      entidade: "Pessoa",
+      entidadeId: pessoa.id,
+      metadados: { nome: pessoa.nome, origem: "vinculo-no-procedimento" },
+    });
+  } catch (erro) {
+    if (erro instanceof ErroDeNegocio) return { erro: erro.message };
+    if (erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === "P2002") {
+      return { erro: "Já existe pessoa com este CPF ou CNPJ.", campo: "documento" };
+    }
+    throw erro;
+  }
+
+  // a pessoa já existe a partir daqui: se o vínculo falhar, o cadastro fica de
+  // pé e o operador só refaz a vinculação, sem redigitar tudo
+  const vinculo = new FormData();
+  vinculo.set("atoId", String(entrada.get("atoId") ?? ""));
+  vinculo.set("pessoaId", pessoaId);
+  vinculo.set("papel", String(entrada.get("papel") ?? ""));
+  vinculo.set("representaId", String(entrada.get("representaId") ?? ""));
+
+  return adicionarParte({}, vinculo);
 }
