@@ -59,3 +59,26 @@ test("o menu e o Sair continuam à vista depois de rolar a página", async ({ pa
   await expect(sair).toBeInViewport();
   await expect(painel).toBeInViewport();
 });
+
+test("o destaque do menu acompanha a navegação", async ({ page }) => {
+  await entrar(page, CONTAS.operador);
+
+  const marcado = () => page.locator("aside").first().locator("[aria-current=page]");
+
+  await page.goto("/painel");
+  await expect(marcado()).toHaveText("Painel");
+
+  // navegar clicando, que é o caso que quebrava: o layout não re-renderiza
+  // entre páginas irmãs, e o destaque ficava congelado no primeiro carregamento
+  await page.locator("aside").first().getByRole("link", { name: "Interessados" }).click();
+  await page.waitForURL(/\/pessoas/);
+  await expect(marcado()).toHaveText("Interessados");
+
+  await page.locator("aside").first().getByRole("link", { name: "Procedimentos" }).click();
+  await page.waitForURL(/\/atos/);
+  await expect(marcado()).toHaveText("Procedimentos");
+
+  // página filha continua destacando a seção
+  await page.goto("/pessoas");
+  await expect(marcado()).toHaveText("Interessados");
+});

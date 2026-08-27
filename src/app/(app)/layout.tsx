@@ -1,14 +1,13 @@
 import Image from "next/image";
-import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { Papel } from "@prisma/client";
-import { cn } from "@/lib/cn";
 import { db } from "@/lib/db";
-import { itemAtivo, montarMenu } from "@/lib/menu";
+import { montarMenu } from "@/lib/menu";
 import { exigirUsuario } from "@/lib/sessao";
 import { segundoFatorPendente } from "@/lib/totp";
 import { sair } from "@/acoes/autenticacao";
+import { MenuLateral } from "./menu-lateral";
 import { MenuMobile } from "./menu-mobile";
 
 const ROTA_DE_SEGURANCA = "/seguranca";
@@ -60,9 +59,6 @@ export default async function LayoutDaAplicacao({ children }: { children: React.
   }
 
   const menu = montarMenu(usuario.papel);
-  // o middleware carimba o caminho no cabeçalho: dá para destacar o item ativo
-  // sem transformar a barra inteira em Client Component
-  const ativo = itemAtivo(cabecalhos.get("x-caminho") ?? "", menu);
 
   return (
     <div className="flex min-h-screen">
@@ -81,23 +77,7 @@ export default async function LayoutDaAplicacao({ children }: { children: React.
           </p>
         </div>
 
-        <nav className="mt-4 flex flex-1 flex-col gap-px overflow-y-auto px-2">
-          {menu.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              aria-current={ativo === item.href ? "page" : undefined}
-              className={cn(
-                "rounded-md px-3 py-2 text-sm transition-colors",
-                ativo === item.href
-                  ? "bg-white/10 font-medium text-white"
-                  : "text-white/75 hover:bg-white/5 hover:text-white"
-              )}
-            >
-              {item.rotulo}
-            </Link>
-          ))}
-        </nav>
+        <MenuLateral itens={menu} />
 
         <div className="flex-none border-t border-white/10 px-5 pt-4">
           <p className="text-xs font-medium text-white">{usuario.nome}</p>
