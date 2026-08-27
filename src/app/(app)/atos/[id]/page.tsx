@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { Papel, PapelNoAto, StatusAto } from "@prisma/client";
+import { ModalidadeSessao, Papel, PapelNoAto, StatusAto } from "@prisma/client";
 import { removerParte } from "@/acoes/atos";
 import { CabecalhoDePagina } from "@/components/ui/cabecalho-de-pagina";
 import { Etiqueta } from "@/components/ui/etiqueta";
@@ -25,6 +25,7 @@ import { SecaoDeDocumentos } from "./secao-documentos";
 import { assinaturaDigitalAtiva } from "@/lib/d4sign";
 import { SecaoDeFluxo } from "./secao-fluxo";
 import { AgendaDoProcedimento } from "./agenda";
+import { SalaDaVideoconferencia } from "./sala";
 import { TituloDoProcedimento } from "./titulo";
 
 export const metadata = { title: "Procedimento — Consensus One" };
@@ -54,6 +55,11 @@ export default async function PaginaDoAto({ params }: { params: Promise<{ id: st
   // depois da sessão registrada a data é fato consumado: está na Ata
   const podeAjustarAgenda =
     !ESTADOS_FINAIS.includes(ato.status) && ato.status !== StatusAto.SESSAO_REALIZADA;
+
+  const dataDaSessao = ato.dataConfirmada ?? ato.dataReservada;
+  const temVideo =
+    ato.modalidade === ModalidadeSessao.VIDEOCONFERENCIA ||
+    ato.modalidade === ModalidadeSessao.HIBRIDA;
 
   const prazo = ato.prazoDocumentacaoAte;
   const situacao = prazo ? situacaoDoPrazo(prazo) : null;
@@ -280,6 +286,21 @@ export default async function PaginaDoAto({ params }: { params: Promise<{ id: st
                 )}
               </dl>
 
+              {equipe && ato.linkVideoconferencia && (
+                <SalaDaVideoconferencia
+                  link={ato.linkVideoconferencia}
+                  idReuniao={ato.idReuniao}
+                  senha={ato.senhaReuniao}
+                  quando={dataDaSessao ? formatarDataHora(dataDaSessao) : ""}
+                />
+              )}
+
+              {equipe && !ato.linkVideoconferencia && temVideo && (
+                <p className="mt-3 border-t border-carvao-100 pt-3 text-[11px] leading-relaxed text-carvao-500">
+                  Ainda não há sala de videoconferência para este procedimento.
+                  Salve a agenda abaixo para criá-la no Zoom.
+                </p>
+              )}
               {equipe && podeAjustarAgenda && (
                 <div className="mt-3 border-t border-carvao-100 pt-3">
                   <AgendaDoProcedimento
