@@ -9,6 +9,7 @@ import {
 import { ITENS_DA_DOCUMENTACAO, faltamItens } from "@/lib/documentacao";
 import { emitirCartaAoSolicitante } from "@/acoes/documentos";
 import { Botao } from "@/components/ui/botao";
+import { BotaoDeAcao } from "@/components/ui/botao-de-acao";
 import { Etiqueta } from "@/components/ui/etiqueta";
 import { formatarData } from "@/lib/formato";
 import { sessaoAntesDaDataMarcada } from "@/lib/prazos";
@@ -101,7 +102,7 @@ export function SecaoDeFluxo({
             documento, aplica o timbrado com QR Code e abre o prazo de documentação.
             A data da sessão segue apenas reservada.
           </p>
-          <Botao type="submit">Emitir Carta-Convite</Botao>
+          <BotaoDeAcao sucesso="Carta-Convite emitida.">Emitir Carta-Convite</BotaoDeAcao>
         </form>
       )}
 
@@ -169,9 +170,13 @@ export function SecaoDeFluxo({
 
           <form action={confirmarData}>
             <input type="hidden" name="atoId" value={ato.id} />
-            <Botao type="submit" disabled={pendentes.length > 0}>
+            <BotaoDeAcao
+              desabilitado={pendentes.length > 0}
+              carregandoTexto="Confirmando..."
+              sucesso="Data da sessão confirmada."
+            >
               Confirmar a data da sessão
-            </Botao>
+            </BotaoDeAcao>
             {pendentes.length > 0 && (
               <p className="mt-2 text-xs text-atencao">
                 Faltam {pendentes.length} item(ns). Sem documentação integral, a
@@ -194,7 +199,9 @@ export function SecaoDeFluxo({
             Carta-Convite ao Interessado Convidado pode ser expedida — ela traz
             apenas data e link, sem exigir documentação dele.
           </p>
-          <Botao type="submit">Emitir Carta-Convite ao Convidado</Botao>
+          <BotaoDeAcao sucesso="Carta-Convite ao Convidado emitida.">
+            Emitir Carta-Convite ao Convidado
+          </BotaoDeAcao>
         </form>
       )}
 
@@ -226,7 +233,7 @@ export function SecaoDeFluxo({
             esteira — vale para qualquer desfecho, inclusive quando ninguém
             comparece ou não houve acordo.
           </p>
-          <Botao type="submit">Lavrar a Ata</Botao>
+          <BotaoDeAcao sucesso="Ata lavrada." carregandoTexto="Lavrando...">Lavrar a Ata</BotaoDeAcao>
         </form>
       )}
 

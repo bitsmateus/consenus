@@ -10,8 +10,11 @@ import {
   TipoEvento,
 } from "@prisma/client";
 import { z } from "zod";
+import { fromZonedTime } from "date-fns-tz";
+import { ESTADOS_FINAIS } from "@/lib/autorizacao";
 import { registrarAuditoria } from "@/lib/auditoria";
-import { criarReuniao, videoconferenciaAtiva } from "@/lib/zoom";
+import { ROTULO_MODALIDADE } from "@/lib/formato";
+import { cancelarReuniao, criarReuniao, remarcarReuniao, videoconferenciaAtiva } from "@/lib/zoom";
 import { configuracaoDoSistema } from "@/lib/configuracao";
 import { db } from "@/lib/db";
 import { ErroDeNegocio } from "@/lib/erros";
@@ -437,4 +440,201 @@ async function agendarVideoconferencia(
       },
     });
   }
+}
+
+const agenda = z.object({
+  atoId: z.string().min(1),
+  modalidade: z.nativeEnum(ModalidadeSessao),
+  /** "AAAA-MM-DDTHH:MM" do input datetime-local, em horário de São Paulo. */
+  dataDaSessao: z.string().trim().min(1, "Informe a data e a hora da sessão."),
+});
+
+/**
+ * Ajusta modalidade e data da sessão depois de o procedimento estar aberto.
+ *
+ * Pedido do cliente em 24/08: a data nascia sempre em D+20 e não havia como
+ * mexer, nem para corrigir engano nem para atender remarcação combinada entre
+ * as partes.
+ *
+ * Só antes da sessão registrada: depois disso a data é fato consumado, está na
+ * Ata, e mudá-la seria reescrever o que aconteceu.
+ */
+export async function alterarAgenda(
+  _anterior: EstadoDeFormulario,
+  entrada: FormData
+): Promise<EstadoDeFormulario> {
+  const usuario = await exigirEquipe();
+
+  const analise = agenda.safeParse(Object.fromEntries(entrada));
+  if (!analise.success) {
+    return { erro: analise.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+
+  const { atoId, modalidade, dataDaSessao } = analise.data;
+
+  try {
+    await exigirAcessoAoAto(atoId, db);
+
+    const ato = await db.ato.findUnique({
+      where: { id: atoId },
+      select: {
+        numero: true,
+        status: true,
+        modalidade: true,
+        dataReservada: true,
+        dataConfirmada: true,
+        idReuniao: true,
+      },
+    });
+    if (!ato) throw new ErroDeNegocio("Procedimento não encontrado.");
+
+    if (ESTADOS_FINAIS.includes(ato.status) || ato.status === StatusAto.SESSAO_REALIZADA) {
+      throw new ErroDeNegocio(
+        "A sessão deste procedimento já foi registrada. A data consta da Ata e não pode ser alterada."
+      );
+    }
+
+    const nova = interpretarDataDaSessao(dataDaSessao);
+    const confirmada = ato.dataConfirmada !== null;
+
+    await db.ato.update({
+      where: { id: atoId },
+      data: {
+        modalidade,
+        dataReservada: nova,
+        // se a data já estava confirmada, ela continua confirmada na data nova
+        ...(confirmada ? { dataConfirmada: nova } : {}),
+      },
+    });
+
+    await db.eventoAto.create({
+      data: {
+        atoId,
+        tipo: TipoEvento.OBSERVACAO,
+        descricao:
+          `Agenda alterada: sessão em ${formatarDataHoraDaSessao(nova)}, ` +
+          `${ROTULO_MODALIDADE[modalidade].toLowerCase()}.`,
+        usuarioId: usuario.id,
+      },
+    });
+
+    await registrarAuditoria({
+      usuarioId: usuario.id,
+      acao: "ALTEROU_ATO",
+      entidade: "Ato",
+      entidadeId: atoId,
+      metadados: {
+        evento: "AGENDA",
+        de: ato.dataReservada?.toISOString() ?? null,
+        para: nova.toISOString(),
+        modalidade,
+      },
+    });
+
+    await ajustarSalaDoZoom(atoId, ato, modalidade, nova, usuario.id);
+  } catch (erro) {
+    if (erro instanceof ErroDeNegocio) return { erro: erro.message };
+    throw erro;
+  }
+
+  revalidatePath(`/atos/${atoId}`);
+  revalidatePath("/atos");
+  return {};
+}
+
+/**
+ * Lê o "AAAA-MM-DDTHH:MM" do input, que vem em hora de parede de São Paulo.
+ *
+ * Sem declarar o fuso, `new Date()` interpretaria no fuso do servidor — que em
+ * produção é o do container. Já mordeu neste projeto antes, e a sessão sairia
+ * na hora errada na Carta-Convite e no Zoom.
+ */
+function interpretarDataDaSessao(entrada: string): Date {
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(entrada)) {
+    throw new ErroDeNegocio("Data ou hora da sessão inválida.");
+  }
+  return fromZonedTime(`${entrada}:00`, FUSO);
+}
+
+function formatarDataHoraDaSessao(quando: Date): string {
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+    timeZone: FUSO,
+  }).format(quando);
+}
+
+/**
+ * Mantém a sala do Zoom coerente com a agenda.
+ *
+ * Passar a presencial cancela a sala; voltar para videoconferência cria uma.
+ * Mudar só a data remarca. Falha aqui não desfaz a alteração da agenda, que já
+ * está registrada — vira aviso na linha do tempo.
+ */
+async function ajustarSalaDoZoom(
+  atoId: string,
+  ato: { numero: string; idReuniao: string | null },
+  modalidade: ModalidadeSessao,
+  quando: Date,
+  usuarioId: string
+): Promise<void> {
+  if (!videoconferenciaAtiva()) return;
+
+  const precisaDeSala =
+    modalidade === ModalidadeSessao.VIDEOCONFERENCIA ||
+    modalidade === ModalidadeSessao.HIBRIDA;
+
+  const config = await configuracaoDoSistema();
+
+  try {
+    if (!precisaDeSala && ato.idReuniao) {
+      await cancelarReuniao(ato.idReuniao);
+      await db.ato.update({
+        where: { id: atoId },
+        data: { idReuniao: null, linkVideoconferencia: null, senhaReuniao: null },
+      });
+      await anotar(atoId, "Sessão passou a presencial: a sala do Zoom foi cancelada.", usuarioId);
+      return;
+    }
+
+    if (precisaDeSala && ato.idReuniao) {
+      await remarcarReuniao({
+        idReuniao: ato.idReuniao,
+        quando,
+        duracaoMinutos: config.duracaoSessaoMinutos,
+      });
+      await anotar(atoId, "Sala do Zoom remarcada para a nova data.", usuarioId);
+      return;
+    }
+
+    if (precisaDeSala && !ato.idReuniao) {
+      const reuniao = await criarReuniao({
+        numeroDoAto: ato.numero,
+        quando,
+        duracaoMinutos: config.duracaoSessaoMinutos,
+      });
+      await db.ato.update({
+        where: { id: atoId },
+        data: {
+          idReuniao: reuniao.idReuniao,
+          linkVideoconferencia: reuniao.link,
+          senhaReuniao: reuniao.senha,
+        },
+      });
+      await anotar(atoId, `Sala da videoconferência agendada no Zoom (reunião ${reuniao.idReuniao}).`, usuarioId);
+    }
+  } catch (erro) {
+    console.error("[zoom] falha ao ajustar a sala do ato", ato.numero, erro);
+    await anotar(
+      atoId,
+      "A agenda mudou, mas não foi possível ajustar a sala no Zoom. Confira o link antes de reenviar a Carta-Convite.",
+      usuarioId
+    );
+  }
+}
+
+async function anotar(atoId: string, descricao: string, usuarioId: string): Promise<void> {
+  await db.eventoAto.create({
+    data: { atoId, tipo: TipoEvento.OBSERVACAO, descricao, usuarioId },
+  });
 }

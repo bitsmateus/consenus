@@ -7,6 +7,7 @@ import { montarMenu } from "@/lib/menu";
 import { exigirUsuario } from "@/lib/sessao";
 import { segundoFatorPendente } from "@/lib/totp";
 import { sair } from "@/acoes/autenticacao";
+import { Avisos } from "@/components/ui/avisos";
 import { MenuLateral } from "./menu-lateral";
 import { MenuMobile } from "./menu-mobile";
 
@@ -96,6 +97,8 @@ export default async function LayoutDaAplicacao({ children }: { children: React.
         />
         {children}
       </div>
+
+      <Avisos />
     </div>
   );
 }

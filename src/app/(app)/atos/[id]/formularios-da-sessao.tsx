@@ -94,6 +94,15 @@ export function FormularioDaSessao({
         <p className="mt-1 text-xs text-carvao-300">
           Quem ficar desmarcado é registrado como ausente na ata.
         </p>
+
+        <div className="mt-3">
+          <Campo
+            rotulo="Outros presentes"
+            name="outrosPresentes"
+            placeholder="opcional — preposto, contador, intérprete"
+            dica="Separe por vírgula. Vai na lista de presentes da Ata."
+          />
+        </div>
       </fieldset>
 
       <fieldset className="mb-4">

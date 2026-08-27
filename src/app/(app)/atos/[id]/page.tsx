@@ -4,10 +4,12 @@ import { Papel, PapelNoAto, StatusAto } from "@prisma/client";
 import { removerParte } from "@/acoes/atos";
 import { CabecalhoDePagina } from "@/components/ui/cabecalho-de-pagina";
 import { Etiqueta } from "@/components/ui/etiqueta";
+import { ESTADOS_FINAIS } from "@/lib/autorizacao";
 import { buscarAto, listarPessoas } from "@/lib/consultas";
 import { formatarDocumento } from "@/lib/documentos";
 import {
   ROTULO_MODALIDADE,
+  paraCampoDeDataHora,
   ROTULO_PAPEL_NO_ATO,
   ROTULO_STATUS,
   ROTULO_TIPO_PROCURADOR,
@@ -22,6 +24,7 @@ import { FormularioDeVinculo } from "./vinculos";
 import { SecaoDeDocumentos } from "./secao-documentos";
 import { assinaturaDigitalAtiva } from "@/lib/d4sign";
 import { SecaoDeFluxo } from "./secao-fluxo";
+import { AgendaDoProcedimento } from "./agenda";
 import { TituloDoProcedimento } from "./titulo";
 
 export const metadata = { title: "Procedimento — Consensus One" };
@@ -47,6 +50,10 @@ export default async function PaginaDoAto({ params }: { params: Promise<{ id: st
   const disponiveis = equipe
     ? (await listarPessoas()).filter((p) => !jaVinculadas.has(p.id))
     : [];
+
+  // depois da sessão registrada a data é fato consumado: está na Ata
+  const podeAjustarAgenda =
+    !ESTADOS_FINAIS.includes(ato.status) && ato.status !== StatusAto.SESSAO_REALIZADA;
 
   const prazo = ato.prazoDocumentacaoAte;
   const situacao = prazo ? situacaoDoPrazo(prazo) : null;
@@ -272,6 +279,17 @@ export default async function PaginaDoAto({ params }: { params: Promise<{ id: st
                   </p>
                 )}
               </dl>
+
+              {equipe && podeAjustarAgenda && (
+                <div className="mt-3 border-t border-carvao-100 pt-3">
+                  <AgendaDoProcedimento
+                    atoId={ato.id}
+                    modalidade={ato.modalidade}
+                    dataDaSessao={paraCampoDeDataHora(ato.dataConfirmada ?? ato.dataReservada)}
+                    confirmada={ato.dataConfirmada !== null}
+                  />
+                </div>
+              )}
             </div>
 
             {prazo && (

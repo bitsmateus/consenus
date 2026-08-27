@@ -9,6 +9,7 @@ import {
   sessaoAntesDaDataMarcada,
   situacaoDoPrazo,
 } from "@/lib/prazos";
+import { paraCampoDeDataHora } from "@/lib/formato";
 
 const CRIACAO = new Date("2026-08-13T14:00:00-03:00");
 
@@ -155,5 +156,20 @@ describe("horário da sessão", () => {
   it("mudar o horário não muda o dia da sessão", () => {
     expect(diasRestantes(calcularDataDaSessao(CRIACAO, 20, "09:30"), CRIACAO)).toBe(20);
     expect(diasRestantes(calcularDataDaSessao(CRIACAO, 20, "23:00"), CRIACAO)).toBe(20);
+  });
+});
+
+describe("data da sessão no campo da tela", () => {
+  it("mostra hora de parede de São Paulo, não UTC", () => {
+    // 12/09/2026 às 14:00 em São Paulo é 17:00 UTC
+    expect(paraCampoDeDataHora(new Date("2026-09-12T17:00:00Z"))).toBe("2026-09-12T14:00");
+  });
+
+  it("não atrasa o dia quando o horário UTC já virou", () => {
+    expect(paraCampoDeDataHora(new Date("2026-09-13T01:00:00Z"))).toBe("2026-09-12T22:00");
+  });
+
+  it("sem data, campo vazio", () => {
+    expect(paraCampoDeDataHora(null)).toBe("");
   });
 });

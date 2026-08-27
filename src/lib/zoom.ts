@@ -12,6 +12,7 @@
  * consentimento): as credenciais são de conta, e o token vale uma hora.
  *   token    POST https://zoom.us/oauth/token?grant_type=account_credentials
  *   criar    POST https://api.zoom.us/v2/users/me/meetings
+ *   remarcar PATCH  https://api.zoom.us/v2/meetings/{id}
  *   cancelar DELETE https://api.zoom.us/v2/meetings/{id}
  *
  * A integração é OPCIONAL, como a da D4Sign: sem credencial o sistema segue
@@ -118,7 +119,7 @@ async function token(): Promise<string> {
 
 async function chamar(
   caminho: string,
-  metodo: "POST" | "DELETE",
+  metodo: "POST" | "PATCH" | "DELETE",
   corpo?: unknown
 ): Promise<string> {
   const resposta = await fetch(`${API}${caminho}`, {
@@ -166,6 +167,19 @@ export async function criarReuniao(params: {
     link: dados.join_url,
     senha: dados.password || null,
   };
+}
+
+/** A sessão mudou de data ou de duração: a sala precisa acompanhar. */
+export async function remarcarReuniao(params: {
+  idReuniao: string;
+  quando: Date;
+  duracaoMinutos: number;
+}): Promise<void> {
+  await chamar(`/meetings/${params.idReuniao}`, "PATCH", {
+    start_time: instanteParaZoom(params.quando),
+    timezone: FUSO,
+    duration: params.duracaoMinutos,
+  });
 }
 
 export async function cancelarReuniao(idReuniao: string): Promise<void> {

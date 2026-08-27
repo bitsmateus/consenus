@@ -164,6 +164,9 @@ model Ato {
   motivoPrejudicada String?
   observacoesSessao String?
 
+  /// quem mais participou da sessão além das partes vinculadas — vai na Ata
+  outrosPresentes   String?
+
   // prazos calculados na criação, a partir de ConfiguracaoSistema
   prazoDocumentacaoAte DateTime? @db.Timestamptz(3)
 

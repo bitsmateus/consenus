@@ -265,6 +265,7 @@ const sessao = z.object({
   desfecho: z.nativeEnum(DesfechoSessao),
   motivoPrejudicada: z.string().trim().optional(),
   observacoesSessao: z.string().trim().optional(),
+  outrosPresentes: z.string().trim().max(500).optional(),
   // caixa marcada na tela quando a sessão é registrada antes da data marcada
   confirmaAntecipacao: z.string().optional(),
 });
@@ -302,6 +303,7 @@ export async function registrarSessao(
     desfecho,
     motivoPrejudicada,
     observacoesSessao,
+    outrosPresentes,
     confirmaAntecipacao,
   } = analise.data;
 
@@ -354,6 +356,7 @@ export async function registrarSessao(
           desfecho,
           motivoPrejudicada: motivoPrejudicada || null,
           observacoesSessao: observacoesSessao || null,
+          outrosPresentes: outrosPresentes || null,
         },
       });
 
@@ -443,7 +446,15 @@ export async function gerarAta(entrada: FormData): Promise<void> {
         horaVerificacao: formatarHora(ato.horaInicio),
         horaEncerramento: formatarHora(ato.horaEncerramento),
         modalidade: ROTULO_MODALIDADE[ato.modalidade],
-        presentes: ato.partes.filter((p) => p.compareceu).map((p) => p.pessoa.nome),
+        presentes: [
+          ...ato.partes.filter((p) => p.compareceu).map((p) => p.pessoa.nome),
+          // quem participou sem estar vinculado ao procedimento: preposto,
+          // contador, intérprete. Vai na mesma lista, que é o que a Ata prova.
+          ...(ato.outrosPresentes ?? "")
+            .split(",")
+            .map((nome) => nome.trim())
+            .filter(Boolean),
+        ],
         ausentes: ato.partes.filter((p) => p.compareceu === false).map((p) => p.pessoa.nome),
         desfecho: desfechoRegistrado as Desfecho,
         motivoPrejudicada: ato.motivoPrejudicada,

@@ -94,3 +94,24 @@ export const TOM_DO_STATUS: Record<StatusAto, TomDeStatus> = {
   SESSAO_PREJUDICADA: "encerrado",
   CANCELADO: "encerrado",
 };
+
+/**
+ * Instante no formato que o input `datetime-local` espera, em hora de parede
+ * de São Paulo.
+ *
+ * O input não tem fuso: ele mostra e devolve exatamente o texto que recebe.
+ * Formatar em UTC faria a sessão das 14h aparecer como 17h para o operador.
+ */
+export function paraCampoDeDataHora(data: Date | null | undefined): string {
+  if (!data) return "";
+  const partes = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: FUSO,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(data);
+  return partes.replace(" ", "T");
+}
