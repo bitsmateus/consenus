@@ -23,7 +23,7 @@ Prazo contratual: 15 a 20 dias corridos da assinatura.
 - [x] Criação do ato com numeração automática
 - [x] Vínculo de partes: solicitante, convidado e procuradores dos dois lados
 - [x] Naturezas de procurador: advogado, escritório, consultoria e representante
-- [x] Cálculo automático de D+20 e do prazo de 15 dias (ver docs/09, item 1)
+- [x] Cálculo automático de D+30 e do prazo de 15 dias (ver docs/09, item 1)
 - [x] Painel com listagem, busca por CPF/CNPJ/OAB e filtros por status
 - [x] Filtro por procurador, com contagem por representante
 - [x] Gestão de usuários e permissões

@@ -151,7 +151,7 @@ const PESSOAS: DadosDePessoa[] = [
     tipo: TipoPessoa.JURIDICA,
     nome: "Vértice Consultoria Empresarial Ltda",
     documento: cnpj("555666770001"),
-    tipoProcurador: TipoProcurador.EMPRESA_CONSULTORIA,
+    tipoProcurador: TipoProcurador.CONSULTORIA,
     cidade: "Campinas",
     uf: "SP",
   },
@@ -305,7 +305,7 @@ async function main() {
       id: 1,
       nomeCamara: "Consensus One",
       prazoDocumentacaoDias: 15,
-      diasAteSessao: 20,
+      diasAteSessao: 30,
       urlVerificacao: "http://localhost:3000/verificar",
     },
   });

@@ -1,11 +1,17 @@
 /**
- * Vincular o procurador já na abertura do procedimento.
+ * Vincular o procurador já na abertura do procedimento, e confirmar ou
+ * corrigir o contato usado no envio da Carta-Convite.
  *
  * Pedido do cliente em 28/08: antes só dava para vincular procurador DEPOIS
  * de criar o procedimento, na tela dele ("Vincular", abaixo da lista de
  * partes). Agora a tela "Novo procedimento" tem uma seção opcional para isso,
  * logo após Solicitante e Convidado — com as duas variantes de sempre:
  * escolher alguém já cadastrado, ou cadastrar na hora.
+ *
+ * No mesmo pedido: e-mail e telefone do Solicitante e do Convidado aparecem
+ * editáveis assim que a pessoa é escolhida, porque o contato usado na Carta-
+ * Convite pode ser diferente do que está no cadastro e muda com frequência —
+ * confirmar ou corrigir na abertura atualiza o cadastro da pessoa.
  */
 import { expect, test } from "@playwright/test";
 import { CONTAS, cnpjValido, cpfValido, db, entrar } from "./apoio";
@@ -81,12 +87,19 @@ test.describe("procurador vinculado na abertura", () => {
 
     await page.goto("/atos/novo");
     const escolher = async (rotulo: string, texto: string) => {
-      const campo = page.getByLabel(rotulo, { exact: true });
-      const valor = await campo.locator("option", { hasText: texto }).first().getAttribute("value");
-      await campo.selectOption(valor!);
+      // campo de busca de pessoa: digita e clica na opção filtrada
+      await page.getByLabel(rotulo, { exact: true }).fill(texto);
+      await page.getByRole("option", { name: texto }).first().click();
     };
     await escolher("Interessado Solicitante", solicitante);
     await escolher("Interessado Convidado", convidado);
+
+    // as pessoas foram cadastradas sem e-mail/telefone: os campos de contato
+    // aparecem vazios, e o operador confirma ou corrige na hora da abertura
+    const emailSolicitante = `solicitante.${MARCA}@exemplo.test`;
+    const telefoneConvidado = "11988887777";
+    await page.getByLabel("E-mail do Solicitante").fill(emailSolicitante);
+    await page.getByLabel("Telefone do Convidado").fill(telefoneConvidado);
 
     await page.getByLabel("Representa").selectOption({ label: "Interessado Solicitante" });
     await page.getByRole("button", { name: "A pessoa não está cadastrada" }).click();
@@ -106,6 +119,12 @@ test.describe("procurador vinculado na abertura", () => {
 
     const pessoa = await db.pessoa.findUnique({ where: { documento: cpfProcurador } });
     expect(pessoa?.tipoProcurador).toBe("ADVOGADO");
+
+    // o contato confirmado/corrigido na abertura foi gravado no cadastro
+    const pessoaSolicitante = await db.pessoa.findUnique({ where: { documento: cpfSolicitante } });
+    const pessoaConvidado = await db.pessoa.findUnique({ where: { documento: cnpjConvidado } });
+    expect(pessoaSolicitante?.email).toBe(emailSolicitante);
+    expect(pessoaConvidado?.telefone).toBe(telefoneConvidado);
   });
 
   test("recusa quando o procurador é a mesma pessoa que o Solicitante ou o Convidado", async ({
@@ -134,9 +153,9 @@ test.describe("procurador vinculado na abertura", () => {
 
     await page.goto("/atos/novo");
     const escolher = async (rotulo: string, texto: string) => {
-      const campo = page.getByLabel(rotulo, { exact: true });
-      const valor = await campo.locator("option", { hasText: texto }).first().getAttribute("value");
-      await campo.selectOption(valor!);
+      // campo de busca de pessoa: digita e clica na opção filtrada
+      await page.getByLabel(rotulo, { exact: true }).fill(texto);
+      await page.getByRole("option", { name: texto }).first().click();
     };
     await escolher("Interessado Solicitante", solicitante);
     await escolher("Interessado Convidado", convidado);

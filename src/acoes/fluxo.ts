@@ -23,7 +23,7 @@ import { exigirAcessoAoAto, exigirEquipe } from "@/lib/sessao";
 import { cartaAoConvidado } from "@/documentos/carta-convite";
 import { ataDaSessao, type Desfecho } from "@/documentos/ata";
 import { termoDeAcordo } from "@/documentos/termo-acordo";
-import { ROTULO_MODALIDADE } from "@/lib/formato";
+import { formatarRepresentantes, ROTULO_MODALIDADE } from "@/lib/formato";
 
 export type EstadoDeFormulario = { erro?: string; aviso?: string };
 
@@ -193,7 +193,11 @@ export async function emitirCartaAoConvidado(entrada: FormData): Promise<void> {
 
   const ato = await db.ato.findUnique({
     where: { id: atoId },
-    include: { partes: { include: { pessoa: { select: { nome: true } } } } },
+    include: {
+      partes: {
+        include: { pessoa: { select: { nome: true, tipoProcurador: true } } },
+      },
+    },
   });
   if (!ato) throw new ErroDeNegocio("Procedimento não encontrado.");
 
@@ -208,6 +212,17 @@ export async function emitirCartaAoConvidado(entrada: FormData): Promise<void> {
   const convidado = ato.partes.find((p) => p.papel === PapelNoAto.CONVIDADO);
   if (!solicitante || !convidado) throw new FluxoInvalido("Interessados não vinculados.");
 
+  const procuradorSolicitante = formatarRepresentantes(
+    ato.partes
+      .filter((p) => p.papel === PapelNoAto.PROCURADOR && p.representaId === solicitante.id)
+      .map((p) => p.pessoa)
+  );
+  const procuradorConvidado = formatarRepresentantes(
+    ato.partes
+      .filter((p) => p.papel === PapelNoAto.PROCURADOR && p.representaId === convidado.id)
+      .map((p) => p.pessoa)
+  );
+
   const config = await configuracaoDoSistema();
 
   const { codigo } = await emitirDocumento({
@@ -220,6 +235,8 @@ export async function emitirCartaAoConvidado(entrada: FormData): Promise<void> {
         codigo,
         solicitante: solicitante.pessoa.nome,
         convidado: convidado.pessoa.nome,
+        procuradorSolicitante,
+        procuradorConvidado,
         objeto: ato.objeto,
         dataDaSessao: formatarData(ato.dataConfirmada),
         horaDaSessao: formatarHora(ato.dataConfirmada),

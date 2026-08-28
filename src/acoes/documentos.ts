@@ -19,7 +19,7 @@ import { emitirDocumento } from "@/lib/emissao";
 import { baixarArquivo, enviarArquivo, gerarUrlDeDownload, montarChave } from "@/lib/storage";
 import { exigirAcessoAoAto, exigirEquipe } from "@/lib/sessao";
 import { cartaAoSolicitante } from "@/documentos/carta-convite";
-import { ROTULO_MODALIDADE } from "@/lib/formato";
+import { formatarRepresentantes, ROTULO_MODALIDADE } from "@/lib/formato";
 export type EstadoDeFormulario = { erro?: string; aviso?: string };
 function formatarData(data: Date | null): string {
   if (!data) return "a designar";
@@ -57,7 +57,11 @@ export async function emitirCartaAoSolicitante(entrada: FormData): Promise<void>
   await exigirAcessoAoAto(atoId, db);
   const ato = await db.ato.findUnique({
     where: { id: atoId },
-    include: { partes: { include: { pessoa: { select: { nome: true } } } } },
+    include: {
+      partes: {
+        include: { pessoa: { select: { nome: true, tipoProcurador: true } } },
+      },
+    },
   });
   if (!ato) throw new ErroDeNegocio("Procedimento não encontrado.");
   if (ato.status !== StatusAto.RASCUNHO) {
@@ -72,6 +76,16 @@ export async function emitirCartaAoSolicitante(entrada: FormData): Promise<void>
       "O procedimento precisa ter Interessado Solicitante e Interessado Convidado antes da emissão."
     );
   }
+  const procuradorSolicitante = formatarRepresentantes(
+    ato.partes
+      .filter((p) => p.papel === PapelNoAto.PROCURADOR && p.representaId === solicitante.id)
+      .map((p) => p.pessoa)
+  );
+  const procuradorConvidado = formatarRepresentantes(
+    ato.partes
+      .filter((p) => p.papel === PapelNoAto.PROCURADOR && p.representaId === convidado.id)
+      .map((p) => p.pessoa)
+  );
   const config = await configuracaoDoSistema();
   const emitidoEm = new Date();
   const { codigo } = await emitirDocumento({
@@ -84,6 +98,8 @@ export async function emitirCartaAoSolicitante(entrada: FormData): Promise<void>
         codigo,
         solicitante: solicitante.pessoa.nome,
         convidado: convidado.pessoa.nome,
+        procuradorSolicitante,
+        procuradorConvidado,
         objeto: ato.objeto,
         dataDaSessao: formatarData(ato.dataConfirmada ?? ato.dataReservada),
         horaDaSessao: formatarHora(ato.dataConfirmada ?? ato.dataReservada),

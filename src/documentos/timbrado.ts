@@ -133,6 +133,7 @@ export const ESTILO_DO_CORPO = `
   .parte { margin: 0 0 3mm; }
   .parte .rotulo { font-size: 8.5pt; color: ${DOURADO}; text-transform: uppercase; letter-spacing: .4pt; }
   .parte .nome { font-weight: bold; }
+  .parte .procurador { font-size: 9pt; color: #4A4A4A; margin-top: .5mm; }
   .sessao { border: .4pt solid #E4E1DA; padding: 4mm; margin: 3mm 0; }
   .sessao dl { margin: 0; }
   .sessao dt { font-size: 8.5pt; color: ${DOURADO}; text-transform: uppercase; letter-spacing: .3pt; }

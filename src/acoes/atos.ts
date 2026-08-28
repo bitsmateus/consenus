@@ -32,6 +32,13 @@ const TENTATIVAS_DE_NUMERACAO = 5;
 const criacao = z.object({
   solicitanteId: z.string().min(1, "Selecione o Interessado Solicitante."),
   convidadoId: z.string().min(1, "Selecione o Interessado Convidado."),
+  // dados de contato usados no envio da Carta-Convite — pedido do cliente em
+  // 28/08: podem ser diferentes do que está no cadastro, e mudam com
+  // frequência, então a tela deixa confirmar ou corrigir na hora da abertura
+  solicitanteEmail: z.union([z.string().trim().email("E-mail do Interessado Solicitante inválido."), z.literal("")]).optional(),
+  solicitanteTelefone: z.string().trim().optional(),
+  convidadoEmail: z.union([z.string().trim().email("E-mail do Interessado Convidado inválido."), z.literal("")]).optional(),
+  convidadoTelefone: z.string().trim().optional(),
   objeto: z.string().trim().max(2000).optional(),
   modalidade: z.nativeEnum(ModalidadeSessao).optional(),
   observacoes: z.string().trim().max(2000).optional(),
@@ -79,6 +86,10 @@ export async function criarAto(
   const {
     solicitanteId,
     convidadoId,
+    solicitanteEmail,
+    solicitanteTelefone,
+    convidadoEmail,
+    convidadoTelefone,
     objeto,
     modalidade,
     observacoes,
@@ -98,6 +109,14 @@ export async function criarAto(
       campo: "convidadoId",
     };
   }
+
+  // Contato confirmado ou corrigido na abertura vale para o cadastro: é o que
+  // a Carta-Convite vai usar no envio, e é o que fica valendo dali para a
+  // frente também, até a próxima correção.
+  await Promise.all([
+    atualizarContatoSeMudou(solicitanteId, solicitanteEmail, solicitanteTelefone, usuario.id),
+    atualizarContatoSeMudou(convidadoId, convidadoEmail, convidadoTelefone, usuario.id),
+  ]);
 
   // Resolvido ANTES da transação de numeração: se o operador cadastrou o
   // procurador na hora, a pessoa só precisa nascer uma vez, mesmo que a
@@ -753,5 +772,37 @@ async function ajustarSalaDoZoom(
 async function anotar(atoId: string, descricao: string, usuarioId: string): Promise<void> {
   await db.eventoAto.create({
     data: { atoId, tipo: TipoEvento.OBSERVACAO, descricao, usuarioId },
+  });
+}
+
+/**
+ * Atualiza e-mail/telefone do cadastro quando o operador confirma ou corrige
+ * o contato na abertura do procedimento. Só grava (e só audita) quando algum
+ * dos dois muda de fato — o campo vem pré-preenchido com o valor atual, então
+ * a maioria das aberturas passa por aqui sem escrever nada.
+ */
+async function atualizarContatoSeMudou(
+  pessoaId: string,
+  emailNovo: string | undefined,
+  telefoneNovo: string | undefined,
+  usuarioId: string
+): Promise<void> {
+  const atual = await db.pessoa.findUnique({
+    where: { id: pessoaId },
+    select: { email: true, telefone: true },
+  });
+  if (!atual) return;
+
+  const email = emailNovo || null;
+  const telefone = telefoneNovo?.trim() || null;
+  if (email === atual.email && telefone === atual.telefone) return;
+
+  await db.pessoa.update({ where: { id: pessoaId }, data: { email, telefone } });
+  await registrarAuditoria({
+    usuarioId,
+    acao: "ALTEROU_PESSOA",
+    entidade: "Pessoa",
+    entidadeId: pessoaId,
+    metadados: { evento: "CONTATO_PARA_CARTA_CONVITE" },
   });
 }

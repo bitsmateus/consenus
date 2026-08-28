@@ -15,6 +15,10 @@ export type DadosDaCarta = {
   codigo: string;
   solicitante: string;
   convidado: string;
+  /** Procurador(es) do Interessado Solicitante, quando há — nome e natureza já formatados. */
+  procuradorSolicitante?: string | null;
+  /** Procurador(es) do Interessado Convidado, quando há — nome e natureza já formatados. */
+  procuradorConvidado?: string | null;
   objeto: string | null;
   dataDaSessao: string;
   horaDaSessao: string;
@@ -162,11 +166,13 @@ function identificacaoEObjeto(dados: DadosDaCarta): string {
 <div class="parte">
   <div class="rotulo">Interessado Solicitante</div>
   <div class="nome">${escapar(dados.solicitante)}</div>
+  ${dados.procuradorSolicitante ? `<div class="procurador">Representado(a) por: ${escapar(dados.procuradorSolicitante)}</div>` : ""}
 </div>
 
 <div class="parte">
   <div class="rotulo">Interessado Convidado</div>
   <div class="nome">${escapar(dados.convidado)}</div>
+  ${dados.procuradorConvidado ? `<div class="procurador">Representado(a) por: ${escapar(dados.procuradorConvidado)}</div>` : ""}
 </div>
 
 <h2>Objeto do procedimento</h2>

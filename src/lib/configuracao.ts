@@ -10,7 +10,7 @@ const PADRAO = {
   nomeCamara: "Consensus One",
   prazoDocumentacaoDias: 15,
   horasAvisoModalidade: 48,
-  diasAteSessao: 20,
+  diasAteSessao: 30,
   horaDaSessao: "14:00",
   duracaoSessaoMinutos: 90,
 };

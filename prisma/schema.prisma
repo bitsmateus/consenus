@@ -66,8 +66,9 @@ enum TipoPessoa {
 enum TipoProcurador {
   ADVOGADO // pessoa física com OAB
   ESCRITORIO_ADVOCACIA // pessoa jurídica
-  EMPRESA_CONSULTORIA // consultoria que encaminha o caso
-  REPRESENTANTE_EMPRESA // pessoa física que representa a consultoria/empresa
+  EMPRESA // empresa que é parte interessada e atua como sua própria procuradora
+  CONSULTORIA // consultoria contratada que encaminha o caso
+  REPRESENTANTE_EMPRESA // pessoa física que representa a empresa/consultoria
 }
 
 model Pessoa {
@@ -522,7 +523,7 @@ model ConfiguracaoSistema {
   prazoDocumentacaoDias Int      @default(15)
   /// aviso mínimo para mudar a modalidade da sessão
   horasAvisoModalidade  Int      @default(48)
-  diasAteSessao         Int      @default(20)
+  diasAteSessao         Int      @default(30)
   /// horário padrão da sessão, usado na Carta-Convite e no agendamento do Zoom
   horaDaSessao          String   @default("14:00")
   /// duração prevista, para a reunião do Zoom nascer com fim previsto

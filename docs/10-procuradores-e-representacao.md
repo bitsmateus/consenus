@@ -21,8 +21,18 @@ protótipo. Muda o modelo de acesso externo do sistema.
 |---|---|---|
 | **Advogado** | CPF + OAB | Dra. Helena Vasconcelos, OAB/SP 214.887 |
 | **Escritório de advocacia** | CNPJ + OAB | Menezes Advogados Associados |
-| **Empresa ou consultoria** | CNPJ | Vértice Consultoria Empresarial Ltda |
-| **Representante da empresa** | CPF | pessoa física vinculada à consultoria |
+| **Empresa** | CNPJ | a própria empresa interessada, atuando como sua procuradora |
+| **Consultoria** | CNPJ | Vértice Consultoria Empresarial Ltda |
+| **Representante da empresa** | CPF | pessoa física vinculada à empresa/consultoria |
+
+> **"Empresa" e "Consultoria" viraram naturezas separadas em 28/08/2026,** a
+> pedido do cliente. O item 1 da citação acima as trata como sinônimo
+> ("uma empresa (consultoria)"), mas os itens 3 e 4 já as listavam separadas
+> ("empresa, consultoria, escritório de advocacia ou advogado") — a separação
+> só formaliza o que o próprio requisito original já sugeria. Cadastro antigo
+> com o valor combinado (`EMPRESA_CONSULTORIA`) foi migrado para
+> **Consultoria**, por ser a leitura mais próxima do único exemplo em uso até
+> então. Confira se algum deveria ter sido **Empresa**.
 
 Qualquer uma delas pode representar **o Solicitante ou o Convidado**, e o mesmo
 procurador pode estar dos dois lados em procedimentos diferentes.

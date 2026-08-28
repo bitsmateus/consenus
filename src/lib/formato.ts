@@ -37,9 +37,24 @@ export const ROTULO_PAPEL_NO_ATO: Record<PapelNoAto, string> = {
 export const ROTULO_TIPO_PROCURADOR: Record<TipoProcurador, string> = {
   ADVOGADO: "Advogado",
   ESCRITORIO_ADVOCACIA: "Escritório de advocacia",
-  EMPRESA_CONSULTORIA: "Empresa ou consultoria",
+  EMPRESA: "Empresa",
+  CONSULTORIA: "Consultoria",
   REPRESENTANTE_EMPRESA: "Representante da empresa",
 };
+
+/**
+ * Nome(s) do(s) procurador(es) de uma parte, para exibir na Carta-Convite.
+ * A carta traz o procurador quando há um vinculado — nunca é obrigatório,
+ * por isso devolve `null` quando a lista vem vazia.
+ */
+export function formatarRepresentantes(
+  procuradores: { nome: string; tipoProcurador: TipoProcurador | null }[]
+): string | null {
+  if (procuradores.length === 0) return null;
+  return procuradores
+    .map((p) => (p.tipoProcurador ? `${p.nome} (${ROTULO_TIPO_PROCURADOR[p.tipoProcurador]})` : p.nome))
+    .join("; ");
+}
 
 export const ROTULO_PAPEL: Record<Papel, string> = {
   ADMIN: "Administrador",

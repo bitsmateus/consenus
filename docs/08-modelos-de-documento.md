@@ -48,6 +48,7 @@ solicitação, reserva a data e **pede a documentação**.
 | `{{codigo_documento}}` | gerado na emissão |
 | `{{interessado_solicitante}}` | `ParteDoAto` papel SOLICITANTE |
 | `{{interessado_convidado}}` | `ParteDoAto` papel CONVIDADO |
+| `{{procurador_solicitante}}` `{{procurador_convidado}}` | `ParteDoAto` papel PROCURADOR, pelo `representaId` — nome e natureza; aparece só quando há procurador vinculado |
 | `{{objeto_procedimento}}` | `Ato.objeto` |
 | `{{data_sessao}}` `{{hora_sessao}}` | `Ato.dataReservada` |
 | `{{link_sessao}}` `{{id_reuniao}}` `{{senha_reuniao}}` | `Ato.*` |
@@ -76,6 +77,15 @@ não apenas "recebeu ou não":
 > estabelecido impedirá a confirmação da sessão e a expedição da Carta-Convite ao
 > Interessado Convidado, podendo acarretar o encerramento administrativo do
 > cadastro."* — é exatamente a regra do botão **Cancelar o ato**.
+
+> **Nota de 28/08 — procurador na identificação das partes.** Pedido do
+> cliente: quando o Solicitante ou o Convidado tem procurador, advogado ou
+> representante de empresa vinculado, o nome dele passa a aparecer logo abaixo
+> do nome da parte, na seção "Identificação dos interessados" — natureza entre
+> parênteses (ex.: "Representado(a) por: Fulano de Tal (Advogado)"). Não é
+> texto do modelo original em `assets/modelos/`: é um dado de identificação
+> igual ao nome das partes, e só aparece quando existe o vínculo, já que o
+> procurador continua opcional. Mesma variável nas duas cartas (item 2 abaixo).
 
 ---
 

@@ -49,6 +49,8 @@ export default async function PaginaDeNovoAto() {
           pessoas={pessoas.map((p) => ({
             id: p.id,
             rotulo: `${p.nome} — ${formatarDocumento(p.documento)}`,
+            email: p.email,
+            telefone: p.telefone,
           }))}
         />
       </div>

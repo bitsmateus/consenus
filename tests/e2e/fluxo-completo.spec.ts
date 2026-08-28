@@ -90,9 +90,9 @@ test.describe("um procedimento do cadastro ao arquivamento", () => {
     // abertura do procedimento
     await page.goto("/atos/novo");
     const escolher = async (rotulo: string, texto: string) => {
-      const campo = page.getByLabel(rotulo, { exact: true });
-      const valor = await campo.locator("option", { hasText: texto }).first().getAttribute("value");
-      await campo.selectOption(valor!);
+      // campo de busca de pessoa: digita e clica na opção filtrada
+      await page.getByLabel(rotulo, { exact: true }).fill(texto);
+      await page.getByRole("option", { name: texto }).first().click();
     };
     await escolher("Interessado Solicitante", SOLICITANTE);
     await escolher("Interessado Convidado", CONVIDADO);
@@ -204,7 +204,7 @@ test.describe("um procedimento do cadastro ao arquivamento", () => {
     await page.getByLabel("Hora de encerramento").fill("15:30");
     await page.getByLabel("Desfecho").selectOption({ label: "Composição consensual integral" });
 
-    // A sessão é sempre D+20, então aqui ela ainda não chegou. Sem confirmar a
+    // A sessão é sempre D+30, então aqui ela ainda não chegou. Sem confirmar a
     // antecipação, o servidor recusa — registrar lavra ata e libera documento
     // ao Interessado, e não pode acontecer por descuido.
     await page.getByRole("button", { name: "Registrar sessão" }).click();

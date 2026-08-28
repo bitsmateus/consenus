@@ -22,7 +22,7 @@ let procuradorB: string;
 async function criarPessoa(nome: string, documento: string, natureza?: TipoProcurador) {
   const pessoa = await db.pessoa.create({
     data: {
-      tipo: natureza === TipoProcurador.EMPRESA_CONSULTORIA ? TipoPessoa.JURIDICA : TipoPessoa.FISICA,
+      tipo: natureza === TipoProcurador.CONSULTORIA ? TipoPessoa.JURIDICA : TipoPessoa.FISICA,
       nome: `${nome} ${MARCA}`,
       documento,
       tipoProcurador: natureza ?? null,
@@ -58,7 +58,7 @@ beforeAll(async () => {
 
   solicitante = await criarPessoa("Solicitante", `${MARCA}01`);
   procuradorA = await criarPessoa("Procuradora A", `${MARCA}02`, TipoProcurador.ADVOGADO);
-  procuradorB = await criarPessoa("Procurador B", `${MARCA}03`, TipoProcurador.EMPRESA_CONSULTORIA);
+  procuradorB = await criarPessoa("Procurador B", `${MARCA}03`, TipoProcurador.CONSULTORIA);
 });
 
 afterAll(async () => {

@@ -59,10 +59,13 @@ export function conferirCoerencia(dados: z.infer<typeof esquemaDePessoa>) {
 
   const exigeCnpj =
     natureza === TipoProcurador.ESCRITORIO_ADVOCACIA ||
-    natureza === TipoProcurador.EMPRESA_CONSULTORIA;
+    natureza === TipoProcurador.EMPRESA ||
+    natureza === TipoProcurador.CONSULTORIA;
 
   if (exigeCnpj && ehCpf) {
-    throw new ErroDeNegocio("Escritório de advocacia e consultoria são cadastrados com CNPJ.");
+    throw new ErroDeNegocio(
+      "Escritório de advocacia, empresa e consultoria são cadastrados com CNPJ."
+    );
   }
   if (!exigeCnpj && !ehCpf) {
     throw new ErroDeNegocio("Advogado e representante de empresa são cadastrados com CPF.");

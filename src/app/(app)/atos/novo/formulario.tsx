@@ -6,6 +6,7 @@ import { criarAto, type EstadoDeFormulario } from "@/acoes/atos";
 import { Botao } from "@/components/ui/botao";
 import { Campo } from "@/components/ui/campo";
 import { Selecao } from "@/components/ui/selecao";
+import { SeletorDePessoa } from "@/components/ui/seletor-de-pessoa";
 import { ROTULO_MODALIDADE, ROTULO_TIPO_PROCURADOR } from "@/lib/formato";
 
 export function FormularioDeNovoAto({
@@ -13,7 +14,7 @@ export function FormularioDeNovoAto({
   diasAteSessao,
   prazoDocumentacaoDias,
 }: {
-  pessoas: { id: string; rotulo: string }[];
+  pessoas: { id: string; rotulo: string; email: string | null; telefone: string | null }[];
   diasAteSessao: number;
   prazoDocumentacaoDias: number;
 }) {
@@ -21,8 +22,11 @@ export function FormularioDeNovoAto({
   const [representa, setRepresenta] = useState<"" | "solicitante" | "convidado">("");
   const [procuradorNovo, setProcuradorNovo] = useState(false);
   const [natureza, setNatureza] = useState<TipoProcurador | "">("");
+  const [solicitanteId, setSolicitanteId] = useState("");
+  const [convidadoId, setConvidadoId] = useState("");
 
-  const opcoes = pessoas.map((p) => ({ valor: p.id, rotulo: p.rotulo }));
+  const contatoDe = (id: string) => pessoas.find((p) => p.id === id) ?? null;
+
   const ehAdvogado =
     natureza === TipoProcurador.ADVOGADO || natureza === TipoProcurador.ESCRITORIO_ADVOCACIA;
 
@@ -37,23 +41,59 @@ export function FormularioDeNovoAto({
         </p>
       )}
 
-      <Selecao
+      <SeletorDePessoa
         rotulo="Interessado Solicitante"
         name="solicitanteId"
-        vazio="Selecione"
-        opcoes={opcoes}
+        pessoas={pessoas}
         dica="Quem provoca o procedimento."
         required
+        aoSelecionar={setSolicitanteId}
       />
+      {solicitanteId && (
+        <div className="mb-4 grid gap-x-3 sm:grid-cols-2">
+          <Campo
+            key={`solicitante-email-${solicitanteId}`}
+            rotulo="E-mail do Solicitante"
+            name="solicitanteEmail"
+            type="email"
+            defaultValue={contatoDe(solicitanteId)?.email ?? ""}
+            dica="Usado no envio da Carta-Convite. Confira ou corrija."
+          />
+          <Campo
+            key={`solicitante-telefone-${solicitanteId}`}
+            rotulo="Telefone do Solicitante"
+            name="solicitanteTelefone"
+            defaultValue={contatoDe(solicitanteId)?.telefone ?? ""}
+          />
+        </div>
+      )}
 
-      <Selecao
+      <SeletorDePessoa
         rotulo="Interessado Convidado"
         name="convidadoId"
-        vazio="Selecione"
-        opcoes={opcoes}
+        pessoas={pessoas}
         dica="A outra parte."
         required
+        aoSelecionar={setConvidadoId}
       />
+      {convidadoId && (
+        <div className="mb-4 grid gap-x-3 sm:grid-cols-2">
+          <Campo
+            key={`convidado-email-${convidadoId}`}
+            rotulo="E-mail do Convidado"
+            name="convidadoEmail"
+            type="email"
+            defaultValue={contatoDe(convidadoId)?.email ?? ""}
+            dica="Usado no envio da Carta-Convite. Confira ou corrija."
+          />
+          <Campo
+            key={`convidado-telefone-${convidadoId}`}
+            rotulo="Telefone do Convidado"
+            name="convidadoTelefone"
+            defaultValue={contatoDe(convidadoId)?.telefone ?? ""}
+          />
+        </div>
+      )}
 
       <fieldset className="mb-4 rounded-lg border border-carvao-100 p-4">
         <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-carvao-500">
@@ -111,13 +151,7 @@ export function FormularioDeNovoAto({
                 <input type="hidden" name="procuradorNovo" value="true" />
               </div>
             ) : (
-              <Selecao
-                rotulo="Procurador"
-                name="procuradorPessoaId"
-                vazio="Selecione"
-                opcoes={opcoes}
-                required
-              />
+              <SeletorDePessoa rotulo="Procurador" name="procuradorPessoaId" pessoas={pessoas} required />
             )}
 
             <button

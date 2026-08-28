@@ -27,7 +27,7 @@ respeitar exatamente esta sequência e os bloqueios entre passos.
      │  enviada por AR digital · laudo arquivado
      ▼
 [5] Sessão e documentos do ato
-        realizada por videoconferência na data confirmada (D+20)
+        realizada por videoconferência na data confirmada (D+30)
         ATA          → obrigatória, sempre, mesmo sem comparecimento
                        ou sem acordo
         TERMO ACORDO → opcional, só quando há acordo
@@ -54,7 +54,7 @@ respeitar exatamente esta sequência e os bloqueios entre passos.
 | Prazo | Padrão | Conta a partir de | Onde fica |
 |---|---|---|---|
 | Envio da documentação pelo Interessado Solicitante | 15 dias corridos | **recebimento** da 1ª carta | `ConfiguracaoSistema.prazoDocumentacaoDias` |
-| Data da sessão | 20 dias corridos | criação do ato | `ConfiguracaoSistema.diasAteSessao` |
+| Data da sessão | 30 dias corridos | criação do ato | `ConfiguracaoSistema.diasAteSessao` |
 
 Nunca fixe esses números no código. São 15 dias, confirmados pelo cliente em
 14/08/2026 (`docs/09`, item 1).

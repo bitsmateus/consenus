@@ -11,7 +11,7 @@ import { ROTULO_MODALIDADE } from "@/lib/formato";
 /**
  * Ajuste da agenda: modalidade e data da sessão.
  *
- * Pedido do cliente em 24/08. A data continua nascendo em D+20 — isto é para
+ * Pedido do cliente em 24/08. A data continua nascendo em D+30 — isto é para
  * corrigir engano e para remarcação combinada entre as partes, não para
  * substituir o cálculo automático.
  */
