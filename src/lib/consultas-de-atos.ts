@@ -9,10 +9,12 @@
  * Quem compõe isso com a sessão do usuário é `consultas.ts` — use aquele nas
  * páginas (CLAUDE.md, regra 3).
  */
+import { addDays } from "date-fns";
 import { PapelNoAto, Prisma, StatusAto } from "@prisma/client";
 import { ESTADOS_FINAIS } from "./autorizacao";
 import { db } from "./db";
 import { apenasDigitos } from "./documentos";
+import { inicioDoDiaOuIndefinido } from "./prazos";
 
 export type FiltrosDeAtos = {
   busca?: string;
@@ -24,6 +26,13 @@ export type FiltrosDeAtos = {
    * filtrada em vez de despejar tudo.
    */
   situacao?: "em_andamento" | "prazo_vencido";
+  /**
+   * Intervalo pela data da sessão — a confirmada quando existe, senão a
+   * reservada, a mesma que aparece na lista. "AAAA-MM-DD", de um
+   * `<input type="date">`; inválido ou vazio é ignorado, não é erro.
+   */
+  dataDe?: string;
+  dataAte?: string;
 };
 
 /**
@@ -87,6 +96,22 @@ export function comFiltros(
     condicoes.push({
       status: { notIn: ESTADOS_FINAIS },
       prazoDocumentacaoAte: { lt: new Date() },
+    });
+  }
+
+  const inicio = inicioDoDiaOuIndefinido(filtros.dataDe);
+  const fimDoDia = inicioDoDiaOuIndefinido(filtros.dataAte);
+  const fimValido = fimDoDia ? addDays(fimDoDia, 1) : undefined;
+
+  if (inicio || fimValido) {
+    const intervalo: Prisma.DateTimeFilter = {};
+    if (inicio) intervalo.gte = inicio;
+    if (fimValido) intervalo.lt = fimValido;
+
+    // a data que aparece na lista é a confirmada quando existe, senão a
+    // reservada — o filtro precisa olhar para a mesma coluna que é mostrada
+    condicoes.push({
+      OR: [{ dataConfirmada: intervalo }, { AND: [{ dataConfirmada: null }, { dataReservada: intervalo }] }],
     });
   }
 

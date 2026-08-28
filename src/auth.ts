@@ -1,4 +1,4 @@
-import NextAuth, { type DefaultSession } from "next-auth";
+import NextAuth, { CredentialsSignin, type DefaultSession } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import argon2 from "argon2";
 import { z } from "zod";
@@ -10,6 +10,18 @@ import { codigoConfere } from "@/lib/totp";
 
 const MINUTOS_BLOQUEIO = 15;
 const MAX_TENTATIVAS = 5;
+
+/**
+ * Senha certa, mas a conta tem segundo fator e o campo veio vazio.
+ *
+ * Erro próprio, e não o retorno `null` genérico, porque só assim a tela de
+ * login sabe pedir o código em vez de repetir "e-mail ou senha incorretos" —
+ * o que confundiria quem já digitou tudo certo. Só dispara depois que a senha
+ * já conferiu, então não revela nada a quem ainda não sabe a senha.
+ */
+export class SegundoFatorAusente extends CredentialsSignin {
+  code = "segundo_fator_ausente";
+}
 
 /**
  * Registro de tentativa fracassada. Fica aqui, e não na Server Action de
@@ -30,6 +42,7 @@ const entrada = z.object({
   email: z.string().email(),
   senha: z.string().min(1),
   codigo: z.string().optional(),
+  lembrar: z.string().optional(),
 });
 
 declare module "next-auth" {
@@ -37,6 +50,8 @@ declare module "next-auth" {
     nome: string;
     papel: Papel;
     pessoaId: string | null;
+    /** "Manter conectado por 30 dias", marcado na tela de login. */
+    lembrar: boolean;
   }
   interface Session {
     user: {
@@ -57,7 +72,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const analise = entrada.safeParse(dados);
         if (!analise.success) return null;
 
-        const { email, senha, codigo } = analise.data;
+        const { email, senha, codigo, lembrar } = analise.data;
         const usuario = await db.usuario.findUnique({ where: { email: email.toLowerCase() } });
 
         // resposta em tempo semelhante mesmo quando o usuário não existe
@@ -105,7 +120,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         // segundo fator, quando ativado para esta conta
         if (usuario.totpAtivo) {
-          if (!usuario.totpSecret || !codigo || !codigoConfere(codigo, usuario.totpSecret)) {
+          if (!codigo) {
+            await auditarFalha(email, usuario.id, "segundo fator ausente");
+            throw new SegundoFatorAusente();
+          }
+          if (!usuario.totpSecret || !codigoConfere(codigo, usuario.totpSecret)) {
             await auditarFalha(email, usuario.id, "segundo fator inválido");
             return null;
           }
@@ -122,6 +141,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           email: usuario.email,
           papel: usuario.papel,
           pessoaId: usuario.pessoaId,
+          lembrar: lembrar === "true",
         };
       },
     }),

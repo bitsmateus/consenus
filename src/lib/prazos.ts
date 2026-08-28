@@ -9,6 +9,18 @@ import { ErroDeNegocio } from "./erros";
 
 export const FUSO = "America/Sao_Paulo";
 
+/**
+ * Início do dia informado, no fuso da câmara — para filtros de tela por
+ * intervalo de data. `undefined` quando a entrada não é uma data válida:
+ * filtro opcional que ignora entrada ruim, e não uma regra de negócio que
+ * precise barrar com `ErroDeNegocio`.
+ */
+export function inicioDoDiaOuIndefinido(data: string | undefined): Date | undefined {
+  if (!data || !/^\d{4}-\d{2}-\d{2}$/.test(data)) return undefined;
+  const convertido = fromZonedTime(`${data}T00:00:00`, FUSO);
+  return Number.isNaN(convertido.getTime()) ? undefined : convertido;
+}
+
 export function agoraEmSaoPaulo(): Date {
   return toZonedTime(new Date(), FUSO);
 }

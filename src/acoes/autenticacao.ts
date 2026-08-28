@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { AuthError } from "next-auth";
 import { z } from "zod";
-import { signIn, signOut } from "@/auth";
+import { SegundoFatorAusente, signIn, signOut } from "@/auth";
 import { db } from "@/lib/db";
 import { destinoSeguro } from "@/lib/navegacao";
 import { segundoFatorPendente } from "@/lib/totp";
@@ -12,6 +12,7 @@ const esquema = z.object({
   email: z.string().email("Informe um e-mail válido."),
   senha: z.string().min(1, "Informe a senha."),
   codigo: z.string().optional(),
+  lembrar: z.string().optional(),
   de: z.string().optional(),
 });
 
@@ -23,15 +24,18 @@ export async function entrar(_anterior: EstadoLogin, dados: FormData): Promise<E
     return { erro: analise.error.issues[0]?.message ?? "Dados inválidos." };
   }
 
-  const { senha, codigo, de } = analise.data;
+  const { senha, codigo, lembrar, de } = analise.data;
   const email = analise.data.email.toLowerCase();
 
   try {
     // redirect: false para o fluxo voltar até aqui e o destino ser validado.
     // A auditoria de LOGIN e LOGIN_FALHOU fica em src/auth.ts, na camada de
     // autenticação: ali ela cobre também quem chama /api/auth diretamente.
-    await signIn("credentials", { email, senha, codigo, redirect: false });
+    await signIn("credentials", { email, senha, codigo, lembrar, redirect: false });
   } catch (erro) {
+    if (erro instanceof SegundoFatorAusente) {
+      return { erro: "Informe o código de verificação do aplicativo autenticador." };
+    }
     if (erro instanceof AuthError) {
       return { erro: "E-mail ou senha incorretos." };
     }

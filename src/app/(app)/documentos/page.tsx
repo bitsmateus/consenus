@@ -1,13 +1,15 @@
 import Link from "next/link";
-import { PapelNoAto, Prisma, TipoDocumento } from "@prisma/client";
+import { addDays } from "date-fns";
+import { PapelNoAto, Prisma, TipoDocumento, TipoProcurador } from "@prisma/client";
 import { CabecalhoDePagina } from "@/components/ui/cabecalho-de-pagina";
 import { EstadoVazio } from "@/components/ui/estado-vazio";
 import { Etiqueta } from "@/components/ui/etiqueta";
 import { cn } from "@/lib/cn";
 import { db } from "@/lib/db";
 import { apenasDigitos, formatarDocumento } from "@/lib/documentos";
-import { formatarDataHora } from "@/lib/formato";
+import { ROTULO_TIPO_PROCURADOR, formatarDataHora } from "@/lib/formato";
 import { formatarTamanho } from "@/lib/mime";
+import { inicioDoDiaOuIndefinido } from "@/lib/prazos";
 import { exigirUsuario, filtroDeAtosVisiveis } from "@/lib/sessao";
 
 export const metadata = { title: "Documentos — Consensus One" };
@@ -23,16 +25,32 @@ const ROTULO: Record<TipoDocumento, string> = {
   OUTRO: "Outro",
 };
 
-type Busca = { busca?: string; tipo?: string };
+type Busca = {
+  busca?: string;
+  tipo?: string;
+  procurador?: string;
+  dataDe?: string;
+  dataAte?: string;
+};
 
 function comFiltro(atual: Busca, mudanca: Partial<Busca>): string {
   const params = new URLSearchParams();
   const final = { ...atual, ...mudanca };
   if (final.busca) params.set("busca", final.busca);
   if (final.tipo) params.set("tipo", final.tipo);
+  if (final.procurador) params.set("procurador", final.procurador);
+  if (final.dataDe) params.set("dataDe", final.dataDe);
+  if (final.dataAte) params.set("dataAte", final.dataAte);
   const query = params.toString();
   return query ? `/documentos?${query}` : "/documentos";
 }
+
+const SELECAO_PARTES = {
+  papel: true,
+  pessoa: {
+    select: { id: true, nome: true, documento: true, tipoProcurador: true },
+  },
+} satisfies Prisma.ParteDoAtoSelect;
 
 /** Busca por número, título do procedimento ou nome/documento de quem participa. */
 function filtroDeBusca(termo: string): Prisma.DocumentoWhereInput {
@@ -75,35 +93,84 @@ export default async function PaginaDeDocumentos({
       ? (filtrosDaUrl.tipo as TipoDocumento)
       : undefined;
 
-  const condicoes: Prisma.DocumentoWhereInput[] = [{ ato: visiveis }];
-  if (filtrosDaUrl.busca?.trim()) condicoes.push(filtroDeBusca(filtrosDaUrl.busca.trim()));
-  if (tipo) condicoes.push({ tipo });
+  // pela data de emissão do documento — a mesma que aparece em cada linha da
+  // lista, e não a data da sessão do procedimento (essa já tem filtro
+  // próprio no Painel)
+  const inicio = inicioDoDiaOuIndefinido(filtrosDaUrl.dataDe);
+  const fimDoDia = inicioDoDiaOuIndefinido(filtrosDaUrl.dataAte);
+  const fim = fimDoDia ? addDays(fimDoDia, 1) : undefined;
 
-  const documentos = await db.documento.findMany({
-    where: { AND: condicoes },
-    orderBy: { criadoEm: "desc" },
-    take: 300,
-    include: {
-      ato: {
-        select: {
-          id: true,
-          numero: true,
-          titulo: true,
-          partes: {
-            select: { papel: true, pessoa: { select: { id: true, nome: true, documento: true } } },
+  // sem o procurador: alimenta a contagem dos chips "por procurador" — se
+  // entrasse aqui, escolher um procurador zeraria a contagem dos outros
+  const condicoesComuns: Prisma.DocumentoWhereInput[] = [{ ato: visiveis }];
+  if (filtrosDaUrl.busca?.trim()) condicoesComuns.push(filtroDeBusca(filtrosDaUrl.busca.trim()));
+  if (tipo) condicoesComuns.push({ tipo });
+  if (inicio || fim) {
+    condicoesComuns.push({ criadoEm: { ...(inicio && { gte: inicio }), ...(fim && { lt: fim }) } });
+  }
+
+  const condicoes = [...condicoesComuns];
+  if (filtrosDaUrl.procurador) {
+    condicoes.push({
+      ato: { partes: { some: { pessoaId: filtrosDaUrl.procurador, papel: PapelNoAto.PROCURADOR } } },
+    });
+  }
+
+  const [documentos, documentosSemProcurador, porTipo] = await Promise.all([
+    db.documento.findMany({
+      where: { AND: condicoes },
+      orderBy: { criadoEm: "desc" },
+      take: 300,
+      include: {
+        ato: {
+          select: {
+            id: true,
+            numero: true,
+            titulo: true,
+            partes: { select: SELECAO_PARTES },
           },
         },
       },
-    },
-  });
+    }),
+    // só para os chips "por procurador" — não precisa dos dados do documento,
+    // só de quem está no procedimento dele
+    db.documento.findMany({
+      where: { AND: condicoesComuns },
+      select: { ato: { select: { partes: { select: SELECAO_PARTES } } } },
+    }),
+    // contagem por tipo, sobre o mesmo recorte — sem o filtro de tipo, senão
+    // o chip escolhido zeraria os outros
+    db.documento.groupBy({
+      by: ["tipo"],
+      where: { AND: condicoes.filter((c) => !("tipo" in c)) },
+      _count: { _all: true },
+    }),
+  ]);
 
-  // contagem por tipo, sobre o mesmo recorte de visibilidade e busca — sem o
-  // filtro de tipo, senão o chip escolhido zeraria os outros
-  const porTipo = await db.documento.groupBy({
-    by: ["tipo"],
-    where: { AND: condicoes.filter((c) => !("tipo" in c)) },
-    _count: { _all: true },
-  });
+  const porProcurador = new Map<
+    string,
+    { nome: string; documento: string | null; tipoProcurador: TipoProcurador | null; total: number }
+  >();
+  for (const doc of documentosSemProcurador) {
+    for (const parte of doc.ato.partes) {
+      if (parte.papel !== PapelNoAto.PROCURADOR) continue;
+      const atual = porProcurador.get(parte.pessoa.id) ?? {
+        nome: parte.pessoa.nome,
+        documento: parte.pessoa.documento,
+        tipoProcurador: parte.pessoa.tipoProcurador,
+        total: 0,
+      };
+      atual.total += 1;
+      porProcurador.set(parte.pessoa.id, atual);
+    }
+  }
+  const procuradores = [...porProcurador.entries()]
+    .map(([id, dados]) => ({ id, ...dados }))
+    .sort((a, b) => b.total - a.total || a.nome.localeCompare(b.nome, "pt-BR"));
+
+  const filtroAtivo = Boolean(
+    filtrosDaUrl.busca || tipo || filtrosDaUrl.procurador || filtrosDaUrl.dataDe || filtrosDaUrl.dataAte
+  );
 
   /**
    * Agrupa por Interessado Solicitante — "a pasta vai ser pelo interessado",
@@ -140,21 +207,35 @@ export default async function PaginaDeDocumentos({
       />
 
       <div className="flex-1 p-4 md:p-6">
-        <form method="get" className="mb-4 flex flex-wrap gap-2">
-          {tipo && <input type="hidden" name="tipo" value={tipo} />}
-          <input
-            name="busca"
-            defaultValue={filtrosDaUrl.busca ?? ""}
-            placeholder="Interessado, procurador, número do procedimento ou código"
-            aria-label="Buscar documento"
-            className="min-w-0 flex-1 rounded-md border border-carvao-100 bg-white px-3 py-2.5 text-sm outline-none focus:border-grafite-500"
-          />
-          <button className="rounded-md border border-carvao-100 bg-white px-4 py-2.5 text-sm font-medium text-grafite-700 hover:border-dourado-600">
-            Buscar
-          </button>
-        </form>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <form method="get" className="flex flex-1 flex-wrap gap-2">
+            {tipo && <input type="hidden" name="tipo" value={tipo} />}
+            {filtrosDaUrl.procurador && (
+              <input type="hidden" name="procurador" value={filtrosDaUrl.procurador} />
+            )}
+            {filtrosDaUrl.dataDe && <input type="hidden" name="dataDe" value={filtrosDaUrl.dataDe} />}
+            {filtrosDaUrl.dataAte && (
+              <input type="hidden" name="dataAte" value={filtrosDaUrl.dataAte} />
+            )}
+            <input
+              name="busca"
+              defaultValue={filtrosDaUrl.busca ?? ""}
+              placeholder="Interessado, procurador, número do procedimento ou código"
+              aria-label="Buscar documento"
+              className="min-w-0 flex-1 rounded-md border border-carvao-100 bg-white px-3 py-2.5 text-sm outline-none focus:border-grafite-500"
+            />
+            <button className="rounded-md border border-carvao-100 bg-white px-4 py-2.5 text-sm font-medium text-grafite-700 hover:border-dourado-600">
+              Buscar
+            </button>
+          </form>
+          {filtroAtivo && (
+            <Link href="/documentos" className="text-xs text-carvao-500 hover:underline">
+              Limpar filtros
+            </Link>
+          )}
+        </div>
 
-        <div className="mb-5 flex flex-wrap gap-1.5">
+        <div className="mb-3 flex flex-wrap gap-1.5">
           <Chip href={comFiltro(filtrosDaUrl, { tipo: undefined })} ativo={!tipo}>
             Todos
           </Chip>
@@ -171,11 +252,76 @@ export default async function PaginaDeDocumentos({
             ))}
         </div>
 
+        {/* filtro por procurador — só aparece quando existe algum no recorte visível */}
+        {procuradores.length > 0 && (
+          <div className="mb-3">
+            <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-carvao-300">
+              Por procurador
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              <Chip
+                href={comFiltro(filtrosDaUrl, { procurador: undefined })}
+                ativo={!filtrosDaUrl.procurador}
+              >
+                Todos
+              </Chip>
+              {procuradores.map((p) => (
+                <Chip
+                  key={p.id}
+                  href={comFiltro(filtrosDaUrl, { procurador: p.id })}
+                  ativo={filtrosDaUrl.procurador === p.id}
+                  titulo={p.tipoProcurador ? ROTULO_TIPO_PROCURADOR[p.tipoProcurador] : undefined}
+                >
+                  {p.nome} · {p.total}
+                </Chip>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* filtro por período de emissão */}
+        <form method="get" className="mb-5 flex flex-wrap items-end gap-2">
+          {tipo && <input type="hidden" name="tipo" value={tipo} />}
+          {filtrosDaUrl.procurador && (
+            <input type="hidden" name="procurador" value={filtrosDaUrl.procurador} />
+          )}
+          {filtrosDaUrl.busca && <input type="hidden" name="busca" value={filtrosDaUrl.busca} />}
+          <label className="text-xs text-carvao-500">
+            Emitido de
+            <input
+              type="date"
+              name="dataDe"
+              defaultValue={filtrosDaUrl.dataDe ?? ""}
+              className="mt-1 block rounded-md border border-carvao-100 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-grafite-500"
+            />
+          </label>
+          <label className="text-xs text-carvao-500">
+            Até
+            <input
+              type="date"
+              name="dataAte"
+              defaultValue={filtrosDaUrl.dataAte ?? ""}
+              className="mt-1 block rounded-md border border-carvao-100 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-grafite-500"
+            />
+          </label>
+          <button className="rounded-md border border-carvao-100 bg-white px-3 py-1.5 text-xs font-medium text-grafite-700 hover:border-dourado-600">
+            Filtrar por período
+          </button>
+          {(filtrosDaUrl.dataDe || filtrosDaUrl.dataAte) && (
+            <Link
+              href={comFiltro(filtrosDaUrl, { dataDe: undefined, dataAte: undefined })}
+              className="text-xs text-carvao-500 hover:underline"
+            >
+              Limpar período
+            </Link>
+          )}
+        </form>
+
         {documentos.length === 0 ? (
           <EstadoVazio
             titulo="Nenhum documento encontrado"
             descricao={
-              filtrosDaUrl.busca || tipo
+              filtroAtivo
                 ? "Nenhum documento corresponde a este filtro."
                 : "Os documentos ficam disponíveis após a realização da sessão."
             }
@@ -255,15 +401,18 @@ export default async function PaginaDeDocumentos({
 function Chip({
   href,
   ativo,
+  titulo,
   children,
 }: {
   href: string;
   ativo?: boolean;
+  titulo?: string;
   children: React.ReactNode;
 }) {
   return (
     <Link
       href={href}
+      title={titulo}
       className={cn(
         "rounded-full border px-3 py-1 text-[11px] transition-colors",
         ativo

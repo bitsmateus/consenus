@@ -1,5 +1,9 @@
 import type { NextAuthConfig } from "next-auth";
+import { encode as codificarComPadraoDoAuthJs } from "next-auth/jwt";
 import type { Papel } from "@prisma/client";
+
+const OITO_HORAS = 8 * 60 * 60;
+const TRINTA_DIAS = 30 * 24 * 60 * 60;
 
 /**
  * Configuração compatível com o runtime Edge — sem Prisma e sem argon2.
@@ -7,7 +11,19 @@ import type { Papel } from "@prisma/client";
  * banco e do Argon2id, fica em src/auth.ts e roda apenas no runtime Node.
  */
 export const configuracaoDeAutenticacao = {
-  session: { strategy: "jwt", maxAge: 8 * 60 * 60 },
+  // Teto do cookie: 30 dias, para caber a sessão de quem marcou "lembrar".
+  // Quem NÃO marcou continua limitado a 8h de verdade — não pelo cookie, mas
+  // pelo `exp` gravado dentro do próprio token, no `jwt.encode` abaixo. O
+  // cookie sobreviver mais tempo no navegador não importa: o token dentro
+  // dele expira sozinho, e a sessão deixa de valer.
+  session: { strategy: "jwt", maxAge: TRINTA_DIAS },
+  jwt: {
+    encode: (parametros) =>
+      codificarComPadraoDoAuthJs({
+        ...parametros,
+        maxAge: parametros.token?.lembrar ? TRINTA_DIAS : OITO_HORAS,
+      }),
+  },
   pages: { signIn: "/entrar" },
   providers: [],
   callbacks: {
@@ -17,6 +33,7 @@ export const configuracaoDeAutenticacao = {
         token.nome = (user as { nome: string }).nome;
         token.papel = (user as { papel: Papel }).papel;
         token.pessoaId = (user as { pessoaId: string | null }).pessoaId;
+        token.lembrar = (user as { lembrar: boolean }).lembrar;
       }
       return token;
     },

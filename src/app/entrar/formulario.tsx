@@ -24,6 +24,16 @@ export function FormularioDeLogin({ de }: { de?: string }) {
         dica="Só para contas com verificação em duas etapas."
       />
 
+      <label className="mb-4 flex items-center gap-2 text-xs text-carvao-500">
+        <input
+          type="checkbox"
+          name="lembrar"
+          value="true"
+          className="h-3.5 w-3.5 rounded border-carvao-100 text-dourado-600 focus:ring-dourado-600"
+        />
+        Manter conectado por 30 dias
+      </label>
+
       {estado.erro && (
         <p role="alert" className="mb-4 rounded-md border border-erro/20 bg-erro/5 px-3 py-2 text-xs text-erro">
           {estado.erro}
