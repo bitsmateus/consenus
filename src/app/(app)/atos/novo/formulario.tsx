@@ -1,12 +1,12 @@
 "use client";
 
-import { useActionState } from "react";
-import { ModalidadeSessao } from "@prisma/client";
+import { useActionState, useState } from "react";
+import { ModalidadeSessao, TipoPessoa, TipoProcurador } from "@prisma/client";
 import { criarAto, type EstadoDeFormulario } from "@/acoes/atos";
 import { Botao } from "@/components/ui/botao";
 import { Campo } from "@/components/ui/campo";
 import { Selecao } from "@/components/ui/selecao";
-import { ROTULO_MODALIDADE } from "@/lib/formato";
+import { ROTULO_MODALIDADE, ROTULO_TIPO_PROCURADOR } from "@/lib/formato";
 
 export function FormularioDeNovoAto({
   pessoas,
@@ -18,8 +18,13 @@ export function FormularioDeNovoAto({
   prazoDocumentacaoDias: number;
 }) {
   const [estado, acao, pendente] = useActionState<EstadoDeFormulario, FormData>(criarAto, {});
+  const [representa, setRepresenta] = useState<"" | "solicitante" | "convidado">("");
+  const [procuradorNovo, setProcuradorNovo] = useState(false);
+  const [natureza, setNatureza] = useState<TipoProcurador | "">("");
 
   const opcoes = pessoas.map((p) => ({ valor: p.id, rotulo: p.rotulo }));
+  const ehAdvogado =
+    natureza === TipoProcurador.ADVOGADO || natureza === TipoProcurador.ESCRITORIO_ADVOCACIA;
 
   return (
     <form action={acao} className="max-w-2xl">
@@ -49,6 +54,82 @@ export function FormularioDeNovoAto({
         dica="A outra parte."
         required
       />
+
+      <fieldset className="mb-4 rounded-lg border border-carvao-100 p-4">
+        <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-carvao-500">
+          Procurador (opcional)
+        </legend>
+
+        <Selecao
+          rotulo="Representa"
+          name="procuradorRepresenta"
+          value={representa}
+          onChange={(e) => setRepresenta(e.target.value as typeof representa)}
+          vazio="Nenhum procurador nesta abertura"
+          opcoes={[
+            { valor: "solicitante", rotulo: "Interessado Solicitante" },
+            { valor: "convidado", rotulo: "Interessado Convidado" },
+          ]}
+          dica="Também dá para vincular depois, na tela do procedimento."
+        />
+
+        {representa && (
+          <>
+            {procuradorNovo ? (
+              <div className="grid gap-x-3 sm:grid-cols-2">
+                <Selecao
+                  rotulo="Tipo"
+                  name="procuradorTipo"
+                  defaultValue={TipoPessoa.FISICA}
+                  opcoes={[
+                    { valor: TipoPessoa.FISICA, rotulo: "Pessoa física" },
+                    { valor: TipoPessoa.JURIDICA, rotulo: "Pessoa jurídica" },
+                  ]}
+                />
+                <Campo rotulo="Nome ou razão social" name="procuradorNome" required />
+                <Campo rotulo="CPF ou CNPJ" name="procuradorDocumento" required />
+                <Selecao
+                  rotulo="Natureza"
+                  name="procuradorTipoProcurador"
+                  vazio="Selecione"
+                  value={natureza}
+                  onChange={(e) => setNatureza(e.target.value as TipoProcurador | "")}
+                  opcoes={Object.values(TipoProcurador).map((t) => ({
+                    valor: t,
+                    rotulo: ROTULO_TIPO_PROCURADOR[t],
+                  }))}
+                  required
+                />
+                {ehAdvogado && (
+                  <Campo
+                    rotulo="OAB"
+                    name="procuradorOab"
+                    dica="Ex.: OAB/SP 214.887"
+                    required
+                  />
+                )}
+                <input type="hidden" name="procuradorNovo" value="true" />
+              </div>
+            ) : (
+              <Selecao
+                rotulo="Procurador"
+                name="procuradorPessoaId"
+                vazio="Selecione"
+                opcoes={opcoes}
+                required
+              />
+            )}
+
+            <button
+              type="button"
+              onClick={() => setProcuradorNovo((estava) => !estava)}
+              className="mb-4 text-xs text-dourado-600 hover:underline"
+            >
+              {procuradorNovo ? "Escolher alguém já cadastrado" : "A pessoa não está cadastrada"}
+            </button>
+          </>
+        )}
+      </fieldset>
 
       <Campo
         rotulo="Objeto do procedimento"

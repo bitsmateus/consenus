@@ -9,6 +9,9 @@ import type { Prisma } from "@prisma/client";
 import {
   buscarAtoEm,
   comFiltros,
+  contarConciliadoresEm,
+  contarPorModalidadeEm,
+  contarPorProcuracaoEm,
   contarPorStatusEm,
   contarInteressadosEm,
   contarProcuradoresEm,
@@ -39,6 +42,18 @@ export async function contarPorProcurador(filtros: FiltrosDeAtos) {
 
 export async function contarPorInteressado(filtros: FiltrosDeAtos) {
   return contarInteressadosEm(await montarWhereDeAtos({ ...filtros, interessadoId: undefined }));
+}
+
+export async function contarPorConciliador(filtros: FiltrosDeAtos) {
+  return contarConciliadoresEm(await montarWhereDeAtos({ ...filtros, conciliadorId: undefined }));
+}
+
+export async function contarPorModalidade(filtros: FiltrosDeAtos) {
+  return contarPorModalidadeEm(await montarWhereDeAtos({ ...filtros, modalidade: undefined }));
+}
+
+export async function contarPorProcuracao(filtros: FiltrosDeAtos) {
+  return contarPorProcuracaoEm(await montarWhereDeAtos({ ...filtros, comProcuracao: undefined }));
 }
 
 export async function buscarAto(id: string) {

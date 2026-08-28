@@ -1,10 +1,13 @@
 import Link from "next/link";
-import { Papel, PapelNoAto, StatusAto } from "@prisma/client";
+import { ModalidadeSessao, Papel, PapelNoAto, StatusAto } from "@prisma/client";
 import { CabecalhoDePagina } from "@/components/ui/cabecalho-de-pagina";
 import { EstadoVazio } from "@/components/ui/estado-vazio";
 import { Etiqueta } from "@/components/ui/etiqueta";
 import {
+  contarPorConciliador,
   contarPorInteressado,
+  contarPorModalidade,
+  contarPorProcuracao,
   contarPorProcurador,
   contarPorStatus,
   listarAtos,
@@ -12,6 +15,7 @@ import {
 import type { FiltrosDeAtos } from "@/lib/consultas-de-atos";
 import { formatarDocumento } from "@/lib/documentos";
 import {
+  ROTULO_MODALIDADE,
   ROTULO_STATUS,
   ROTULO_TIPO_PROCURADOR,
   TOM_DO_STATUS,
@@ -26,7 +30,12 @@ type Busca = {
   status?: string;
   procurador?: string;
   interessado?: string;
+  conciliador?: string;
+  modalidade?: string;
+  procuracao?: string;
   situacao?: string;
+  dataDe?: string;
+  dataAte?: string;
 };
 
 /** Monta a query string preservando os demais filtros. */
@@ -37,7 +46,12 @@ function comFiltro(atual: Busca, mudanca: Partial<Busca>): string {
   if (final.status) params.set("status", final.status);
   if (final.procurador) params.set("procurador", final.procurador);
   if (final.interessado) params.set("interessado", final.interessado);
+  if (final.conciliador) params.set("conciliador", final.conciliador);
+  if (final.modalidade) params.set("modalidade", final.modalidade);
+  if (final.procuracao) params.set("procuracao", final.procuracao);
   if (final.situacao) params.set("situacao", final.situacao);
+  if (final.dataDe) params.set("dataDe", final.dataDe);
+  if (final.dataAte) params.set("dataAte", final.dataAte);
   const query = params.toString();
   return query ? `/atos?${query}` : "/atos";
 }
@@ -55,28 +69,59 @@ export default async function PaginaDeAtos({
       ? (filtrosDaUrl.status as StatusAto)
       : undefined;
 
+  const modalidade =
+    filtrosDaUrl.modalidade && filtrosDaUrl.modalidade in ModalidadeSessao
+      ? (filtrosDaUrl.modalidade as ModalidadeSessao)
+      : undefined;
+
+  const procuracao: FiltrosDeAtos["comProcuracao"] =
+    filtrosDaUrl.procuracao === "sim" || filtrosDaUrl.procuracao === "nao"
+      ? filtrosDaUrl.procuracao
+      : undefined;
+
   // veio da URL: só entra se for um dos recortes que o painel usa
   const situacao: FiltrosDeAtos["situacao"] =
     filtrosDaUrl.situacao === "em_andamento" || filtrosDaUrl.situacao === "prazo_vencido"
       ? filtrosDaUrl.situacao
       : undefined;
 
-  const filtros = {
+  const filtros: FiltrosDeAtos = {
     busca: filtrosDaUrl.busca,
     status,
     procuradorId: filtrosDaUrl.procurador,
     interessadoId: filtrosDaUrl.interessado,
+    conciliadorId: filtrosDaUrl.conciliador,
+    modalidade,
+    comProcuracao: procuracao,
     situacao,
+    dataDe: filtrosDaUrl.dataDe,
+    dataAte: filtrosDaUrl.dataAte,
   };
 
-  const [atos, porStatus, procuradores, interessados] = await Promise.all([
-    listarAtos(filtros),
-    contarPorStatus(filtros),
-    contarPorProcurador(filtros),
-    contarPorInteressado(filtros),
-  ]);
+  const [atos, porStatus, procuradores, interessados, conciliadores, porModalidade, porProcuracao] =
+    await Promise.all([
+      listarAtos(filtros),
+      contarPorStatus(filtros),
+      contarPorProcurador(filtros),
+      contarPorInteressado(filtros),
+      contarPorConciliador(filtros),
+      contarPorModalidade(filtros),
+      contarPorProcuracao(filtros),
+    ]);
 
   const equipe = usuario.papel === Papel.ADMIN || usuario.papel === Papel.OPERADOR;
+
+  const filtroAtivo = Boolean(
+    filtrosDaUrl.busca ||
+      status ||
+      filtrosDaUrl.procurador ||
+      filtrosDaUrl.interessado ||
+      filtrosDaUrl.conciliador ||
+      modalidade ||
+      procuracao ||
+      filtrosDaUrl.dataDe ||
+      filtrosDaUrl.dataAte
+  );
 
   return (
     <>
@@ -96,26 +141,42 @@ export default async function PaginaDeAtos({
       />
 
       <div className="flex-1 p-4 md:p-6">
-        <form method="get" className="mb-4 flex flex-wrap gap-2">
-          {status && <input type="hidden" name="status" value={status} />}
-          {filtrosDaUrl.procurador && (
-            <input type="hidden" name="procurador" value={filtrosDaUrl.procurador} />
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <form method="get" className="flex flex-1 flex-wrap gap-2">
+            {status && <input type="hidden" name="status" value={status} />}
+            {filtrosDaUrl.procurador && (
+              <input type="hidden" name="procurador" value={filtrosDaUrl.procurador} />
+            )}
+            {filtrosDaUrl.interessado && (
+              <input type="hidden" name="interessado" value={filtrosDaUrl.interessado} />
+            )}
+            {filtrosDaUrl.conciliador && (
+              <input type="hidden" name="conciliador" value={filtrosDaUrl.conciliador} />
+            )}
+            {modalidade && <input type="hidden" name="modalidade" value={modalidade} />}
+            {procuracao && <input type="hidden" name="procuracao" value={procuracao} />}
+            {situacao && <input type="hidden" name="situacao" value={situacao} />}
+            {filtrosDaUrl.dataDe && <input type="hidden" name="dataDe" value={filtrosDaUrl.dataDe} />}
+            {filtrosDaUrl.dataAte && (
+              <input type="hidden" name="dataAte" value={filtrosDaUrl.dataAte} />
+            )}
+            <input
+              name="busca"
+              defaultValue={filtrosDaUrl.busca ?? ""}
+              placeholder="Número, nome, CPF, CNPJ ou OAB"
+              aria-label="Buscar procedimento"
+              className="min-w-0 flex-1 rounded-md border border-carvao-100 bg-white px-3 py-2.5 text-sm outline-none focus:border-grafite-500"
+            />
+            <button className="rounded-md border border-carvao-100 bg-white px-4 py-2.5 text-sm font-medium text-grafite-700 hover:border-dourado-600">
+              Buscar
+            </button>
+          </form>
+          {filtroAtivo && (
+            <Link href="/atos" className="text-xs text-carvao-500 hover:underline">
+              Limpar filtros
+            </Link>
           )}
-          {filtrosDaUrl.interessado && (
-            <input type="hidden" name="interessado" value={filtrosDaUrl.interessado} />
-          )}
-          {situacao && <input type="hidden" name="situacao" value={situacao} />}
-          <input
-            name="busca"
-            defaultValue={filtrosDaUrl.busca ?? ""}
-            placeholder="Número, nome, CPF, CNPJ ou OAB"
-            aria-label="Buscar procedimento"
-            className="min-w-0 flex-1 rounded-md border border-carvao-100 bg-white px-3 py-2.5 text-sm outline-none focus:border-grafite-500"
-          />
-          <button className="rounded-md border border-carvao-100 bg-white px-4 py-2.5 text-sm font-medium text-grafite-700 hover:border-dourado-600">
-            Buscar
-          </button>
-        </form>
+        </div>
 
         {/* filtro por situação */}
         <div className="mb-3 flex flex-wrap gap-1.5">
@@ -187,11 +248,123 @@ export default async function PaginaDeAtos({
           </div>
         )}
 
+        {/* filtro por conciliador */}
+        {conciliadores.length > 0 && (
+          <div className="mb-5">
+            <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-carvao-300">
+              Por conciliador
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              <Chip
+                href={comFiltro(filtrosDaUrl, { conciliador: undefined })}
+                ativo={!filtrosDaUrl.conciliador}
+              >
+                Todos
+              </Chip>
+              {conciliadores.map((p) => (
+                <Chip
+                  key={p.id}
+                  href={comFiltro(filtrosDaUrl, { conciliador: p.id })}
+                  ativo={filtrosDaUrl.conciliador === p.id}
+                >
+                  {p.nome} · {p.total}
+                </Chip>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* filtro por modalidade */}
+        <div className="mb-5">
+          <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-carvao-300">
+            Modalidade
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            <Chip href={comFiltro(filtrosDaUrl, { modalidade: undefined })} ativo={!modalidade}>
+              Todas
+            </Chip>
+            {Object.entries(porModalidade).map(([chave, total]) => (
+              <Chip
+                key={chave}
+                href={comFiltro(filtrosDaUrl, { modalidade: chave })}
+                ativo={modalidade === chave}
+              >
+                {ROTULO_MODALIDADE[chave as ModalidadeSessao]} · {total}
+              </Chip>
+            ))}
+          </div>
+        </div>
+
+        {/* com ou sem procuração vinculada */}
+        <div className="mb-5">
+          <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-carvao-300">
+            Procuração
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            <Chip href={comFiltro(filtrosDaUrl, { procuracao: undefined })} ativo={!procuracao}>
+              Todos
+            </Chip>
+            <Chip href={comFiltro(filtrosDaUrl, { procuracao: "sim" })} ativo={procuracao === "sim"}>
+              Com procuração · {porProcuracao.sim}
+            </Chip>
+            <Chip href={comFiltro(filtrosDaUrl, { procuracao: "nao" })} ativo={procuracao === "nao"}>
+              Sem procuração · {porProcuracao.nao}
+            </Chip>
+          </div>
+        </div>
+
+        {/* filtro por período da sessão */}
+        <form method="get" className="mb-5 flex flex-wrap items-end gap-2">
+          {status && <input type="hidden" name="status" value={status} />}
+          {filtrosDaUrl.procurador && (
+            <input type="hidden" name="procurador" value={filtrosDaUrl.procurador} />
+          )}
+          {filtrosDaUrl.interessado && (
+            <input type="hidden" name="interessado" value={filtrosDaUrl.interessado} />
+          )}
+          {filtrosDaUrl.conciliador && (
+            <input type="hidden" name="conciliador" value={filtrosDaUrl.conciliador} />
+          )}
+          {modalidade && <input type="hidden" name="modalidade" value={modalidade} />}
+          {procuracao && <input type="hidden" name="procuracao" value={procuracao} />}
+          {situacao && <input type="hidden" name="situacao" value={situacao} />}
+          {filtrosDaUrl.busca && <input type="hidden" name="busca" value={filtrosDaUrl.busca} />}
+          <label className="text-xs text-carvao-500">
+            Sessão de
+            <input
+              type="date"
+              name="dataDe"
+              defaultValue={filtrosDaUrl.dataDe ?? ""}
+              className="mt-1 block rounded-md border border-carvao-100 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-grafite-500"
+            />
+          </label>
+          <label className="text-xs text-carvao-500">
+            Até
+            <input
+              type="date"
+              name="dataAte"
+              defaultValue={filtrosDaUrl.dataAte ?? ""}
+              className="mt-1 block rounded-md border border-carvao-100 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-grafite-500"
+            />
+          </label>
+          <button className="rounded-md border border-carvao-100 bg-white px-3 py-1.5 text-xs font-medium text-grafite-700 hover:border-dourado-600">
+            Filtrar por período
+          </button>
+          {(filtrosDaUrl.dataDe || filtrosDaUrl.dataAte) && (
+            <Link
+              href={comFiltro(filtrosDaUrl, { dataDe: undefined, dataAte: undefined })}
+              className="text-xs text-carvao-500 hover:underline"
+            >
+              Limpar período
+            </Link>
+          )}
+        </form>
+
         {atos.length === 0 ? (
           <EstadoVazio
             titulo="Nenhum procedimento encontrado"
             descricao={
-              filtrosDaUrl.busca || status || filtrosDaUrl.procurador
+              filtroAtivo
                 ? "Nenhum resultado com os filtros aplicados."
                 : equipe
                   ? "Comece cadastrando os Interessados e abrindo o primeiro procedimento."

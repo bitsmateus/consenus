@@ -8,6 +8,8 @@ import {
   Prisma,
   StatusAto,
   TipoEvento,
+  TipoPessoa,
+  TipoProcurador,
 } from "@prisma/client";
 import { z } from "zod";
 import { fromZonedTime } from "date-fns-tz";
@@ -19,6 +21,7 @@ import { configuracaoDoSistema } from "@/lib/configuracao";
 import { db } from "@/lib/db";
 import { ErroDeNegocio } from "@/lib/erros";
 import { proximoNumeroDoAto } from "@/lib/numeracao";
+import { conferirCoerencia, esquemaDePessoa, montarDadosDePessoa } from "@/lib/pessoas";
 import { calcularDataDaSessao, calcularPrazoDocumentacao, FUSO } from "@/lib/prazos";
 import { exigirAcessoAoAto, exigirEquipe } from "@/lib/sessao";
 
@@ -32,6 +35,18 @@ const criacao = z.object({
   objeto: z.string().trim().max(2000).optional(),
   modalidade: z.nativeEnum(ModalidadeSessao).optional(),
   observacoes: z.string().trim().max(2000).optional(),
+  // procurador é opcional, e já pode ser vinculado na abertura (pedido do
+  // cliente em 28/08) — antes só dava para vincular depois, na tela do ato
+  // select sempre presente no formulário: quando ninguém escolhe, o HTML
+  // manda string vazia, não ausência — .optional() sozinho não cobre isso
+  procuradorRepresenta: z.union([z.enum(["solicitante", "convidado"]), z.literal("")]).optional(),
+  procuradorPessoaId: z.string().trim().optional(),
+  procuradorNovo: z.string().optional(),
+  procuradorTipo: z.nativeEnum(TipoPessoa).optional(),
+  procuradorNome: z.string().trim().optional(),
+  procuradorDocumento: z.string().trim().optional(),
+  procuradorTipoProcurador: z.nativeEnum(TipoProcurador).optional(),
+  procuradorOab: z.string().trim().optional(),
 });
 
 /**
@@ -61,13 +76,82 @@ export async function criarAto(
     return { erro: primeiro?.message ?? "Dados inválidos.", campo: String(primeiro?.path[0] ?? "") };
   }
 
-  const { solicitanteId, convidadoId, objeto, modalidade, observacoes } = analise.data;
+  const {
+    solicitanteId,
+    convidadoId,
+    objeto,
+    modalidade,
+    observacoes,
+    procuradorRepresenta,
+    procuradorPessoaId,
+    procuradorNovo,
+    procuradorTipo,
+    procuradorNome,
+    procuradorDocumento,
+    procuradorTipoProcurador,
+    procuradorOab,
+  } = analise.data;
 
   if (solicitanteId === convidadoId) {
     return {
       erro: "O Interessado Solicitante e o Interessado Convidado precisam ser pessoas diferentes.",
       campo: "convidadoId",
     };
+  }
+
+  // Resolvido ANTES da transação de numeração: se o operador cadastrou o
+  // procurador na hora, a pessoa só precisa nascer uma vez, mesmo que a
+  // numeração colida e a tentativa seguinte rode de novo.
+  let procuradorPessoaResolvidoId: string | null = null;
+  if (procuradorRepresenta) {
+    if (procuradorNovo === "true") {
+      if (!procuradorTipoProcurador) {
+        return { erro: "Selecione a natureza do procurador.", campo: "procuradorTipoProcurador" };
+      }
+      const analisePessoa = esquemaDePessoa.safeParse({
+        tipo: procuradorTipo ?? TipoPessoa.FISICA,
+        nome: procuradorNome ?? "",
+        documento: procuradorDocumento ?? "",
+        tipoProcurador: procuradorTipoProcurador,
+        oab: procuradorOab ?? "",
+      });
+      if (!analisePessoa.success) {
+        return {
+          erro: analisePessoa.error.issues[0]?.message ?? "Dados do procurador inválidos.",
+        };
+      }
+      try {
+        conferirCoerencia(analisePessoa.data);
+        const pessoa = await db.pessoa.create({ data: montarDadosDePessoa(analisePessoa.data) });
+        procuradorPessoaResolvidoId = pessoa.id;
+        await registrarAuditoria({
+          usuarioId: usuario.id,
+          acao: "CRIOU_PESSOA",
+          entidade: "Pessoa",
+          entidadeId: pessoa.id,
+          metadados: { nome: pessoa.nome, origem: "abertura-do-procedimento" },
+        });
+      } catch (erro) {
+        if (erro instanceof ErroDeNegocio) return { erro: erro.message };
+        if (erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === "P2002") {
+          return { erro: "Já existe pessoa com este CPF ou CNPJ.", campo: "procuradorDocumento" };
+        }
+        throw erro;
+      }
+    } else if (procuradorPessoaId) {
+      if (procuradorPessoaId === solicitanteId || procuradorPessoaId === convidadoId) {
+        return {
+          erro: "O procurador precisa ser uma pessoa diferente do Solicitante e do Convidado.",
+          campo: "procuradorPessoaId",
+        };
+      }
+      procuradorPessoaResolvidoId = procuradorPessoaId;
+    } else {
+      return {
+        erro: "Selecione o procurador já cadastrado, ou informe os dados de um novo.",
+        campo: "procuradorPessoaId",
+      };
+    }
   }
 
   const config = await configuracaoDoSistema();
@@ -102,6 +186,7 @@ export async function criarAto(
               ],
             },
           },
+          include: { partes: true },
         });
 
         await tx.eventoAto.create({
@@ -126,6 +211,36 @@ export async function criarAto(
           },
         });
 
+        if (procuradorPessoaResolvidoId && procuradorRepresenta) {
+          const representado = criado.partes.find((p) =>
+            procuradorRepresenta === "solicitante"
+              ? p.papel === PapelNoAto.SOLICITANTE
+              : p.papel === PapelNoAto.CONVIDADO
+          );
+          if (!representado) {
+            throw new ErroDeNegocio("Interessado representado não encontrado.");
+          }
+
+          const parteDoProcurador = await tx.parteDoAto.create({
+            data: {
+              atoId: criado.id,
+              pessoaId: procuradorPessoaResolvidoId,
+              papel: PapelNoAto.PROCURADOR,
+              representaId: representado.id,
+            },
+            include: { pessoa: { select: { nome: true } } },
+          });
+
+          await tx.eventoAto.create({
+            data: {
+              atoId: criado.id,
+              tipo: TipoEvento.PARTE_ADICIONADA,
+              descricao: `${parteDoProcurador.pessoa.nome} vinculado como procurador.`,
+              usuarioId: usuario.id,
+            },
+          });
+        }
+
         return criado;
       });
 
@@ -142,6 +257,8 @@ export async function criarAto(
       await agendarVideoconferencia(ato, config, usuario.id);
       break;
     } catch (erro) {
+      if (erro instanceof ErroDeNegocio) return { erro: erro.message };
+
       const colisaoDeNumero =
         erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === "P2002";
 

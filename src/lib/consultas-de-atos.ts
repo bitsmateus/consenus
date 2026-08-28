@@ -10,7 +10,7 @@
  * páginas (CLAUDE.md, regra 3).
  */
 import { addDays } from "date-fns";
-import { PapelNoAto, Prisma, StatusAto } from "@prisma/client";
+import { ModalidadeSessao, PapelNoAto, Prisma, StatusAto } from "@prisma/client";
 import { ESTADOS_FINAIS } from "./autorizacao";
 import { db } from "./db";
 import { apenasDigitos } from "./documentos";
@@ -21,6 +21,10 @@ export type FiltrosDeAtos = {
   status?: StatusAto;
   procuradorId?: string;
   interessadoId?: string;
+  conciliadorId?: string;
+  modalidade?: ModalidadeSessao;
+  /** Separa quem tem procurador vinculado de quem não tem. */
+  comProcuracao?: "sim" | "nao";
   /**
    * Recortes que o painel usa nos cartões, para o clique cair na lista já
    * filtrada em vez de despejar tudo.
@@ -84,6 +88,21 @@ export function comFiltros(
         },
       },
     });
+  }
+
+  if (filtros.conciliadorId) {
+    condicoes.push({
+      partes: { some: { pessoaId: filtros.conciliadorId, papel: PapelNoAto.CONCILIADOR } },
+    });
+  }
+
+  if (filtros.modalidade) condicoes.push({ modalidade: filtros.modalidade });
+
+  if (filtros.comProcuracao === "sim") {
+    condicoes.push({ partes: { some: { papel: PapelNoAto.PROCURADOR } } });
+  }
+  if (filtros.comProcuracao === "nao") {
+    condicoes.push({ partes: { none: { papel: PapelNoAto.PROCURADOR } } });
   }
 
   if (filtros.situacao === "em_andamento") {
@@ -158,6 +177,35 @@ export async function contarProcuradoresEm(where: Prisma.AtoWhereInput) {
     tipoProcurador: true,
     oab: true,
   });
+}
+
+/** Conciliadores com contagem de procedimentos — mesmo desenho do filtro por procurador. */
+export async function contarConciliadoresEm(where: Prisma.AtoWhereInput) {
+  return contarPessoasPorPapelEm(where, [PapelNoAto.CONCILIADOR], {});
+}
+
+export async function contarPorModalidadeEm(where: Prisma.AtoWhereInput) {
+  const agrupado = await db.ato.groupBy({
+    by: ["modalidade"],
+    where,
+    _count: { _all: true },
+  });
+
+  return agrupado.reduce<Partial<Record<ModalidadeSessao, number>>>((acc, linha) => {
+    acc[linha.modalidade] = linha._count._all;
+    return acc;
+  }, {});
+}
+
+/** Quantos procedimentos do recorte têm procurador vinculado, e quantos não têm. */
+export async function contarPorProcuracaoEm(
+  where: Prisma.AtoWhereInput
+): Promise<{ sim: number; nao: number }> {
+  const [sim, total] = await Promise.all([
+    db.ato.count({ where: { AND: [where, { partes: { some: { papel: PapelNoAto.PROCURADOR } } }] } }),
+    db.ato.count({ where }),
+  ]);
+  return { sim, nao: total - sim };
 }
 
 export async function buscarAtoEm(where: Prisma.AtoWhereInput) {
