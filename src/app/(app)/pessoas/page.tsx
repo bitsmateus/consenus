@@ -24,12 +24,20 @@ export default async function PaginaDePessoas({
         titulo="Interessados e procuradores"
         descricao="Cadastro único por CPF ou CNPJ"
         acao={
-          <Link
-            href="/pessoas/nova"
-            className="rounded-md bg-grafite-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-grafite-500"
-          >
-            Nova pessoa
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/pessoas/importar"
+              className="rounded-md border border-carvao-100 bg-white px-4 py-2.5 text-sm font-medium text-grafite-700 hover:border-dourado-600"
+            >
+              Importar planilha
+            </Link>
+            <Link
+              href="/pessoas/nova"
+              className="rounded-md bg-grafite-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-grafite-500"
+            >
+              Nova pessoa
+            </Link>
+          </div>
         }
       />
 
