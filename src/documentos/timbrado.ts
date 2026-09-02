@@ -146,6 +146,43 @@ export const ESTILO_DO_CORPO = `
   .cargo { font-size: 8.5pt; }
 `;
 
+/**
+ * Linha de assinatura do Conciliador — sempre a primeira, sozinha, tanto na
+ * Ata quanto no Termo de Acordo.
+ */
+export function assinaturaDoConciliador(conciliador: string | null): string {
+  return `
+  <div class="assinatura">
+    <div class="linha"></div>
+    <div class="cargo">${escapar(conciliador) || "Nome:"}</div>
+    <div class="cargo" style="font-weight:bold;">Conciliador</div>
+  </div>`;
+}
+
+/**
+ * As quatro linhas de assinatura de baixo — titular e procurador dos dois
+ * lados —, em branco para preencher na hora. Mesmo layout do modelo oficial
+ * na Ata e no Termo de Acordo: só o rótulo muda (Interessado/Parte).
+ */
+export function assinaturasDasPartes(rotulos: {
+  ladoA: { titular: string; procurador: string };
+  ladoB: { titular: string; procurador: string };
+}): string {
+  const bloco = (rotulo: string) => `
+      <td style="width:50%;text-align:center;padding:0 4mm 8mm;">
+        <div class="linha"></div>
+        <div class="cargo">Nome:</div>
+        <div class="cargo">Documento:</div>
+        <div class="cargo" style="margin-top:1mm;font-weight:bold;">${rotulo}</div>
+      </td>`;
+
+  return `
+  <table style="width:100%;margin-top:12mm;border-collapse:collapse;">
+    <tr>${bloco(rotulos.ladoA.titular)}${bloco(rotulos.ladoA.procurador)}</tr>
+    <tr>${bloco(rotulos.ladoB.titular)}${bloco(rotulos.ladoB.procurador)}</tr>
+  </table>`;
+}
+
 /** Monta o documento completo, pronto para o motor de PDF. */
 export function montarDocumento(corpo: string): string {
   return `<!doctype html>

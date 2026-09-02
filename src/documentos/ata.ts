@@ -7,7 +7,7 @@
  * A ata é obrigatória em toda sessão, independentemente do resultado — inclusive
  * quando ninguém comparece (docs/02, regra 3).
  */
-import { escapar, montarDocumento } from "./timbrado";
+import { assinaturaDoConciliador, assinaturasDasPartes, escapar, montarDocumento } from "./timbrado";
 
 export type Desfecho =
   | "COMPOSICAO_INTEGRAL"
@@ -81,26 +81,13 @@ function lista(nomes: string[]): string {
 
 /** Cinco linhas de assinatura, conforme o modelo: conciliador e os dois lados. */
 function assinaturas(conciliador: string | null): string {
-  const bloco = (rotulo: string) => `
-      <td style="width:50%;text-align:center;padding:0 4mm 8mm;">
-        <div class="linha"></div>
-        <div class="cargo">Nome:</div>
-        <div class="cargo">Documento:</div>
-        <div class="cargo" style="margin-top:1mm;font-weight:bold;">${rotulo}</div>
-      </td>`;
-
   return `
 <div style="margin-top:16mm;">
-  <div class="assinatura">
-    <div class="linha"></div>
-    <div class="cargo">${escapar(conciliador) || "Nome:"}</div>
-    <div class="cargo" style="font-weight:bold;">Conciliador</div>
-  </div>
-
-  <table style="width:100%;margin-top:12mm;border-collapse:collapse;">
-    <tr>${bloco("Interessado Solicitante")}${bloco("Procurador do Solicitante")}</tr>
-    <tr>${bloco("Interessado Convidado")}${bloco("Procurador do Convidado")}</tr>
-  </table>
+  ${assinaturaDoConciliador(conciliador)}
+  ${assinaturasDasPartes({
+    ladoA: { titular: "Interessado Solicitante", procurador: "Procurador do Solicitante" },
+    ladoB: { titular: "Interessado Convidado", procurador: "Procurador do Convidado" },
+  })}
 </div>`;
 }
 

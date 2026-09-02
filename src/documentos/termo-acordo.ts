@@ -10,7 +10,7 @@
  * decisão jurídica do cliente, não do operador que lavra o termo no fim de uma
  * sessão. Ver docs/09, item 9.
  */
-import { escapar, montarDocumento } from "./timbrado";
+import { assinaturaDoConciliador, assinaturasDasPartes, escapar, montarDocumento } from "./timbrado";
 
 export type DadosDoTermo = {
   codigo: string;
@@ -219,26 +219,11 @@ ${CLAUSULAS_FIXAS}
 ${escapar(dados.mes)} de ${escapar(dados.ano)}.</p>
 
 <div style="margin-top:14mm;">
-  <div class="assinatura">
-    <div class="linha"></div>
-    <div class="cargo">${escapar(dados.conciliador) || "Nome:"}</div>
-    <div class="cargo" style="font-weight:bold;">Conciliador</div>
-  </div>
-
-  <table style="width:100%;margin-top:12mm;border-collapse:collapse;">
-    <tr>
-      <td style="width:50%;text-align:center;padding:0 4mm;">
-        <div class="linha"></div>
-        <div class="cargo">${escapar(dados.primeiraParte)}</div>
-        <div class="cargo" style="margin-top:1mm;font-weight:bold;">Parte 1</div>
-      </td>
-      <td style="width:50%;text-align:center;padding:0 4mm;">
-        <div class="linha"></div>
-        <div class="cargo">${escapar(dados.segundaParte)}</div>
-        <div class="cargo" style="margin-top:1mm;font-weight:bold;">Parte 2</div>
-      </td>
-    </tr>
-  </table>
+  ${assinaturaDoConciliador(dados.conciliador)}
+  ${assinaturasDasPartes({
+    ladoA: { titular: "Parte 1", procurador: "Procurador da Parte 1" },
+    ladoB: { titular: "Parte 2", procurador: "Procurador da Parte 2" },
+  })}
 </div>`;
 
   return montarDocumento(corpo);
