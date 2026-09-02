@@ -130,20 +130,25 @@ export const ESTILO_DO_CORPO = `
   p { margin: 0 0 3mm; }
   ol.romanos { padding-left: 8mm; margin: 0 0 3mm; }
   ol.romanos li { margin-bottom: 1.5mm; }
-  .parte { margin: 0 0 3mm; }
+  .parte { margin: 0 0 3mm; break-inside: avoid; page-break-inside: avoid; }
   .parte .rotulo { font-size: 8.5pt; color: ${DOURADO}; text-transform: uppercase; letter-spacing: .4pt; }
   .parte .nome { font-weight: bold; }
   .parte .procurador { font-size: 9pt; color: #4A4A4A; margin-top: .5mm; }
-  .sessao { border: .4pt solid #E4E1DA; padding: 4mm; margin: 3mm 0; }
+  /* break-inside: sem isso, uma caixa comprida (ex.: link do Zoom longo) pode
+     ser cortada ao meio pelo motor de PDF — a senha já saiu sozinha, sem
+     borda, no topo da página seguinte, enquanto o link e o ID ficaram na
+     caixa da página anterior. */
+  .sessao { border: .4pt solid #E4E1DA; padding: 4mm; margin: 3mm 0; break-inside: avoid; page-break-inside: avoid; }
   .sessao dl { margin: 0; }
   .sessao dt { font-size: 8.5pt; color: ${DOURADO}; text-transform: uppercase; letter-spacing: .3pt; }
-  .sessao dd { margin: 0 0 2mm; font-family: 'Courier New', monospace; font-size: 9.5pt; }
-  .assinatura { margin-top: 14mm; text-align: center; }
+  .sessao dd { margin: 0 0 2mm; font-family: 'Courier New', monospace; font-size: 9.5pt; word-break: break-all; }
+  .assinatura { margin-top: 14mm; text-align: center; break-inside: avoid; page-break-inside: avoid; }
   /* Fora de .assinatura de propósito: na Ata e no Termo, as linhas das partes
      ficam dentro de uma <table>, sem esse ancestral. Enquanto o seletor era
      ".assinatura .linha", quatro das cinco linhas da Ata saíam sem linha. */
   .linha { border-top: .4pt solid ${CARVAO}; width: 70mm; margin: 0 auto 1.5mm; }
   .cargo { font-size: 8.5pt; }
+  table tr { break-inside: avoid; page-break-inside: avoid; }
 `;
 
 /**
