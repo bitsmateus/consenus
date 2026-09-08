@@ -1,10 +1,13 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { Papel } from "@prisma/client";
 import {
   alterarPermissao,
   criarUsuario,
+  editarUsuario,
+  excluirUsuario,
+  redefinirSegundoFator,
   type EstadoDeFormulario,
 } from "@/acoes/usuarios";
 import { Botao } from "@/components/ui/botao";
@@ -101,6 +104,135 @@ export function FormularioDePermissao({
         </p>
       )}
       {estado.aviso && <p className="mb-4 w-full text-xs text-sucesso">{estado.aviso}</p>}
+    </form>
+  );
+}
+
+export function FormularioDeEdicao({
+  usuarioId,
+  nome,
+  email,
+  pessoaId,
+  pessoas,
+}: {
+  usuarioId: string;
+  nome: string;
+  email: string;
+  pessoaId: string | null;
+  pessoas: { id: string; rotulo: string }[];
+}) {
+  const [editando, setEditando] = useState(false);
+  const [estado, acao, pendente] = useActionState<EstadoDeFormulario, FormData>(
+    async (anterior, entrada) => {
+      const resultado = await editarUsuario(anterior, entrada);
+      if (!resultado.erro) setEditando(false);
+      return resultado;
+    },
+    {}
+  );
+
+  if (!editando) {
+    return (
+      <button
+        type="button"
+        onClick={() => setEditando(true)}
+        className="mt-2 text-[11px] text-carvao-500 hover:underline"
+      >
+        Editar dados
+      </button>
+    );
+  }
+
+  return (
+    <form action={acao} className="mt-2 rounded-md border border-carvao-100 bg-carvao-100/30 p-3">
+      <input type="hidden" name="usuarioId" value={usuarioId} />
+
+      {estado.erro && (
+        <p role="alert" className="mb-2 text-xs text-erro">
+          {estado.erro}
+        </p>
+      )}
+
+      <div className="grid gap-x-3 sm:grid-cols-2">
+        <Campo rotulo="Nome" name="nome" defaultValue={nome} required />
+        <Campo rotulo="E-mail" name="email" type="email" defaultValue={email} required />
+        <div className="sm:col-span-2">
+          <Selecao
+            rotulo="Pessoa vinculada"
+            name="pessoaId"
+            defaultValue={pessoaId ?? ""}
+            vazio="Nenhuma"
+            opcoes={pessoas.map((p) => ({ valor: p.id, rotulo: p.rotulo }))}
+            dica="Obrigatório para perfil de Interessado ou Procurador."
+          />
+        </div>
+      </div>
+
+      <div className="flex gap-2">
+        <Botao type="submit" variante="secundario" carregando={pendente}>
+          Salvar
+        </Botao>
+        <Botao type="button" variante="secundario" onClick={() => setEditando(false)}>
+          Cancelar
+        </Botao>
+      </div>
+    </form>
+  );
+}
+
+export function BotaoDeRedefinicao2FA({ usuarioId }: { usuarioId: string }) {
+  const [estado, acao, pendente] = useActionState<EstadoDeFormulario, FormData>(
+    redefinirSegundoFator,
+    {}
+  );
+
+  return (
+    <form
+      action={acao}
+      onSubmit={(evento) => {
+        if (
+          !window.confirm(
+            "Redefinir o segundo fator? A pessoa vai precisar configurar o aplicativo autenticador de novo no próximo acesso."
+          )
+        ) {
+          evento.preventDefault();
+        }
+      }}
+    >
+      <input type="hidden" name="usuarioId" value={usuarioId} />
+      <Botao type="submit" variante="secundario" carregando={pendente} className="px-3 py-1.5 text-xs">
+        Redefinir 2FA
+      </Botao>
+      {estado.erro && <p role="alert" className="mt-1 text-xs text-erro">{estado.erro}</p>}
+      {estado.aviso && <p className="mt-1 text-xs text-sucesso">{estado.aviso}</p>}
+    </form>
+  );
+}
+
+export function BotaoDeExclusao({ usuarioId, nome }: { usuarioId: string; nome: string }) {
+  const [estado, acao, pendente] = useActionState<EstadoDeFormulario, FormData>(
+    excluirUsuario,
+    {}
+  );
+
+  return (
+    <form
+      action={acao}
+      onSubmit={(evento) => {
+        if (
+          !window.confirm(
+            `Excluir a conta de ${nome}? Isso só é possível se a conta nunca teve atividade no sistema (ato, documento ou auditoria) — caso contrário, use Inativa.`
+          )
+        ) {
+          evento.preventDefault();
+        }
+      }}
+    >
+      <input type="hidden" name="usuarioId" value={usuarioId} />
+      <Botao type="submit" variante="perigo" carregando={pendente} className="px-3 py-1.5 text-xs">
+        Excluir conta
+      </Botao>
+      {estado.erro && <p role="alert" className="mt-1 text-xs text-erro">{estado.erro}</p>}
     </form>
   );
 }

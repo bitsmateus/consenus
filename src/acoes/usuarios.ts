@@ -152,3 +152,192 @@ export async function alterarPermissao(
   revalidatePath("/equipe");
   return { aviso: "Permissões atualizadas." };
 }
+
+const edicao = z.object({
+  usuarioId: z.string().min(1),
+  nome: z.string().trim().min(3, "Informe o nome."),
+  email: z.string().trim().email("E-mail inválido."),
+  pessoaId: z.string().trim().optional(),
+});
+
+export async function editarUsuario(
+  _anterior: EstadoDeFormulario,
+  entrada: FormData
+): Promise<EstadoDeFormulario> {
+  const admin = await exigirAdmin();
+
+  const analise = edicao.safeParse(Object.fromEntries(entrada));
+  if (!analise.success) {
+    const primeiro = analise.error.issues[0];
+    return { erro: primeiro?.message ?? "Dados inválidos.", campo: String(primeiro?.path[0] ?? "") };
+  }
+
+  const { usuarioId, nome, email, pessoaId } = analise.data;
+
+  try {
+    const alvo = await db.usuario.findUnique({
+      where: { id: usuarioId },
+      select: { id: true, papel: true, email: true },
+    });
+    if (!alvo) throw new ErroDeNegocio("Conta não encontrada.");
+
+    if (exigePessoaVinculada(alvo.papel) && !pessoaId) {
+      throw new ErroDeNegocio(
+        "Perfil de Interessado ou Procurador precisa estar vinculado a uma pessoa cadastrada."
+      );
+    }
+
+    await db.usuario.update({
+      where: { id: usuarioId },
+      data: {
+        nome,
+        email: email.toLowerCase(),
+        pessoaId: pessoaId || null,
+      },
+    });
+
+    await registrarAuditoria({
+      usuarioId: admin.id,
+      acao: "EDITOU_USUARIO",
+      entidade: "Usuario",
+      entidadeId: usuarioId,
+      metadados: { de: alvo.email, para: email.toLowerCase() },
+    });
+  } catch (erro) {
+    if (erro instanceof ErroDeNegocio) return { erro: erro.message };
+    if (erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === "P2002") {
+      return { erro: "Já existe conta com este e-mail ou pessoa vinculada.", campo: "email" };
+    }
+    throw erro;
+  }
+
+  revalidatePath("/equipe");
+  return { aviso: "Conta atualizada." };
+}
+
+const exclusao = z.object({ usuarioId: z.string().min(1) });
+
+export async function excluirUsuario(
+  _anterior: EstadoDeFormulario,
+  entrada: FormData
+): Promise<EstadoDeFormulario> {
+  const admin = await exigirAdmin();
+
+  const analise = exclusao.safeParse(Object.fromEntries(entrada));
+  if (!analise.success) return { erro: "Dados inválidos." };
+  const { usuarioId } = analise.data;
+
+  try {
+    if (usuarioId === admin.id) {
+      throw new ErroDeNegocio("Você não pode excluir a própria conta.");
+    }
+
+    const alvo = await db.usuario.findUnique({
+      where: { id: usuarioId },
+      select: {
+        id: true,
+        email: true,
+        papel: true,
+        ativo: true,
+        _count: {
+          select: {
+            atosCriados: true,
+            eventos: true,
+            auditoria: true,
+            documentos: true,
+            conferencias: true,
+            termos: true,
+            assinaturas: true,
+          },
+        },
+      },
+    });
+    if (!alvo) throw new ErroDeNegocio("Conta não encontrada.");
+
+    // Mesma trava de alterarPermissao: o sistema não pode ficar sem administrador.
+    if (alvo.papel === Papel.ADMIN && alvo.ativo) {
+      const outrosAdmins = await db.usuario.count({
+        where: { papel: Papel.ADMIN, ativo: true, id: { not: usuarioId } },
+      });
+      if (outrosAdmins === 0) {
+        throw new ErroDeNegocio("O sistema precisa de ao menos um administrador ativo.");
+      }
+    }
+
+    // A maioria dos vínculos da conta (auditoria, documentos, eventos,
+    // conferências, termos, assinaturas) é gravada com ON DELETE SET NULL: o
+    // banco deixaria excluir mesmo assim, só que apagando quem fez o quê de
+    // registro que é prova do procedimento. Só o Ato bloqueia sozinho
+    // (ON DELETE RESTRICT); os demais são conferidos aqui, à mão.
+    const temAtividade = Object.values(alvo._count).some((quantidade) => quantidade > 0);
+    if (temAtividade) {
+      throw new ErroDeNegocio(
+        "Esta conta já tem histórico no sistema (atos, documentos ou auditoria) e não pode ser excluída — use Inativa."
+      );
+    }
+
+    await db.usuario.delete({ where: { id: usuarioId } });
+
+    await registrarAuditoria({
+      usuarioId: admin.id,
+      acao: "EXCLUIU_USUARIO",
+      entidade: "Usuario",
+      entidadeId: usuarioId,
+      metadados: { email: alvo.email, papel: alvo.papel },
+    });
+  } catch (erro) {
+    if (erro instanceof ErroDeNegocio) return { erro: erro.message };
+    if (erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === "P2003") {
+      return {
+        erro:
+          "Esta conta já tem histórico no sistema (atos, documentos ou auditoria) e não pode ser excluída — use Inativa.",
+      };
+    }
+    throw erro;
+  }
+
+  revalidatePath("/equipe");
+  return { aviso: "Conta excluída." };
+}
+
+const redefinicao2FA = z.object({ usuarioId: z.string().min(1) });
+
+/**
+ * Zera o segundo fator de outra conta pela tela, para quando o autenticador se
+ * perdeu (celular trocado, app desinstalado). Antes disso só existia pelo
+ * console (`scripts/recuperar-admin.cjs`) — decisão revista a pedido do
+ * cliente, com o mesmo efeito: limpa o segredo e desliga a exigência até a
+ * pessoa configurar de novo no próximo acesso.
+ */
+export async function redefinirSegundoFator(
+  _anterior: EstadoDeFormulario,
+  entrada: FormData
+): Promise<EstadoDeFormulario> {
+  const admin = await exigirAdmin();
+
+  const analise = redefinicao2FA.safeParse(Object.fromEntries(entrada));
+  if (!analise.success) return { erro: "Dados inválidos." };
+  const { usuarioId } = analise.data;
+
+  const alvo = await db.usuario.findUnique({
+    where: { id: usuarioId },
+    select: { id: true, email: true },
+  });
+  if (!alvo) return { erro: "Conta não encontrada." };
+
+  await db.usuario.update({
+    where: { id: usuarioId },
+    data: { totpSecret: null, totpAtivo: false },
+  });
+
+  await registrarAuditoria({
+    usuarioId: admin.id,
+    acao: "REDEFINIU_SEGUNDO_FATOR",
+    entidade: "Usuario",
+    entidadeId: usuarioId,
+    metadados: { email: alvo.email },
+  });
+
+  revalidatePath("/equipe");
+  return { aviso: "Segundo fator redefinido. A pessoa vai configurar de novo no próximo acesso." };
+}
