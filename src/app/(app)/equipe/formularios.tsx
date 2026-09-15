@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { Papel } from "@prisma/client";
+import { Papel, SubPapelOperador } from "@prisma/client";
 import {
   alterarPermissao,
   criarUsuario,
@@ -13,9 +13,13 @@ import {
 import { Botao } from "@/components/ui/botao";
 import { Campo } from "@/components/ui/campo";
 import { Selecao } from "@/components/ui/selecao";
-import { ROTULO_PAPEL } from "@/lib/formato";
+import { ROTULO_PAPEL, ROTULO_SUBPAPEL } from "@/lib/formato";
 
 const OPCOES_DE_PAPEL = Object.values(Papel).map((p) => ({ valor: p, rotulo: ROTULO_PAPEL[p] }));
+const OPCOES_DE_SUBPAPEL = Object.values(SubPapelOperador).map((s) => ({
+  valor: s,
+  rotulo: ROTULO_SUBPAPEL[s],
+}));
 
 export function FormularioDeNovoUsuario({
   pessoas,
@@ -23,6 +27,7 @@ export function FormularioDeNovoUsuario({
   pessoas: { id: string; rotulo: string }[];
 }) {
   const [estado, acao, pendente] = useActionState<EstadoDeFormulario, FormData>(criarUsuario, {});
+  const [papel, setPapel] = useState<Papel>(Papel.OPERADOR);
 
   return (
     <form action={acao} className="rounded-lg border border-carvao-100 bg-white p-4">
@@ -36,7 +41,22 @@ export function FormularioDeNovoUsuario({
       <div className="grid gap-x-3 sm:grid-cols-2">
         <Campo rotulo="Nome" name="nome" required />
         <Campo rotulo="E-mail" name="email" type="email" required />
-        <Selecao rotulo="Perfil" name="papel" defaultValue={Papel.OPERADOR} opcoes={OPCOES_DE_PAPEL} />
+        <Selecao
+          rotulo="Perfil"
+          name="papel"
+          defaultValue={Papel.OPERADOR}
+          opcoes={OPCOES_DE_PAPEL}
+          onChange={(e) => setPapel(e.target.value as Papel)}
+        />
+        {papel === Papel.OPERADOR && (
+          <Selecao
+            rotulo="Sub-perfil"
+            name="subPapelOperador"
+            vazio="Nenhum — acesso a todo o fluxo"
+            opcoes={OPCOES_DE_SUBPAPEL}
+            dica="Restringe o operador às ações de uma etapa. Deixe em branco para acesso total."
+          />
+        )}
         <Campo
           rotulo="Senha provisória"
           name="senha"
@@ -65,24 +85,44 @@ export function FormularioDeNovoUsuario({
 export function FormularioDePermissao({
   usuarioId,
   papel,
+  subPapelOperador,
   ativo,
 }: {
   usuarioId: string;
   papel: Papel;
+  subPapelOperador: SubPapelOperador | null;
   ativo: boolean;
 }) {
   const [estado, acao, pendente] = useActionState<EstadoDeFormulario, FormData>(
     alterarPermissao,
     {}
   );
+  const [papelSelecionado, setPapelSelecionado] = useState<Papel>(papel);
 
   return (
     <form action={acao} className="flex flex-wrap items-end gap-2">
       <input type="hidden" name="usuarioId" value={usuarioId} />
 
       <div className="w-40">
-        <Selecao rotulo="Perfil" name="papel" defaultValue={papel} opcoes={OPCOES_DE_PAPEL} />
+        <Selecao
+          rotulo="Perfil"
+          name="papel"
+          defaultValue={papel}
+          opcoes={OPCOES_DE_PAPEL}
+          onChange={(e) => setPapelSelecionado(e.target.value as Papel)}
+        />
       </div>
+      {papelSelecionado === Papel.OPERADOR && (
+        <div className="w-64">
+          <Selecao
+            rotulo="Sub-perfil"
+            name="subPapelOperador"
+            defaultValue={subPapelOperador ?? ""}
+            vazio="Nenhum — acesso a todo o fluxo"
+            opcoes={OPCOES_DE_SUBPAPEL}
+          />
+        </div>
+      )}
       <div className="w-32">
         <Selecao
           rotulo="Situação"

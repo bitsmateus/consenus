@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import argon2 from "argon2";
-import { Papel, Prisma } from "@prisma/client";
+import { Papel, Prisma, SubPapelOperador } from "@prisma/client";
 import { z } from "zod";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { db } from "@/lib/db";
@@ -22,9 +22,18 @@ const criacao = z.object({
   nome: z.string().trim().min(3, "Informe o nome."),
   email: z.string().trim().email("E-mail inválido."),
   papel: z.nativeEnum(Papel),
+  subPapelOperador: z.union([z.nativeEnum(SubPapelOperador), z.literal("")]).optional(),
   senha: senhaForte,
   pessoaId: z.string().trim().optional(),
 });
+
+/** Sub-perfil só faz sentido para OPERADOR — nulo em qualquer outro papel. */
+function subPapelParaSalvar(
+  papel: Papel,
+  subPapelOperador: SubPapelOperador | "" | undefined
+): SubPapelOperador | null {
+  return papel === Papel.OPERADOR && subPapelOperador ? subPapelOperador : null;
+}
 
 /**
  * Perfil externo (PARTE e PROCURADOR) só funciona ligado a uma Pessoa: é o
@@ -47,7 +56,7 @@ export async function criarUsuario(
     return { erro: primeiro?.message ?? "Dados inválidos.", campo: String(primeiro?.path[0] ?? "") };
   }
 
-  const { nome, email, papel, senha, pessoaId } = analise.data;
+  const { nome, email, papel, subPapelOperador, senha, pessoaId } = analise.data;
 
   try {
     if (exigePessoaVinculada(papel) && !pessoaId) {
@@ -61,6 +70,7 @@ export async function criarUsuario(
         nome,
         email: email.toLowerCase(),
         papel,
+        subPapelOperador: subPapelParaSalvar(papel, subPapelOperador),
         senhaHash: await argon2.hash(senha, { type: argon2.argon2id }),
         pessoaId: exigePessoaVinculada(papel) ? pessoaId || null : null,
       },
@@ -88,6 +98,7 @@ export async function criarUsuario(
 const alteracao = z.object({
   usuarioId: z.string().min(1),
   papel: z.nativeEnum(Papel),
+  subPapelOperador: z.union([z.nativeEnum(SubPapelOperador), z.literal("")]).optional(),
   ativo: z.enum(["sim", "nao"]),
 });
 
@@ -102,7 +113,7 @@ export async function alterarPermissao(
     return { erro: analise.error.issues[0]?.message ?? "Dados inválidos." };
   }
 
-  const { usuarioId, papel, ativo } = analise.data;
+  const { usuarioId, papel, subPapelOperador, ativo } = analise.data;
 
   try {
     const alvo = await db.usuario.findUnique({
@@ -132,9 +143,11 @@ export async function alterarPermissao(
       }
     }
 
+    const novoSubPapel = subPapelParaSalvar(papel, subPapelOperador);
+
     await db.usuario.update({
       where: { id: usuarioId },
-      data: { papel, ativo: ativo === "sim" },
+      data: { papel, subPapelOperador: novoSubPapel, ativo: ativo === "sim" },
     });
 
     await registrarAuditoria({
@@ -142,7 +155,7 @@ export async function alterarPermissao(
       acao: "ALTEROU_PERMISSAO",
       entidade: "Usuario",
       entidadeId: usuarioId,
-      metadados: { de: alvo.papel, para: papel, ativo: ativo === "sim" },
+      metadados: { de: alvo.papel, para: papel, subPapelOperador: novoSubPapel, ativo: ativo === "sim" },
     });
   } catch (erro) {
     if (erro instanceof ErroDeNegocio) return { erro: erro.message };

@@ -19,12 +19,24 @@ enum Papel {
   PROCURADOR // acesso externo, vê TODOS os atos em que representa alguém
 }
 
+/// Restringe as ações de um OPERADOR a uma fatia do fluxo de 5 passos —
+/// pedido do cliente em 15/09, para colaboradoras como a Larissa (câmara) não
+/// terem acesso ao cadastro/1ª carta, e quem cuida do intake não confirmar
+/// data nem emitir a carta ao Convidado. Sem efeito sobre ADMIN. Ver
+/// src/lib/permissoes.ts.
+enum SubPapelOperador {
+  CAMARA // conferência documental, confirmação de data, carta e envio ao Convidado
+  INTERESSADO // cadastro de partes/demanda, carta e envio ao Interessado, upload de documento
+}
+
 model Usuario {
   id        String  @id @default(cuid())
   nome      String
   email     String  @unique
   senhaHash String
   papel     Papel   @default(OPERADOR)
+  /// só tem efeito quando papel = OPERADOR; nulo = acesso a todo o fluxo (padrão)
+  subPapelOperador SubPapelOperador?
   ativo     Boolean @default(true)
 
   // segundo fator (obrigatório para ADMIN e OPERADOR)

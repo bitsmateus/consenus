@@ -3,7 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import argon2 from "argon2";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { Papel } from "@prisma/client";
+import { Papel, SubPapelOperador } from "@prisma/client";
 import { configuracaoDeAutenticacao } from "@/auth.config";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { codigoConfere } from "@/lib/totp";
@@ -49,6 +49,8 @@ declare module "next-auth" {
   interface User {
     nome: string;
     papel: Papel;
+    /** só tem efeito quando papel = OPERADOR; ver src/lib/permissoes.ts */
+    subPapelOperador: SubPapelOperador | null;
     pessoaId: string | null;
     /** "Manter conectado por 30 dias", marcado na tela de login. */
     lembrar: boolean;
@@ -58,6 +60,7 @@ declare module "next-auth" {
       id: string;
       nome: string;
       papel: Papel;
+      subPapelOperador: SubPapelOperador | null;
       pessoaId: string | null;
     } & DefaultSession["user"];
   }
@@ -140,6 +143,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           nome: usuario.nome,
           email: usuario.email,
           papel: usuario.papel,
+          subPapelOperador: usuario.subPapelOperador,
           pessoaId: usuario.pessoaId,
           lembrar: lembrar === "true",
         };

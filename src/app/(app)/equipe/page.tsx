@@ -2,7 +2,7 @@ import { CabecalhoDePagina } from "@/components/ui/cabecalho-de-pagina";
 import { Etiqueta } from "@/components/ui/etiqueta";
 import { db } from "@/lib/db";
 import { formatarDocumento } from "@/lib/documentos";
-import { ROTULO_PAPEL, formatarDataHora } from "@/lib/formato";
+import { ROTULO_PAPEL, ROTULO_SUBPAPEL, formatarDataHora } from "@/lib/formato";
 import { exigirAdmin } from "@/lib/sessao";
 import { exigeSegundoFator } from "@/lib/totp";
 import {
@@ -68,6 +68,9 @@ export default async function PaginaDeEquipe() {
                     <Etiqueta tom={usuario.ativo ? "andamento" : "encerrado"}>
                       {usuario.ativo ? ROTULO_PAPEL[usuario.papel] : "Inativa"}
                     </Etiqueta>
+                    {usuario.ativo && usuario.subPapelOperador && (
+                      <Etiqueta>{ROTULO_SUBPAPEL[usuario.subPapelOperador]}</Etiqueta>
+                    )}
                     {usuario.totpAtivo ? (
                       <Etiqueta tom="sucesso">2 etapas</Etiqueta>
                     ) : (
@@ -86,6 +89,7 @@ export default async function PaginaDeEquipe() {
                 <FormularioDePermissao
                   usuarioId={usuario.id}
                   papel={usuario.papel}
+                  subPapelOperador={usuario.subPapelOperador}
                   ativo={usuario.ativo}
                 />
 

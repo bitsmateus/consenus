@@ -12,12 +12,13 @@ import { envioAutomaticoAtivo, enviarNotificacao } from "@/lib/ar-online";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { configuracaoDoSistema } from "@/lib/configuracao";
 import { db } from "@/lib/db";
-import { ErroDeNegocio, FluxoInvalido } from "@/lib/erros";
+import { ErroDeNegocio, FluxoInvalido, SemPermissao } from "@/lib/erros";
 import { FUSO, calcularPrazoDocumentacao, interpretarDataDeCiencia } from "@/lib/prazos";
 import { validarArquivo, extensaoDoTipo } from "@/lib/mime";
 import { emitirDocumento } from "@/lib/emissao";
 import { baixarArquivo, enviarArquivo, gerarUrlDeDownload, montarChave } from "@/lib/storage";
 import { exigirAcessoAoAto, exigirEquipe } from "@/lib/sessao";
+import { exigirPermissao, garantirPermissao } from "@/lib/permissoes";
 import { cartaAoSolicitante } from "@/documentos/carta-convite";
 import { formatarRepresentantes, ROTULO_MODALIDADE } from "@/lib/formato";
 export type EstadoDeFormulario = { erro?: string; aviso?: string };
@@ -51,7 +52,7 @@ function descreverModalidade(modalidade: keyof typeof ROTULO_MODALIDADE): string
  * "contados do recebimento desta comunicação".
  */
 export async function emitirCartaAoSolicitante(entrada: FormData): Promise<void> {
-  const usuario = await exigirEquipe();
+  const usuario = await exigirPermissao("GERAR_CARTA_INTERESSADO");
   const atoId = String(entrada.get("atoId") ?? "");
   if (!atoId) throw new ErroDeNegocio("Procedimento não informado.");
   await exigirAcessoAoAto(atoId, db);
@@ -160,7 +161,7 @@ export async function anexarDocumento(
   _anterior: EstadoDeFormulario,
   entrada: FormData
 ): Promise<EstadoDeFormulario> {
-  const usuario = await exigirEquipe();
+  const usuario = await exigirPermissao("SUBIR_DOCUMENTO");
   const analise = anexo.safeParse({
     atoId: entrada.get("atoId"),
     tipo: entrada.get("tipo"),
@@ -245,6 +246,16 @@ export async function registrarEnvio(
       select: { id: true, tipo: true, codigoVerificacao: true },
     });
     if (!documento) throw new ErroDeNegocio("Documento não pertence a este procedimento.");
+
+    // envio de carta é a ação listada por sub-perfil; qualquer outro documento
+    // (ata, termo, etc.) exige operador sem restrição, ou ADMIN
+    if (documento.tipo === TipoDocumento.CARTA_CONVITE_SOLICITANTE) {
+      garantirPermissao(usuario, "ENVIAR_CARTA_INTERESSADO");
+    } else if (documento.tipo === TipoDocumento.CARTA_CONVITE_CONVIDADO) {
+      garantirPermissao(usuario, "ENVIAR_CARTA_CONVIDADO");
+    } else if (usuario.subPapelOperador) {
+      throw new SemPermissao("Seu perfil de operador não tem permissão para esta ação.");
+    }
 
     const registro = await db.envio.create({
       data: {

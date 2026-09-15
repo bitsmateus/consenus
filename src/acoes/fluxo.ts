@@ -20,6 +20,7 @@ import { cancelarReuniao, videoconferenciaAtiva } from "@/lib/zoom";
 import { FUSO, sessaoAntesDaDataMarcada } from "@/lib/prazos";
 import { faltamItens } from "@/lib/documentacao";
 import { exigirAcessoAoAto, exigirEquipe } from "@/lib/sessao";
+import { exigirPermissao } from "@/lib/permissoes";
 import { cartaAoConvidado } from "@/documentos/carta-convite";
 import { ataDaSessao, type Desfecho } from "@/documentos/ata";
 import { termoDeAcordo } from "@/documentos/termo-acordo";
@@ -63,7 +64,7 @@ const partesDaData = (data: Date) => {
  * "quando aplicável"). Não confirma data: isso é ação separada e explícita.
  */
 export async function conferirItem(entrada: FormData): Promise<void> {
-  const usuario = await exigirEquipe();
+  const usuario = await exigirPermissao("CONFERIR_DOCUMENTO");
 
   const atoId = String(entrada.get("atoId") ?? "");
   const item = String(entrada.get("item") ?? "") as ItemDaDocumentacao;
@@ -114,7 +115,7 @@ export async function conferirItem(entrada: FormData): Promise<void> {
  * segunda carta pode existir.
  */
 export async function confirmarData(entrada: FormData): Promise<void> {
-  const usuario = await exigirEquipe();
+  const usuario = await exigirPermissao("CONFIRMAR_DATA");
   const atoId = String(entrada.get("atoId") ?? "");
   if (!atoId) throw new ErroDeNegocio("Procedimento não informado.");
 
@@ -185,7 +186,7 @@ export async function confirmarData(entrada: FormData): Promise<void> {
  * negócio, não erro de validação de formulário.
  */
 export async function emitirCartaAoConvidado(entrada: FormData): Promise<void> {
-  const usuario = await exigirEquipe();
+  const usuario = await exigirPermissao("GERAR_CARTA_CONVIDADO");
   const atoId = String(entrada.get("atoId") ?? "");
   if (!atoId) throw new ErroDeNegocio("Procedimento não informado.");
 

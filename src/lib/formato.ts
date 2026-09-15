@@ -8,6 +8,7 @@ import {
   Papel,
   PapelNoAto,
   StatusAto,
+  SubPapelOperador,
   TipoProcurador,
 } from "@prisma/client";
 import { FUSO } from "./prazos";
@@ -61,6 +62,12 @@ export const ROTULO_PAPEL: Record<Papel, string> = {
   OPERADOR: "Operador",
   PARTE: "Interessado",
   PROCURADOR: "Procurador",
+};
+
+/** Rótulos exatos do pedido do cliente em 15/09 — não abreviar nem parafrasear. */
+export const ROTULO_SUBPAPEL: Record<SubPapelOperador, string> = {
+  CAMARA: "Operador Câmara",
+  INTERESSADO: "Operador Consultoria/Procurador (Interessado)",
 };
 
 export const ROTULO_STATUS: Record<StatusAto, string> = {

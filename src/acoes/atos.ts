@@ -24,6 +24,7 @@ import { proximoNumeroDoAto } from "@/lib/numeracao";
 import { conferirCoerencia, esquemaDePessoa, montarDadosDePessoa } from "@/lib/pessoas";
 import { calcularDataDaSessao, calcularPrazoDocumentacao, FUSO } from "@/lib/prazos";
 import { exigirAcessoAoAto, exigirEquipe } from "@/lib/sessao";
+import { exigirPermissao } from "@/lib/permissoes";
 
 export type EstadoDeFormulario = { erro?: string; campo?: string };
 
@@ -75,7 +76,7 @@ export async function criarAto(
   _anterior: EstadoDeFormulario,
   entrada: FormData
 ): Promise<EstadoDeFormulario> {
-  const usuario = await exigirEquipe();
+  const usuario = await exigirPermissao("CADASTRAR_DEMANDA");
 
   const analise = criacao.safeParse(Object.fromEntries(entrada));
   if (!analise.success) {
@@ -314,7 +315,7 @@ export async function adicionarParte(
   _anterior: EstadoDeFormulario,
   entrada: FormData
 ): Promise<EstadoDeFormulario> {
-  const usuario = await exigirEquipe();
+  const usuario = await exigirPermissao("CADASTRAR_PARTE");
 
   const analise = vinculo.safeParse(Object.fromEntries(entrada));
   if (!analise.success) {
@@ -382,7 +383,7 @@ export async function adicionarParte(
 
 /** Remove vínculo. Interessado Solicitante e Convidado não podem ser removidos. */
 export async function removerParte(entrada: FormData): Promise<void> {
-  const usuario = await exigirEquipe();
+  const usuario = await exigirPermissao("CADASTRAR_PARTE");
 
   const parteId = String(entrada.get("parteId") ?? "");
   const atoId = String(entrada.get("atoId") ?? "");

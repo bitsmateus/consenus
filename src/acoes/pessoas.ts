@@ -15,6 +15,7 @@ import {
 } from "@/lib/importacao-pessoas";
 import { conferirCoerencia, esquemaDePessoa, montarDadosDePessoa } from "@/lib/pessoas";
 import { exigirEquipe } from "@/lib/sessao";
+import { exigirPermissao } from "@/lib/permissoes";
 import { adicionarParte } from "./atos";
 
 export type EstadoDeFormulario = { erro?: string; campo?: string };
@@ -23,7 +24,7 @@ export async function salvarPessoa(
   _anterior: EstadoDeFormulario,
   entrada: FormData
 ): Promise<EstadoDeFormulario> {
-  const usuario = await exigirEquipe();
+  const usuario = await exigirPermissao("CADASTRAR_PARTE");
 
   const analise = esquemaDePessoa.safeParse(Object.fromEntries(entrada));
   if (!analise.success) {
@@ -84,7 +85,7 @@ export async function cadastrarEVincular(
   _anterior: EstadoDeFormulario,
   entrada: FormData
 ): Promise<EstadoDeFormulario> {
-  const usuario = await exigirEquipe();
+  const usuario = await exigirPermissao("CADASTRAR_PARTE");
 
   const analise = esquemaDePessoa.safeParse(Object.fromEntries(entrada));
   if (!analise.success) {
@@ -191,7 +192,7 @@ export async function importarPessoas(
   _anterior: ResultadoDeImportacao,
   entrada: FormData
 ): Promise<ResultadoDeImportacao> {
-  const usuario = await exigirEquipe();
+  const usuario = await exigirPermissao("CADASTRAR_PARTE");
 
   const arquivo = entrada.get("arquivo");
   if (!(arquivo instanceof File) || arquivo.size === 0) {

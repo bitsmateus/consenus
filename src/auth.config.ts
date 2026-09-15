@@ -1,6 +1,6 @@
 import type { NextAuthConfig } from "next-auth";
 import { encode as codificarComPadraoDoAuthJs } from "next-auth/jwt";
-import type { Papel } from "@prisma/client";
+import type { Papel, SubPapelOperador } from "@prisma/client";
 
 const OITO_HORAS = 8 * 60 * 60;
 const TRINTA_DIAS = 30 * 24 * 60 * 60;
@@ -32,6 +32,9 @@ export const configuracaoDeAutenticacao = {
         token.id = user.id;
         token.nome = (user as { nome: string }).nome;
         token.papel = (user as { papel: Papel }).papel;
+        token.subPapelOperador = (
+          user as { subPapelOperador: SubPapelOperador | null }
+        ).subPapelOperador;
         token.pessoaId = (user as { pessoaId: string | null }).pessoaId;
         token.lembrar = (user as { lembrar: boolean }).lembrar;
       }
@@ -41,6 +44,7 @@ export const configuracaoDeAutenticacao = {
       session.user.id = token.id as string;
       session.user.nome = token.nome as string;
       session.user.papel = token.papel as Papel;
+      session.user.subPapelOperador = (token.subPapelOperador as SubPapelOperador | null) ?? null;
       session.user.pessoaId = (token.pessoaId as string | null) ?? null;
       return session;
     },
