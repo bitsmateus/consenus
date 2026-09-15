@@ -124,6 +124,40 @@ export async function cadastrarEVincular(
   return adicionarParte({}, vinculo);
 }
 
+/**
+ * Remove o vínculo de uma ou mais pessoas com o escritório/empresa a que
+ * estavam associadas (`vinculadoAId`). Não altera `tipoProcurador` nem `oab`.
+ *
+ * Pedido do cliente em 15/09: uma planilha antiga vinculou dezenas de
+ * cadastros (bancos, financeiras) ao escritório do cliente por engano. A
+ * correção é feita pela tela, um a um (formulário com um único `id`) ou em
+ * lote (vários campos `id`), sem depender de reimportar planilha.
+ */
+export async function desvincularPessoas(entrada: FormData): Promise<void> {
+  const usuario = await exigirEquipe();
+
+  const ids = entrada.getAll("id").map(String).filter(Boolean);
+  if (ids.length === 0) throw new ErroDeNegocio("Nenhuma pessoa selecionada.");
+
+  const pessoas = await db.pessoa.findMany({
+    where: { id: { in: ids }, vinculadoAId: { not: null } },
+    select: { id: true, nome: true, vinculadoA: { select: { nome: true } } },
+  });
+
+  for (const pessoa of pessoas) {
+    await db.pessoa.update({ where: { id: pessoa.id }, data: { vinculadoAId: null } });
+    await registrarAuditoria({
+      usuarioId: usuario.id,
+      acao: "ALTEROU_PESSOA",
+      entidade: "Pessoa",
+      entidadeId: pessoa.id,
+      metadados: { nome: pessoa.nome, desvinculadoDe: pessoa.vinculadoA?.nome ?? null },
+    });
+  }
+
+  revalidatePath("/pessoas");
+}
+
 export type ErroDeImportacao = { linha: number; nome: string; motivo: string };
 export type ResultadoDeImportacao = {
   erro?: string;

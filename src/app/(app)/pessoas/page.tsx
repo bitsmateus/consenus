@@ -1,11 +1,9 @@
 import Link from "next/link";
 import { CabecalhoDePagina } from "@/components/ui/cabecalho-de-pagina";
 import { EstadoVazio } from "@/components/ui/estado-vazio";
-import { Etiqueta } from "@/components/ui/etiqueta";
 import { listarPessoas } from "@/lib/consultas";
-import { formatarDocumento } from "@/lib/documentos";
-import { ROTULO_TIPO_PROCURADOR } from "@/lib/formato";
 import { exigirEquipe } from "@/lib/sessao";
+import { ListaDePessoas } from "./lista-de-pessoas";
 
 export const metadata = { title: "Interessados — Consensus One" };
 
@@ -65,38 +63,7 @@ export default async function PaginaDePessoas({
             }
           />
         ) : (
-          <ul className="space-y-2">
-            {pessoas.map((pessoa) => (
-              <li key={pessoa.id}>
-                <Link
-                  href={`/pessoas/${pessoa.id}`}
-                  className="block rounded-lg border border-carvao-100 bg-white p-4 transition-colors hover:border-dourado-600"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-carvao-700">{pessoa.nome}</p>
-                      <p className="tabular mt-0.5 text-xs text-carvao-500">
-                        {formatarDocumento(pessoa.documento)}
-                        {pessoa.oab && ` · OAB ${pessoa.oab}`}
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      {pessoa.tipoProcurador && (
-                        <Etiqueta tom="andamento">
-                          {ROTULO_TIPO_PROCURADOR[pessoa.tipoProcurador]}
-                        </Etiqueta>
-                      )}
-                      <Etiqueta>
-                        {pessoa._count.participacoes === 1
-                          ? "1 procedimento"
-                          : `${pessoa._count.participacoes} procedimentos`}
-                      </Etiqueta>
-                    </div>
-                  </div>
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <ListaDePessoas pessoas={pessoas} />
         )}
       </div>
     </>

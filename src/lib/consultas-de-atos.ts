@@ -275,7 +275,10 @@ export async function listarPessoas(busca?: string, apenasProcuradores = false) 
     where,
     orderBy: { nome: "asc" },
     take: 200,
-    include: { _count: { select: { participacoes: true } } },
+    include: {
+      vinculadoA: { select: { id: true, nome: true } },
+      _count: { select: { participacoes: true } },
+    },
   });
 }
 
