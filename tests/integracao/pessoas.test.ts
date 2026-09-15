@@ -1,6 +1,7 @@
 /**
- * Desvincular pessoa/empresa do escritório a que estava indevidamente
- * associada — pedido do cliente em 15/09, mesma classe de bug documentada em
+ * Limpa OAB e vínculo de pessoa que não é procuradora de ninguém, mas ficou
+ * com esse resíduo de uma planilha antiga importada errado — pedido do
+ * cliente em 15/09. Mesma classe de bug documentada em
  * scripts/atualizar-pessoas-por-planilha.cjs.
  */
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
@@ -65,11 +66,23 @@ afterAll(async () => {
 });
 
 describe("desvincularPessoas", () => {
-  it("remove o vínculo de uma única pessoa, sem tocar tipoProcurador nem OAB", async () => {
-    const escritorio = await criarPessoa("Escritório E. Ferreira", `${MARCA}01`);
-    const banco = await criarPessoa("Banco Agibank", `${MARCA}02`, {
-      tipoProcurador: TipoProcurador.REPRESENTANTE_EMPRESA,
-      oab: "SP123456",
+  it("limpa a OAB órfã de quem não é procuradora de ninguém", async () => {
+    const banco = await criarPessoa("Banco Agibank", `${MARCA}01`, {
+      oab: "Escritório E. Ferreira Advogados",
+    });
+
+    const entrada = new FormData();
+    entrada.append("id", banco);
+    await desvincularPessoas(entrada);
+
+    const pessoa = await db.pessoa.findUniqueOrThrow({ where: { id: banco } });
+    expect(pessoa.oab).toBeNull();
+  });
+
+  it("limpa OAB e vínculo juntos, quando os dois sobraram na mesma pessoa", async () => {
+    const escritorio = await criarPessoa("Escritório E. Ferreira", `${MARCA}02`);
+    const banco = await criarPessoa("Banco Alfa", `${MARCA}03`, {
+      oab: "Escritório E. Ferreira Advogados",
       vinculadoAId: escritorio,
     });
 
@@ -78,14 +91,39 @@ describe("desvincularPessoas", () => {
     await desvincularPessoas(entrada);
 
     const pessoa = await db.pessoa.findUniqueOrThrow({ where: { id: banco } });
+    expect(pessoa.oab).toBeNull();
     expect(pessoa.vinculadoAId).toBeNull();
-    expect(pessoa.tipoProcurador).toBe(TipoProcurador.REPRESENTANTE_EMPRESA);
-    expect(pessoa.oab).toBe("SP123456");
   });
 
-  it("registra a auditoria com o nome de quem estava vinculada", async () => {
-    const escritorio = await criarPessoa("Escritório Auditoria", `${MARCA}03`);
-    const banco = await criarPessoa("Banco Alfa", `${MARCA}04`, { vinculadoAId: escritorio });
+  it("nunca toca advogado ou representante que são procuradores de verdade", async () => {
+    const escritorio = await criarPessoa("Escritório Representado", `${MARCA}04`);
+    const advogado = await criarPessoa("Advogada Real", `${MARCA}05`, {
+      tipoProcurador: TipoProcurador.ADVOGADO,
+      oab: "SP123456",
+    });
+    const representante = await criarPessoa("Representante Real", `${MARCA}06`, {
+      tipoProcurador: TipoProcurador.REPRESENTANTE_EMPRESA,
+      vinculadoAId: escritorio,
+    });
+
+    const entrada = new FormData();
+    entrada.append("id", advogado);
+    entrada.append("id", representante);
+    await desvincularPessoas(entrada);
+
+    const pessoas = await db.pessoa.findMany({ where: { id: { in: [advogado, representante] } } });
+    const a = pessoas.find((p) => p.id === advogado);
+    const r = pessoas.find((p) => p.id === representante);
+    expect(a?.oab).toBe("SP123456");
+    expect(r?.vinculadoAId).toBe(escritorio);
+  });
+
+  it("registra a auditoria com a OAB removida e o nome de quem estava vinculada", async () => {
+    const escritorio = await criarPessoa("Escritório Auditoria", `${MARCA}07`);
+    const banco = await criarPessoa("Banco Bradesco", `${MARCA}08`, {
+      oab: "Escritório Auditoria",
+      vinculadoAId: escritorio,
+    });
 
     const entrada = new FormData();
     entrada.append("id", banco);
@@ -95,16 +133,14 @@ describe("desvincularPessoas", () => {
       where: { entidade: "Pessoa", entidadeId: banco, acao: "ALTEROU_PESSOA" },
       orderBy: { criadoEm: "desc" },
     });
-    expect(log).not.toBeNull();
-    expect((log?.metadados as { desvinculadoDe?: string } | null)?.desvinculadoDe).toContain(
-      "Escritório Auditoria"
-    );
+    const metadados = log?.metadados as { oabRemovida?: string; desvinculadoDe?: string } | null;
+    expect(metadados?.oabRemovida).toBe("Escritório Auditoria");
+    expect(metadados?.desvinculadoDe).toContain("Escritório Auditoria");
   });
 
-  it("desvincula várias pessoas de uma vez", async () => {
-    const escritorio = await criarPessoa("Escritório Lote", `${MARCA}05`);
-    const a = await criarPessoa("Banco Bradesco", `${MARCA}06`, { vinculadoAId: escritorio });
-    const b = await criarPessoa("Banco C6", `${MARCA}07`, { vinculadoAId: escritorio });
+  it("corrige várias pessoas de uma vez", async () => {
+    const a = await criarPessoa("Banco C6", `${MARCA}09`, { oab: "Escritório Lote" });
+    const b = await criarPessoa("Banco BMG", `${MARCA}10`, { oab: "Escritório Lote" });
 
     const entrada = new FormData();
     entrada.append("id", a);
@@ -112,14 +148,14 @@ describe("desvincularPessoas", () => {
     await desvincularPessoas(entrada);
 
     const pessoas = await db.pessoa.findMany({ where: { id: { in: [a, b] } } });
-    expect(pessoas.every((p) => p.vinculadoAId === null)).toBe(true);
+    expect(pessoas.every((p) => p.oab === null)).toBe(true);
   });
 
-  it("ignora silenciosamente quem já não tinha vínculo", async () => {
-    const semVinculo = await criarPessoa("Banco Sem Vínculo", `${MARCA}08`);
+  it("ignora silenciosamente quem já não tem nada para corrigir", async () => {
+    const semNada = await criarPessoa("Banco Sem Resíduo", `${MARCA}11`);
 
     const entrada = new FormData();
-    entrada.append("id", semVinculo);
+    entrada.append("id", semNada);
     await expect(desvincularPessoas(entrada)).resolves.toBeUndefined();
   });
 

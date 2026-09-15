@@ -125,13 +125,16 @@ export async function cadastrarEVincular(
 }
 
 /**
- * Remove o vínculo de uma ou mais pessoas com o escritório/empresa a que
- * estavam associadas (`vinculadoAId`). Não altera `tipoProcurador` nem `oab`.
+ * Limpa OAB e vínculo (`vinculadoAId`) de pessoas que não são procuradoras de
+ * ninguém, mas ficaram com esse resíduo de uma planilha antiga importada
+ * errado — pedido do cliente em 15/09: bancos e financeiras que nunca atuaram
+ * como procurador apareciam com "OAB Escritório E. Ferreira Advogados" na
+ * listagem, sem ter como tirar isso pelo formulário (o campo só aparece na
+ * tela quando a pessoa tem uma natureza de procurador selecionada).
  *
- * Pedido do cliente em 15/09: uma planilha antiga vinculou dezenas de
- * cadastros (bancos, financeiras) ao escritório do cliente por engano. A
- * correção é feita pela tela, um a um (formulário com um único `id`) ou em
- * lote (vários campos `id`), sem depender de reimportar planilha.
+ * Só toca pessoa com `tipoProcurador` nulo, de propósito: quem é procurador de
+ * verdade (advogado com OAB própria, ou representante vinculado de verdade)
+ * nunca é afetado, mesmo que o id venha marcado por engano.
  */
 export async function desvincularPessoas(entrada: FormData): Promise<void> {
   const usuario = await exigirEquipe();
@@ -140,18 +143,26 @@ export async function desvincularPessoas(entrada: FormData): Promise<void> {
   if (ids.length === 0) throw new ErroDeNegocio("Nenhuma pessoa selecionada.");
 
   const pessoas = await db.pessoa.findMany({
-    where: { id: { in: ids }, vinculadoAId: { not: null } },
-    select: { id: true, nome: true, vinculadoA: { select: { nome: true } } },
+    where: {
+      id: { in: ids },
+      tipoProcurador: null,
+      OR: [{ oab: { not: null } }, { vinculadoAId: { not: null } }],
+    },
+    select: { id: true, nome: true, oab: true, vinculadoA: { select: { nome: true } } },
   });
 
   for (const pessoa of pessoas) {
-    await db.pessoa.update({ where: { id: pessoa.id }, data: { vinculadoAId: null } });
+    await db.pessoa.update({ where: { id: pessoa.id }, data: { oab: null, vinculadoAId: null } });
     await registrarAuditoria({
       usuarioId: usuario.id,
       acao: "ALTEROU_PESSOA",
       entidade: "Pessoa",
       entidadeId: pessoa.id,
-      metadados: { nome: pessoa.nome, desvinculadoDe: pessoa.vinculadoA?.nome ?? null },
+      metadados: {
+        nome: pessoa.nome,
+        oabRemovida: pessoa.oab,
+        desvinculadoDe: pessoa.vinculadoA?.nome ?? null,
+      },
     });
   }
 

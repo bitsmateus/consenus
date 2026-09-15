@@ -13,18 +13,23 @@ import { ROTULO_TIPO_PROCURADOR } from "@/lib/formato";
 
 type Pessoa = Awaited<ReturnType<typeof listarPessoas>>[number];
 
+/** Tem OAB ou vínculo sobrando de importação antiga, sem ser procurador de fato. */
+function temDadoOrfaoDeProcurador(pessoa: Pessoa) {
+  return !pessoa.tipoProcurador && Boolean(pessoa.oab || pessoa.vinculadoA);
+}
+
 /**
- * Lista de interessados e procuradores, com seleção múltipla para desvincular
- * em lote quem foi indevidamente associado a um escritório/empresa.
+ * Lista de interessados e procuradores, com seleção múltipla para limpar em
+ * lote OAB/vínculo que sobrou de uma planilha antiga importada errado em
+ * pessoa que não é procuradora de ninguém.
  */
 export function ListaDePessoas({ pessoas }: { pessoas: Pessoa[] }) {
   const router = useRouter();
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
   const [emAndamento, iniciarTransicao] = useTransition();
 
-  const vinculadas = useMemo(() => pessoas.filter((p) => p.vinculadoA), [pessoas]);
-  const todasSelecionadas =
-    vinculadas.length > 0 && vinculadas.every((p) => selecionados.has(p.id));
+  const orfas = useMemo(() => pessoas.filter(temDadoOrfaoDeProcurador), [pessoas]);
+  const todasSelecionadas = orfas.length > 0 && orfas.every((p) => selecionados.has(p.id));
 
   function alternar(id: string) {
     setSelecionados((atuais) => {
@@ -36,7 +41,7 @@ export function ListaDePessoas({ pessoas }: { pessoas: Pessoa[] }) {
   }
 
   function alternarTodas() {
-    setSelecionados(todasSelecionadas ? new Set() : new Set(vinculadas.map((p) => p.id)));
+    setSelecionados(todasSelecionadas ? new Set() : new Set(orfas.map((p) => p.id)));
   }
 
   function desvincularSelecionadas() {
@@ -48,23 +53,23 @@ export function ListaDePessoas({ pessoas }: { pessoas: Pessoa[] }) {
       ids.forEach((id) => dados.append("id", id));
       await desvincularPessoas(dados);
       setSelecionados(new Set());
-      avisar(ids.length === 1 ? "Vínculo removido." : `${ids.length} vínculos removidos.`);
+      avisar(ids.length === 1 ? "Registro corrigido." : `${ids.length} registros corrigidos.`);
       router.refresh();
     });
   }
 
   return (
     <>
-      {vinculadas.length > 0 && (
+      {orfas.length > 0 && (
         <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg border border-carvao-100 bg-white px-4 py-2.5">
           <label className="flex items-center gap-2 text-sm text-carvao-700">
             <input
               type="checkbox"
               checked={todasSelecionadas}
               onChange={alternarTodas}
-              aria-label="Selecionar todos os vinculados"
+              aria-label="Selecionar todos com OAB ou vínculo indevido"
             />
-            Selecionar todos os vinculados ({vinculadas.length})
+            Selecionar todos com OAB ou vínculo indevido ({orfas.length})
           </label>
           <Botao
             type="button"
@@ -86,7 +91,7 @@ export function ListaDePessoas({ pessoas }: { pessoas: Pessoa[] }) {
             className="rounded-lg border border-carvao-100 bg-white p-4 transition-colors hover:border-dourado-600"
           >
             <div className="flex flex-wrap items-start gap-3">
-              {pessoa.vinculadoA && (
+              {temDadoOrfaoDeProcurador(pessoa) && (
                 <input
                   type="checkbox"
                   className="mt-1 shrink-0"
@@ -121,7 +126,7 @@ export function ListaDePessoas({ pessoas }: { pessoas: Pessoa[] }) {
                 </div>
               </Link>
 
-              {pessoa.vinculadoA && (
+              {temDadoOrfaoDeProcurador(pessoa) && (
                 <form action={desvincularPessoas} className="shrink-0">
                   <input type="hidden" name="id" value={pessoa.id} />
                   <button className="text-[11px] text-erro hover:underline">Desvincular</button>
