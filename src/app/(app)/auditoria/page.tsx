@@ -30,6 +30,8 @@ const ROTULO: Record<string, string> = {
   VARREDURA_SUSPEITA: "Alerta de varredura de códigos",
   CRIOU_USUARIO: "Criou conta",
   ALTEROU_PERMISSAO: "Alterou permissões",
+  SOLICITOU_REDEFINICAO_SENHA: "Pediu redefinição de senha por e-mail",
+  REDEFINIU_SENHA: "Redefiniu senha",
   RECUPEROU_ACESSO: "Recuperou acesso de administrador",
 };
 
@@ -40,6 +42,7 @@ const SENSIVEIS = new Set([
   "DESATIVOU_SEGUNDO_FATOR",
   "VARREDURA_SUSPEITA",
   "ALTEROU_PERMISSAO",
+  "REDEFINIU_SENHA",
   "RECUPEROU_ACESSO",
 ]);
 

@@ -7,16 +7,10 @@ import { z } from "zod";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { db } from "@/lib/db";
 import { ErroDeNegocio } from "@/lib/erros";
+import { senhaForte } from "@/lib/senha";
 import { exigirAdmin } from "@/lib/sessao";
 
 export type EstadoDeFormulario = { erro?: string; aviso?: string; campo?: string };
-
-/** Mesma política do cadastro inicial: senha curta é o elo fraco de tudo. */
-const senhaForte = z
-  .string()
-  .min(12, "A senha precisa de ao menos 12 caracteres.")
-  .refine((v) => /[a-z]/.test(v) && /[A-Z]/.test(v), "Use letras maiúsculas e minúsculas.")
-  .refine((v) => /\d/.test(v), "Use ao menos um número.");
 
 const criacao = z.object({
   nome: z.string().trim().min(3, "Informe o nome."),
@@ -311,6 +305,79 @@ export async function excluirUsuario(
 
   revalidatePath("/equipe");
   return { aviso: "Conta excluída." };
+}
+
+const novaSenhaDoUsuario = z.object({
+  usuarioId: z.string().min(1),
+  novaSenha: senhaForte,
+});
+
+/**
+ * Troca a senha de outra conta pela tela de Equipe — pedido do cliente em
+ * 21/09, para o administrador destravar quem perdeu a senha sem precisar do
+ * console. Não mexe no segundo fator (redefinir 2FA é ação separada e
+ * explícita) e desbloqueia a conta, que é o caso típico de quem errou a senha
+ * demais.
+ *
+ * Recusa a própria conta: trocar a própria senha sem informar a atual seria um
+ * caminho lateral para quem deixou a sessão aberta. Para isso existe o
+ * "esqueci minha senha", que passa pelo e-mail da conta.
+ */
+export async function redefinirSenhaDeUsuario(
+  _anterior: EstadoDeFormulario,
+  entrada: FormData
+): Promise<EstadoDeFormulario> {
+  const admin = await exigirAdmin();
+
+  const analise = novaSenhaDoUsuario.safeParse(Object.fromEntries(entrada));
+  if (!analise.success) {
+    const primeiro = analise.error.issues[0];
+    return { erro: primeiro?.message ?? "Dados inválidos.", campo: String(primeiro?.path[0] ?? "") };
+  }
+  const { usuarioId, novaSenha } = analise.data;
+
+  try {
+    if (usuarioId === admin.id) {
+      throw new ErroDeNegocio(
+        "Para trocar a sua própria senha, use \"Esqueci minha senha\" na tela de login."
+      );
+    }
+
+    const alvo = await db.usuario.findUnique({
+      where: { id: usuarioId },
+      select: { id: true, email: true },
+    });
+    if (!alvo) throw new ErroDeNegocio("Conta não encontrada.");
+
+    const senhaHash = await argon2.hash(novaSenha, { type: argon2.argon2id });
+
+    await db.$transaction([
+      db.usuario.update({
+        where: { id: usuarioId },
+        data: { senhaHash, tentativasFalhas: 0, bloqueadoAte: null },
+      }),
+      // link de "esqueci minha senha" ainda em aberto deixaria de valer: a
+      // senha que o administrador definiu é a vigente
+      db.redefinicaoDeSenha.updateMany({
+        where: { usuarioId, usadoEm: null },
+        data: { usadoEm: new Date() },
+      }),
+    ]);
+
+    await registrarAuditoria({
+      usuarioId: admin.id,
+      acao: "REDEFINIU_SENHA",
+      entidade: "Usuario",
+      entidadeId: usuarioId,
+      metadados: { email: alvo.email, origem: "administrador" },
+    });
+  } catch (erro) {
+    if (erro instanceof ErroDeNegocio) return { erro: erro.message };
+    throw erro;
+  }
+
+  revalidatePath("/equipe");
+  return { aviso: "Senha alterada. Informe a nova senha à pessoa por um canal seguro." };
 }
 
 const redefinicao2FA = z.object({ usuarioId: z.string().min(1) });

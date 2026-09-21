@@ -1,13 +1,13 @@
 /**
  * Recupera o acesso de administrador quando ninguém mais consegue entrar.
  *
- * Existe porque o sistema não tem "esqueci minha senha" — por decisão de
- * projeto, já que redefinição por e-mail seria a porta mais fraca de um sistema
- * que guarda documento de conciliação. E a tela de Equipe altera papel e
- * ativo/inativo, mas nunca a senha de terceiro, nem o segundo fator, que é
- * obrigatório para ADMIN e OPERADOR (docs/04).
+ * Existe para quando NINGUÉM consegue entrar: o "esqueci minha senha" depende
+ * de SMTP, e a troca de senha na tela de Equipe depende de haver outro
+ * administrador com acesso. Nenhum dos dois zera o segundo fator de quem perdeu
+ * o autenticador junto com a senha do único administrador — este script zera
+ * (docs/04: obrigatório para ADMIN e OPERADOR).
  *
- * Sobra a intervenção direta, feita aqui e sempre registrada em LogAuditoria.
+ * É a intervenção direta, feita aqui e sempre registrada em LogAuditoria.
  *
  * CommonJS de propósito, como o criar-admin.cjs: roda dentro do container de
  * produção, onde não há tsx nem dependência de desenvolvimento.

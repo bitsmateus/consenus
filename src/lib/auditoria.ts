@@ -34,6 +34,8 @@ export type AcaoAuditada =
   | "EDITOU_USUARIO"
   | "EXCLUIU_USUARIO"
   | "REDEFINIU_SEGUNDO_FATOR"
+  | "SOLICITOU_REDEFINICAO_SENHA"
+  | "REDEFINIU_SENHA"
   | "RECUPEROU_ACESSO";
 
 export async function registrarAuditoria(params: {

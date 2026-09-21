@@ -11,6 +11,7 @@ import {
   FormularioDeEdicao,
   FormularioDeNovoUsuario,
   FormularioDePermissao,
+  FormularioDeSenha,
 } from "./formularios";
 
 export const metadata = { title: "Equipe — Consensus One" };
@@ -105,6 +106,9 @@ export default async function PaginaDeEquipe() {
                 />
 
                 <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-carvao-100 pt-3">
+                  {usuario.id !== admin.id && (
+                    <FormularioDeSenha usuarioId={usuario.id} nome={usuario.nome} />
+                  )}
                   <BotaoDeRedefinicao2FA usuarioId={usuario.id} />
                   {usuario.id !== admin.id && (
                     <BotaoDeExclusao usuarioId={usuario.id} nome={usuario.nome} />

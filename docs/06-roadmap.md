@@ -125,8 +125,14 @@ Ajustes feitos depois de o sistema subir, fora do escopo das sprints:
   `exigirAdmin()`; o menu as oferecia assim mesmo e o operador tomava erro ao
   clicar. A autorização já estava certa — era a interface que mentia.
 - **`scripts/recuperar-admin.cjs`.** Redefine a senha e zera o segundo fator do
-  administrador pelo console, para quando ninguém mais consegue entrar. O
-  sistema não tem "esqueci minha senha", por decisão de projeto.
+  administrador pelo console, para quando ninguém mais consegue entrar.
+- **"Esqueci minha senha" e troca de senha pela Equipe (21/09/2026).** Decisão
+  revista a pedido do cliente: antes o sistema não tinha nenhum dos dois, por
+  achar que redefinição por e-mail seria a porta mais fraca. O desenho mantém a
+  defesa: o link de e-mail (uso único, 60 minutos, só o hash no banco) troca a
+  senha mas **nunca o segundo fator**, e o administrador troca a senha de
+  qualquer conta menos a própria. Exige SMTP configurado; sem ele a tela avisa
+  e o caminho passa a ser outro administrador, na tela de Equipe.
 - **`PERMITIR_SEGUNDO_ADMIN`** no `criar-admin.cjs`, para criar administrador
   adicional pelo console quando a tela de Equipe está fora de alcance. A recusa
   continua sendo o padrão.

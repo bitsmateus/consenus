@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import { entrar, type EstadoLogin } from "@/acoes/autenticacao";
 import { Botao } from "@/components/ui/botao";
@@ -14,6 +15,11 @@ export function FormularioDeLogin({ de }: { de?: string }) {
 
       <Campo rotulo="E-mail" name="email" type="email" autoComplete="email" required autoFocus />
       <Campo rotulo="Senha" name="senha" type="password" autoComplete="current-password" required />
+      <p className="-mt-2 mb-4 text-right text-xs">
+        <Link href="/entrar/esqueci-senha" className="text-carvao-500 hover:text-dourado-600 hover:underline">
+          Esqueci minha senha
+        </Link>
+      </p>
       <Campo
         rotulo="Código de verificação"
         name="codigo"

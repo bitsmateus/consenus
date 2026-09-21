@@ -8,6 +8,7 @@ import {
   editarUsuario,
   excluirUsuario,
   redefinirSegundoFator,
+  redefinirSenhaDeUsuario,
   type EstadoDeFormulario,
 } from "@/acoes/usuarios";
 import { Botao } from "@/components/ui/botao";
@@ -213,6 +214,63 @@ export function FormularioDeEdicao({
           Salvar
         </Botao>
         <Botao type="button" variante="secundario" onClick={() => setEditando(false)}>
+          Cancelar
+        </Botao>
+      </div>
+    </form>
+  );
+}
+
+export function FormularioDeSenha({ usuarioId, nome }: { usuarioId: string; nome: string }) {
+  const [aberto, setAberto] = useState(false);
+  const [estado, acao, pendente] = useActionState<EstadoDeFormulario, FormData>(
+    async (anterior, entrada) => {
+      const resultado = await redefinirSenhaDeUsuario(anterior, entrada);
+      if (!resultado.erro) setAberto(false);
+      return resultado;
+    },
+    {}
+  );
+
+  if (!aberto) {
+    return (
+      <div>
+        <button
+          type="button"
+          onClick={() => setAberto(true)}
+          className="text-[11px] text-carvao-500 hover:underline"
+        >
+          Alterar senha
+        </button>
+        {estado.aviso && <p className="mt-1 text-xs text-sucesso">{estado.aviso}</p>}
+      </div>
+    );
+  }
+
+  return (
+    <form action={acao} className="w-full rounded-md border border-carvao-100 bg-carvao-100/30 p-3">
+      <input type="hidden" name="usuarioId" value={usuarioId} />
+
+      {estado.erro && (
+        <p role="alert" className="mb-2 text-xs text-erro">
+          {estado.erro}
+        </p>
+      )}
+
+      <Campo
+        rotulo={`Nova senha de ${nome}`}
+        name="novaSenha"
+        type="password"
+        autoComplete="new-password"
+        dica="Ao menos 12 caracteres, com maiúscula, minúscula e número. Não muda o segundo fator."
+        required
+      />
+
+      <div className="flex gap-2">
+        <Botao type="submit" variante="secundario" carregando={pendente}>
+          Salvar senha
+        </Botao>
+        <Botao type="button" variante="secundario" onClick={() => setAberto(false)}>
           Cancelar
         </Botao>
       </div>
