@@ -18,11 +18,13 @@ import { ROTULO_MODALIDADE } from "@/lib/formato";
 export function AgendaDoProcedimento({
   atoId,
   modalidade,
+  localPresencial,
   dataDaSessao,
   confirmada,
 }: {
   atoId: string;
   modalidade: ModalidadeSessao;
+  localPresencial: string | null;
   /** "AAAA-MM-DDTHH:MM" no fuso da câmara, pronto para o input. */
   dataDaSessao: string;
   confirmada: boolean;
@@ -75,6 +77,13 @@ export function AgendaDoProcedimento({
           valor: m,
           rotulo: ROTULO_MODALIDADE[m],
         }))}
+      />
+
+      <Campo
+        rotulo="Local da sessão"
+        name="localPresencial"
+        defaultValue={localPresencial ?? ""}
+        dica="Vai na Carta-Convite quando a sessão for presencial ou híbrida."
       />
 
       <p className="mb-3 text-[11px] text-carvao-300">

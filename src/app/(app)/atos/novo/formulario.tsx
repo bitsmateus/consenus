@@ -181,6 +181,12 @@ export function FormularioDeNovoAto({
         }))}
       />
 
+      <Campo
+        rotulo="Local da sessão"
+        name="localPresencial"
+        dica="Só para sessão presencial ou híbrida: vai na Carta-Convite."
+      />
+
       <Campo rotulo="Observações internas" name="observacoes" />
 
       <p className="mb-5 rounded-md bg-dourado-100 px-3 py-2.5 text-xs leading-relaxed text-dourado-600">

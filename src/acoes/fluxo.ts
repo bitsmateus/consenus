@@ -242,6 +242,8 @@ export async function emitirCartaAoConvidado(entrada: FormData): Promise<void> {
         dataDaSessao: formatarData(ato.dataConfirmada),
         horaDaSessao: formatarHora(ato.dataConfirmada),
         modalidade: descreverModalidade(ato.modalidade),
+        tipoDeModalidade: ato.modalidade,
+        localPresencial: ato.localPresencial,
         link: ato.linkVideoconferencia,
         idReuniao: ato.idReuniao,
         senhaReuniao: ato.senhaReuniao,

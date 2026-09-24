@@ -14,6 +14,8 @@ const BASE: DadosDaCarta = {
   dataDaSessao: "01/01/2026",
   horaDaSessao: "14:00",
   modalidade: "por meio da plataforma oficial de videoconferência da Consensus One",
+  tipoDeModalidade: "VIDEOCONFERENCIA",
+  localPresencial: null,
   link: "https://zoom.example/1",
   idReuniao: "123",
   senhaReuniao: "abc",
@@ -80,5 +82,49 @@ describe("carta-convite — forma do modelo do cliente", () => {
     const html = cartaAoConvidado(BASE);
     expect(html).not.toContain("Cadastro e formação do procedimento");
     expect(html).not.toContain('class="itens"');
+  });
+});
+
+/**
+ * Como chegar à sessão depende da modalidade: a carta de sessão presencial
+ * saía com o bloco do Zoom ("a ser informado") e sem o local.
+ */
+describe("carta-convite — dados de acesso por modalidade", () => {
+  const LOCAL = "Rua Olegário Paiva, 180, sala 411, Mogi das Cruzes/SP";
+
+  it("videoconferência traz o Zoom e não traz local", () => {
+    for (const carta of [cartaAoSolicitante(BASE), cartaAoConvidado(BASE)]) {
+      expect(carta).toContain("Link para acesso à sessão:");
+      expect(carta).not.toContain("Local da sessão:");
+    }
+  });
+
+  it("presencial traz o local e não traz o Zoom", () => {
+    const dados = { ...BASE, tipoDeModalidade: "PRESENCIAL" as const, localPresencial: LOCAL };
+    for (const carta of [cartaAoSolicitante(dados), cartaAoConvidado(dados)]) {
+      expect(carta).toContain(`<strong>Local da sessão:</strong> ${LOCAL}`);
+      expect(carta).not.toContain("Link para acesso à sessão:");
+      expect(carta).not.toContain("ID da reunião");
+    }
+  });
+
+  it("híbrida traz o Zoom e o local", () => {
+    const carta = cartaAoSolicitante({ ...BASE, tipoDeModalidade: "HIBRIDA", localPresencial: LOCAL });
+    expect(carta).toContain("Link para acesso à sessão:");
+    expect(carta).toContain(`<strong>Local da sessão:</strong> ${LOCAL}`);
+  });
+
+  it("local ainda não informado aparece como 'a ser informado', nunca em branco", () => {
+    const carta = cartaAoConvidado({ ...BASE, tipoDeModalidade: "PRESENCIAL", localPresencial: null });
+    expect(carta).toContain("<strong>Local da sessão:</strong> a ser informado");
+  });
+
+  it("o local vindo do banco é escapado", () => {
+    const carta = cartaAoSolicitante({
+      ...BASE,
+      tipoDeModalidade: "PRESENCIAL",
+      localPresencial: "<script>alert(1)</script>",
+    });
+    expect(carta).not.toContain("<script>alert(1)");
   });
 });

@@ -31,6 +31,15 @@ export type EstadoDeFormulario = { erro?: string; campo?: string };
 
 const TENTATIVAS_DE_NUMERACAO = 5;
 
+/** O local só existe para sessão presencial ou híbrida; em videoconferência é descartado. */
+function localParaSalvar(
+  modalidade: ModalidadeSessao | undefined,
+  local: string | undefined
+): string | null {
+  if (!modalidade || modalidade === ModalidadeSessao.VIDEOCONFERENCIA) return null;
+  return local || null;
+}
+
 const criacao = z.object({
   solicitanteId: z.string().min(1, "Selecione o Interessado Solicitante."),
   convidadoId: z.string().min(1, "Selecione o Interessado Convidado."),
@@ -43,6 +52,7 @@ const criacao = z.object({
   convidadoTelefone: z.string().trim().optional(),
   objeto: z.string().trim().max(2000).optional(),
   modalidade: z.nativeEnum(ModalidadeSessao).optional(),
+  localPresencial: z.string().trim().max(300).optional(),
   observacoes: z.string().trim().max(2000).optional(),
   // procurador é opcional, e já pode ser vinculado na abertura (pedido do
   // cliente em 28/08) — antes só dava para vincular depois, na tela do ato
@@ -94,6 +104,7 @@ export async function criarAto(
     convidadoTelefone,
     objeto,
     modalidade,
+    localPresencial,
     observacoes,
     procuradorRepresenta,
     procuradorPessoaId,
@@ -196,6 +207,7 @@ export async function criarAto(
             status: StatusAto.RASCUNHO,
             objeto: objeto || null,
             modalidade: modalidade ?? ModalidadeSessao.VIDEOCONFERENCIA,
+            localPresencial: localParaSalvar(modalidade, localPresencial),
             observacoes: observacoes || null,
             dataReservada: calcularDataDaSessao(agora, config.diasAteSessao, config.horaDaSessao),
             prazoDocumentacaoAte: calcularPrazoDocumentacao(agora, config.prazoDocumentacaoDias),
@@ -671,6 +683,7 @@ async function agendarVideoconferencia(
 const agenda = z.object({
   atoId: z.string().min(1),
   modalidade: z.nativeEnum(ModalidadeSessao),
+  localPresencial: z.string().trim().max(300).optional(),
   /** "AAAA-MM-DDTHH:MM" do input datetime-local, em horário de São Paulo. */
   dataDaSessao: z.string().trim().min(1, "Informe a data e a hora da sessão."),
 });
@@ -696,7 +709,7 @@ export async function alterarAgenda(
     return { erro: analise.error.issues[0]?.message ?? "Dados inválidos." };
   }
 
-  const { atoId, modalidade, dataDaSessao } = analise.data;
+  const { atoId, modalidade, dataDaSessao, localPresencial } = analise.data;
 
   try {
     await exigirAcessoAoAto(atoId, db);
@@ -727,6 +740,7 @@ export async function alterarAgenda(
       where: { id: atoId },
       data: {
         modalidade,
+        localPresencial: localParaSalvar(modalidade, localPresencial),
         dataReservada: nova,
         // se a data já estava confirmada, ela continua confirmada na data nova
         ...(confirmada ? { dataConfirmada: nova } : {}),

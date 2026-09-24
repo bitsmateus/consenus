@@ -9,6 +9,7 @@
  * A diferença entre as duas é só de seções: a do Solicitante traz o cadastro e
  * a lista de documentos exigidos; a do Convidado, não. Ver docs/08.
  */
+import type { ModalidadeSessao } from "@prisma/client";
 import { cabecalhoDoDocumento, escapar, imagensDoTimbrado, montarDocumento } from "./timbrado";
 
 export type DadosDaCarta = {
@@ -22,7 +23,12 @@ export type DadosDaCarta = {
   objeto: string | null;
   dataDaSessao: string;
   horaDaSessao: string;
+  /** Frase da modalidade, já pronta para o texto ("de forma presencial", …). */
   modalidade: string;
+  /** Modalidade em si: decide se a carta traz os dados do Zoom, o local, ou os dois. */
+  tipoDeModalidade: ModalidadeSessao;
+  /** Onde a sessão acontece, quando presencial ou híbrida. */
+  localPresencial: string | null;
   link: string | null;
   idReuniao: string | null;
   senhaReuniao: string | null;
@@ -188,6 +194,28 @@ importando, por si só, reconhecimento de direito, responsabilidade ou renúncia
 quaisquer prerrogativas legais.</p>`;
 }
 
+/**
+ * Como chegar à sessão. Videoconferência traz os dados do Zoom; presencial traz
+ * o local; híbrida traz os dois. Antes, o bloco do Zoom saía em toda carta —
+ * inclusive na de sessão presencial, com "a ser informado".
+ */
+function dadosDeAcesso(dados: DadosDaCarta): string {
+  const comZoom = dados.tipoDeModalidade !== "PRESENCIAL";
+  const comLocal = dados.tipoDeModalidade !== "VIDEOCONFERENCIA";
+
+  const zoom = comZoom
+    ? `<p class="sessao"><strong>Link para acesso à sessão:</strong> Plataforma Zoom Workplace<br>
+Link: ${escapar(dados.link) || "a ser informado"}<br>
+ID da reunião: ${escapar(dados.idReuniao) || "a ser informado"}<br>
+Senha: ${escapar(dados.senhaReuniao) || "a ser informada"}</p>`
+    : "";
+  const local = comLocal
+    ? `<p class="sessao"><strong>Local da sessão:</strong> ${escapar(dados.localPresencial) || "a ser informado"}</p>`
+    : "";
+
+  return zoom + local;
+}
+
 function designacaoDaSessao(dados: DadosDaCarta): string {
   return `
 <h2>Designação da sessão</h2>
@@ -197,10 +225,7 @@ function designacaoDaSessao(dados: DadosDaCarta): string {
 <strong>${escapar(dados.horaDaSessao)} horas</strong>, e será realizada
 ${escapar(dados.modalidade)}.</p>
 
-<p class="sessao"><strong>Link para acesso à sessão:</strong> Plataforma Zoom Workplace<br>
-Link: ${escapar(dados.link) || "a ser informado"}<br>
-ID da reunião: ${escapar(dados.idReuniao) || "a ser informado"}<br>
-Senha: ${escapar(dados.senhaReuniao) || "a ser informada"}</p>
+${dadosDeAcesso(dados)}
 
 <p>Caso haja interesse na realização da sessão de forma <strong>presencial</strong> ou <strong>híbrida</strong>,
 solicitamos que essa opção seja comunicada previamente pelos canais oficiais da

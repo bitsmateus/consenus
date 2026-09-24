@@ -307,6 +307,7 @@ export default async function PaginaDoAto({ params }: { params: Promise<{ id: st
                   <AgendaDoProcedimento
                     atoId={ato.id}
                     modalidade={ato.modalidade}
+                    localPresencial={ato.localPresencial}
                     dataDaSessao={paraCampoDeDataHora(ato.dataConfirmada ?? ato.dataReservada)}
                     confirmada={ato.dataConfirmada !== null}
                   />
