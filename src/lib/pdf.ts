@@ -9,9 +9,6 @@
  */
 import { chromium, type Browser } from "playwright";
 
-/** Margens do papel timbrado oficial, em milímetros. */
-const MARGENS = { top: "26mm", bottom: "34mm", left: "20mm", right: "20mm" };
-
 let navegador: Browser | null = null;
 
 /**
@@ -33,11 +30,12 @@ export async function encerrarNavegador(): Promise<void> {
   navegador = null;
 }
 
-export async function gerarPdf(params: {
-  html: string;
-  cabecalho: string;
-  rodape: string;
-}): Promise<Buffer> {
+/**
+ * Imprime o HTML em PDF A4, sem margem de página: o timbrado é sangrado (as
+ * faixas encostam nas bordas da folha) e o espaço do texto é reservado pelo
+ * próprio documento. Ver `timbrar` em src/documentos/timbrado.ts.
+ */
+export async function gerarPdf(params: { html: string }): Promise<Buffer> {
   const nav = await obterNavegador();
   const contexto = await nav.newContext();
 
@@ -49,10 +47,8 @@ export async function gerarPdf(params: {
     return await pagina.pdf({
       format: "A4",
       printBackground: true,
-      displayHeaderFooter: true,
-      headerTemplate: params.cabecalho,
-      footerTemplate: params.rodape,
-      margin: MARGENS,
+      preferCSSPageSize: true,
+      margin: { top: "0", right: "0", bottom: "0", left: "0" },
     });
   } finally {
     await contexto.close();

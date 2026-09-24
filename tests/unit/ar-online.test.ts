@@ -108,13 +108,14 @@ describe("variáveis do template de WhatsApp da carta-convite", () => {
   it("usa exatamente os nomes aprovados na AR Online", () => {
     process.env.AR_ONLINE_TEMPLATE_WHATSAPP = "template-novo";
     const variaveis = montarVariaveisDoConvite({
-      instituicaoConvidada: "Banco Exemplo S.A.",
+      solicitante: "Maria da Silva",
+      convidado: "Banco Exemplo S.A.",
       data: "15/10/2026",
       hora: "14:00",
       linkDaReuniao: "https://zoom.us/j/123",
     });
     expect(variaveis).toEqual({
-      INSTITUICAO: "Banco Exemplo S.A.",
+      INSTITUICAO: "Maria da Silva x Banco Exemplo S.A.",
       DATA: "15/10/2026",
       HORA: "14:00",
       LINK_REUNIAO: "https://zoom.us/j/123",
@@ -133,14 +134,15 @@ describe("variáveis do template de WhatsApp da carta-convite", () => {
     });
   });
 
-  it("nunca manda variável vazia: sessão presencial não tem link", () => {
+  it("nunca manda variável vazia: sem sala do Zoom, manda consultar a carta", () => {
     const variaveis = montarVariaveisDoConvite({
-      instituicaoConvidada: "Banco Exemplo S.A.",
+      solicitante: "Maria da Silva",
+      convidado: "Banco Exemplo S.A.",
       data: "15/10/2026",
       hora: "14:00",
       linkDaReuniao: null,
     });
-    expect(variaveis.LINK_REUNIAO).toMatch(/presencial/);
+    expect(variaveis.LINK_REUNIAO).toMatch(/carta-convite em anexo/);
     expect(Object.values(variaveis).every((v) => v.length > 0)).toBe(true);
   });
 });

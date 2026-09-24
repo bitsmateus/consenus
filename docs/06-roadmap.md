@@ -136,6 +136,15 @@ Ajustes feitos depois de o sistema subir, fora do escopo das sprints:
 - **`PERMITIR_SEGUNDO_ADMIN`** no `criar-admin.cjs`, para criar administrador
   adicional pelo console quando a tela de Equipe está fora de alcance. A recusa
   continua sendo o padrão.
+- **Documentos idênticos ao modelo do cliente (24/09/2026).** As cartas, a Ata e
+  o Termo saíam com um timbrado redesenhado em texto — serifado, com filetes e
+  caixa no link do Zoom, faixas com 5 mm de folha branca em volta. Passaram a usar
+  as imagens do próprio papel timbrado (cabeçalho, rodapé, marca d'água e logotipo
+  da carta), Calibri 10,5, texto corrido e o logotipo depois de "Atenciosamente".
+  Só o QR Code e o código do rodapé são desenhados pelo sistema. As faixas ficam
+  no corpo do HTML, e não no headerTemplate do Chromium, que não pinta os 5 mm
+  junto à borda. O Dockerfile instala `font-carlito` (equivalente livre do
+  Calibri): sem ela o PDF de produção sai em outra fonte e quebra diferente.
 
 ## Etapa 2 — após a Etapa 1
 

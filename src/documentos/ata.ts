@@ -7,7 +7,13 @@
  * A ata é obrigatória em toda sessão, independentemente do resultado — inclusive
  * quando ninguém comparece (docs/02, regra 3).
  */
-import { assinaturaDoConciliador, assinaturasDasPartes, escapar, montarDocumento } from "./timbrado";
+import {
+  assinaturaDoConciliador,
+  assinaturasDasPartes,
+  cabecalhoDoDocumento,
+  escapar,
+  montarDocumento,
+} from "./timbrado";
 
 export type Desfecho =
   | "COMPOSICAO_INTEGRAL"
@@ -95,9 +101,7 @@ export function ataDaSessao(dados: DadosDaAta): string {
   const desfecho = TEXTO_DO_DESFECHO[dados.desfecho];
 
   const corpo = `
-<h1>Ata de Sessão Privada de Conciliação</h1>
-<div class="codigo">Código do Documento: ${escapar(dados.codigo)}</div>
-<div class="subtitulo">Procedimento Privado de Composição Consensual</div>
+${cabecalhoDoDocumento("Ata de Sessão Privada de Conciliação", dados.codigo)}
 
 <h2>I – Identificação do procedimento</h2>
 <div class="parte">

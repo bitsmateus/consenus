@@ -10,7 +10,13 @@
  * decisão jurídica do cliente, não do operador que lavra o termo no fim de uma
  * sessão. Ver docs/09, item 9.
  */
-import { assinaturaDoConciliador, assinaturasDasPartes, escapar, montarDocumento } from "./timbrado";
+import {
+  assinaturaDoConciliador,
+  assinaturasDasPartes,
+  cabecalhoDoDocumento,
+  escapar,
+  montarDocumento,
+} from "./timbrado";
 
 export type DadosDoTermo = {
   codigo: string;
@@ -149,9 +155,7 @@ seus efeitos jurídicos e legais.</p>`;
 
 export function termoDeAcordo(dados: DadosDoTermo): string {
   const corpo = `
-<h1>Termo de Acordo</h1>
-<div class="codigo">Código do Documento: ${escapar(dados.codigo)}</div>
-<div class="subtitulo">Procedimento Privado de Composição Consensual</div>
+${cabecalhoDoDocumento("Termo de Acordo", dados.codigo)}
 
 <h2>I – Das partes</h2>
 <div class="parte">

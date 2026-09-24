@@ -9,7 +9,7 @@
  * A diferença entre as duas é só de seções: a do Solicitante traz o cadastro e
  * a lista de documentos exigidos; a do Convidado, não. Ver docs/08.
  */
-import { escapar, montarDocumento } from "./timbrado";
+import { cabecalhoDoDocumento, escapar, imagensDoTimbrado, montarDocumento } from "./timbrado";
 
 export type DadosDaCarta = {
   codigo: string;
@@ -31,9 +31,9 @@ export type DadosDaCarta = {
 };
 
 const ABERTURA = `
-<p>Prezado(a) Senhor(a),</p>
+<p><strong>Prezado(a) Senhor(a),</strong></p>
 
-<p>A Consensus One – Câmara Privada de Composição Estratégica Consensual,
+<p>A <strong>Consensus One – Câmara Privada de Composição Estratégica Consensual</strong>,
 instituição privada especializada na administração de procedimentos de
 composição consensual, comunica a instauração formal de procedimento privado de
 negociação decorrente de solicitação apresentada pela parte interessada, visando
@@ -55,7 +55,7 @@ function cadastroEDocumentos(prazoEmDias: number): string {
   return `
 <h2>Cadastro e formação do procedimento</h2>
 
-<p>A Consensus One – Câmara Privada de Composição Estratégica Consensual comunica
+<p>A <strong>Consensus One – Câmara Privada de Composição Estratégica Consensual</strong> comunica
 o recebimento e o cadastro da solicitação apresentada pelo Interessado
 Solicitante, destinada à instauração de procedimento privado de composição
 consensual relacionado à controvérsia identificada neste documento.</p>
@@ -64,21 +64,21 @@ consensual relacionado à controvérsia identificada neste documento.</p>
 não representa, neste momento, a confirmação da sessão nem a expedição de
 comunicação ao Interessado Convidado.</p>
 
-<p>Para o regular prosseguimento, o Interessado Solicitante deverá encaminhar à
-Consensus One, no prazo de até ${prazoEmDias} (${porExtenso(prazoEmDias)}) dias,
+<p class="antes-da-lista">Para o regular prosseguimento, o Interessado Solicitante deverá encaminhar à
+Consensus One, no prazo de até <strong>${prazoEmDias} (${porExtenso(prazoEmDias)}) dias</strong>,
 contados do recebimento desta comunicação, os seguintes documentos:</p>
 
-<ol class="romanos" type="I">
-  <li>contrato de prestação de serviços firmado com a Empresa de Consultoria e
-      Assessoria Tecnica;</li>
-  <li>procuração com poderes suficientes para representação no procedimento,
-      quando aplicável;</li>
-  <li>contrato de financiamento relacionado à controvérsia;</li>
-  <li>prova técnica, laudo ou documento equivalente destinado à demonstração dos
-      fatos apresentados;</li>
-  <li>documentos pessoais do Interessado Solicitante e, quando houver, de seu
-      representante.</li>
-</ol>
+<div class="itens">
+  <p>I – contrato de prestação de serviços firmado com a Empresa de Consultoria e
+      Assessoria Tecnica;</p>
+  <p>II – procuração com poderes suficientes para representação no procedimento,
+      quando aplicável;</p>
+  <p>III – contrato de financiamento relacionado à controvérsia;</p>
+  <p>IV – prova técnica, laudo ou documento equivalente destinado à demonstração dos
+      fatos apresentados;</p>
+  <p>V – documentos pessoais do Interessado Solicitante e, quando houver, de seu
+      representante.</p>
+</div>
 
 <p>Os documentos deverão ser apresentados de forma integral, legível e
 atualizada, sem prejuízo da solicitação de informações ou documentos
@@ -110,7 +110,9 @@ function porExtenso(numero: number): string {
   return nomes[numero] ?? String(numero);
 }
 
-const FECHAMENTO = `
+function fechamento(): string {
+  const { logo } = imagensDoTimbrado();
+  return `
 <h2>Finalidade da sessão</h2>
 
 <p>A presente sessão destina-se à tentativa formal de composição consensual da
@@ -151,26 +153,22 @@ observância da legislação aplicável.</p>
 construção de solução consensual, preservando-se, em qualquer hipótese, o
 exercício dos direitos legalmente assegurados.</p>
 
-<p style="margin-top:6mm;">Atenciosamente,</p>
-
-<div class="assinatura">
-  <div class="linha"></div>
-  <div class="cargo">Consensus One</div>
-  <div class="cargo">Câmara Privada de Composição Estratégica Consensual</div>
-</div>`;
+<p style="margin-top:6mm;margin-bottom:0;">Atenciosamente,</p>
+${logo ? `<img class="logo-carta" src="${logo}" alt="Consensus One" />` : ""}`;
+}
 
 function identificacaoEObjeto(dados: DadosDaCarta): string {
   return `
 <h2>Identificação dos interessados</h2>
 
 <div class="parte">
-  <div class="rotulo">Interessado Solicitante</div>
+  <div class="rotulo">Interessado Solicitante:</div>
   <div class="nome">${escapar(dados.solicitante)}</div>
   ${dados.procuradorSolicitante ? `<div class="procurador">Representado(a) por: ${escapar(dados.procuradorSolicitante)}</div>` : ""}
 </div>
 
 <div class="parte">
-  <div class="rotulo">Interessado Convidado</div>
+  <div class="rotulo">Interessado Convidado:</div>
   <div class="nome">${escapar(dados.convidado)}</div>
   ${dados.procuradorConvidado ? `<div class="procurador">Representado(a) por: ${escapar(dados.procuradorConvidado)}</div>` : ""}
 </div>
@@ -195,34 +193,22 @@ function designacaoDaSessao(dados: DadosDaCarta): string {
 <h2>Designação da sessão</h2>
 
 <p>A Sessão de Composição Consensual encontra-se designada para o dia
-<strong>${escapar(dados.dataDaSessao)}</strong>, às
-<strong>${escapar(dados.horaDaSessao)}</strong> horas, e será realizada
+<strong><em>${escapar(dados.dataDaSessao)}</em></strong>, às
+<strong>${escapar(dados.horaDaSessao)} horas</strong>, e será realizada
 ${escapar(dados.modalidade)}.</p>
 
-<div class="sessao">
-  <dl>
-    <dt>Link para acesso à sessão</dt>
-    <dd>${escapar(dados.link) || "a ser informado"}</dd>
-    <dt>ID da reunião</dt>
-    <dd>${escapar(dados.idReuniao) || "a ser informado"}</dd>
-    <dt>Senha</dt>
-    <dd>${escapar(dados.senhaReuniao) || "a ser informada"}</dd>
-  </dl>
-</div>
+<p class="sessao"><strong>Link para acesso à sessão:</strong> Plataforma Zoom Workplace<br>
+Link: ${escapar(dados.link) || "a ser informado"}<br>
+ID da reunião: ${escapar(dados.idReuniao) || "a ser informado"}<br>
+Senha: ${escapar(dados.senhaReuniao) || "a ser informada"}</p>
 
-<p>Caso haja interesse na realização da sessão de forma presencial ou híbrida,
+<p>Caso haja interesse na realização da sessão de forma <strong>presencial</strong> ou <strong>híbrida</strong>,
 solicitamos que essa opção seja comunicada previamente pelos canais oficiais da
-Consensus One, com antecedência mínima de ${dados.horasAvisoModalidade}
-(${porExtenso(dados.horasAvisoModalidade)}) horas, possibilitando a adequada
+Consensus One, com antecedência mínima de <strong>${dados.horasAvisoModalidade}
+(${porExtenso(dados.horasAvisoModalidade)}) horas</strong>, possibilitando a adequada
 organização do procedimento.</p>`;
 }
 
-function cabecalhoDaCarta(codigo: string): string {
-  return `
-<h1>Carta-Convite</h1>
-<div class="codigo">Código do Documento: ${escapar(codigo)}</div>
-<div class="subtitulo">Procedimento Privado de Composição Consensual</div>`;
-}
 
 /**
  * Carta-Convite ao Interessado Solicitante — passo 2 do fluxo.
@@ -230,12 +216,12 @@ function cabecalhoDaCarta(codigo: string): string {
  */
 export function cartaAoSolicitante(dados: DadosDaCarta): string {
   return montarDocumento(
-    cabecalhoDaCarta(dados.codigo) +
+    cabecalhoDoDocumento("Carta-Convite", dados.codigo) +
       ABERTURA +
       cadastroEDocumentos(dados.prazoDocumentacaoDias) +
       identificacaoEObjeto(dados) +
       designacaoDaSessao(dados) +
-      FECHAMENTO
+      fechamento()
   );
 }
 
@@ -246,10 +232,10 @@ export function cartaAoSolicitante(dados: DadosDaCarta): string {
  */
 export function cartaAoConvidado(dados: DadosDaCarta): string {
   return montarDocumento(
-    cabecalhoDaCarta(dados.codigo) +
+    cabecalhoDoDocumento("Carta-Convite", dados.codigo) +
       ABERTURA +
       identificacaoEObjeto(dados) +
       designacaoDaSessao(dados) +
-      FECHAMENTO
+      fechamento()
   );
 }

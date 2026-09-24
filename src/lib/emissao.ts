@@ -11,8 +11,6 @@
  * o índice único do banco recusa e a emissão recomeça com o próximo — nunca
  * dois documentos com o mesmo número.
  */
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 import QRCode from "qrcode";
 import { Prisma, TipoDocumento } from "@prisma/client";
 import { db } from "./db";
@@ -22,20 +20,9 @@ import { FUSO } from "./prazos";
 import { proximoCodigoDeDocumento } from "./sequencial-documento";
 import { enviarArquivo, montarChave } from "./storage";
 import type { TipoComCodigo } from "./codigo-documento";
-import { cabecalho, rodape } from "@/documentos/timbrado";
+import { timbrar } from "@/documentos/timbrado";
 
 const TENTATIVAS = 5;
-
-/** Logotipo embutido: o Chromium do servidor não busca arquivo por URL. */
-async function logoEmBase64(): Promise<string> {
-  try {
-    const arquivo = path.join(process.cwd(), "public", "marca", "logo-consensus-one.png");
-    return `data:image/png;base64,${(await readFile(arquivo)).toString("base64")}`;
-  } catch {
-    // documento sem logotipo ainda é válido; a ausência não trava a emissão
-    return "";
-  }
-}
 
 export async function urlDeVerificacao(): Promise<string> {
   const registro = await db.configuracaoSistema.findUnique({ where: { id: 1 } });
@@ -59,7 +46,6 @@ export async function emitirDocumento(params: {
   aoRegistrar?: (tx: Prisma.TransactionClient, codigo: string) => Promise<void>;
 }): Promise<ResultadoDaEmissao> {
   const url = await urlDeVerificacao();
-  const logo = await logoEmBase64();
   const ano = Number(
     new Intl.DateTimeFormat("pt-BR", { year: "numeric", timeZone: FUSO }).format(new Date())
   );
@@ -75,9 +61,11 @@ export async function emitirDocumento(params: {
     });
 
     const pdf = await gerarPdf({
-      html: params.montarHtml(codigo),
-      cabecalho: cabecalho(logo),
-      rodape: rodape({ codigo, qrDataUri: qr, urlVerificacao: url }),
+      html: timbrar(params.montarHtml(codigo), {
+        codigo,
+        qrDataUri: qr,
+        urlVerificacao: url,
+      }),
     });
 
     const nomeArquivo = `${codigo}.pdf`;

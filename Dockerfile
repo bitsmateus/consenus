@@ -42,8 +42,10 @@ ENV TZ=America/Sao_Paulo
 RUN addgroup --system --gid 1001 nodejs \
  && adduser --system --uid 1001 nextjs
 
-# Chromium para gerar os PDFs das cartas, atas e termos
-RUN apk add --no-cache chromium nss freetype harfbuzz ca-certificates ttf-freefont tzdata
+# Chromium para gerar os PDFs das cartas, atas e termos. font-carlito é o
+# equivalente livre do Calibri, fonte do modelo oficial: sem ela o PDF sai em
+# outra família e as quebras de linha e de página mudam.
+RUN apk add --no-cache chromium nss freetype harfbuzz ca-certificates ttf-freefont font-carlito tzdata
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
 

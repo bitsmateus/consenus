@@ -432,8 +432,8 @@ async function dispararPelaArOnline(
           dataConfirmada: true,
           linkVideoconferencia: true,
           partes: {
-            where: { papel: PapelNoAto.CONVIDADO },
-            select: { pessoa: { select: { nome: true } } },
+            where: { papel: { in: [PapelNoAto.SOLICITANTE, PapelNoAto.CONVIDADO] } },
+            select: { papel: true, pessoa: { select: { nome: true } } },
           },
         },
       }),
@@ -465,7 +465,11 @@ async function dispararPelaArOnline(
         conteudo: await baixarArquivo(documento.chaveStorage),
       },
       variaveisDoTemplate: montarVariaveisDoConvite({
-        instituicaoConvidada: ato.partes[0]?.pessoa.nome ?? destinatario.nome,
+        solicitante:
+          ato.partes.find((p) => p.papel === PapelNoAto.SOLICITANTE)?.pessoa.nome ??
+          destinatario.nome,
+        convidado:
+          ato.partes.find((p) => p.papel === PapelNoAto.CONVIDADO)?.pessoa.nome ?? "—",
         data: formatarData(ato.dataConfirmada ?? ato.dataReservada),
         hora: formatarHora(ato.dataConfirmada ?? ato.dataReservada),
         linkDaReuniao: ato.linkVideoconferencia,

@@ -108,23 +108,29 @@ export type PedidoDeEnvio = {
  * Variáveis do template de WhatsApp da carta-convite, com os nomes exatos que
  * a AR Online aprovou: INSTITUICAO, DATA, HORA e LINK_REUNIAO. O texto do
  * template é "…carta-convite para sessão de CONCILIAÇÃO EXTRAJUDICIAL –
- * [INSTITUIÇÃO CONVIDADA], em [DATA], às [HORÁRIO]…"; o link do AR Digital é
- * anexado pela própria AR Online.
+ * [INSTITUICAO], em [DATA], às [HORA]…"; o link do AR Digital é anexado pela
+ * própria AR Online.
  *
- * A AR Online recusa variável vazia, e sessão presencial não tem link: nesse
- * caso o texto manda consultar a carta, que traz o local.
+ * O template tem uma variável só para as partes, e quem recebe precisa ver
+ * as duas — teste do cliente em 24/09: só um nome aparecia. Por isso vão
+ * juntas, "Solicitante x Convidado".
+ *
+ * A AR Online recusa variável vazia, e nem toda sessão tem sala do Zoom já
+ * criada: sem link, o texto manda consultar a carta em anexo, que traz os
+ * dados de acesso ou o local.
  */
 export function montarVariaveisDoConvite(dados: {
-  instituicaoConvidada: string;
+  solicitante: string;
+  convidado: string;
   data: string;
   hora: string;
   linkDaReuniao: string | null;
 }): Record<string, string> {
   return {
-    INSTITUICAO: dados.instituicaoConvidada,
+    INSTITUICAO: `${dados.solicitante} x ${dados.convidado}`,
     DATA: dados.data,
     HORA: dados.hora,
-    LINK_REUNIAO: dados.linkDaReuniao || "consulte a carta-convite (sessão presencial)",
+    LINK_REUNIAO: dados.linkDaReuniao || "consulte a carta-convite em anexo",
   };
 }
 

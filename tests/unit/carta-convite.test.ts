@@ -40,3 +40,45 @@ describe("carta-convite — procurador na identificação das partes", () => {
     expect(html).toContain("Representado(a) por: Escritório X (Escritório de advocacia)");
   });
 });
+
+/**
+ * Forma do modelo oficial (Carta_Convite_Cliente.docx): lista dos documentos
+ * em parágrafos, dados da sessão em linhas simples, logotipo depois de
+ * "Atenciosamente,".
+ */
+describe("carta-convite — forma do modelo do cliente", () => {
+  it("os cinco documentos exigidos saem numerados de I a V, sem lista <ol>", () => {
+    const html = cartaAoSolicitante(BASE);
+    expect(html).not.toContain("<ol");
+    for (const numeral of ["I", "II", "III", "IV", "V"]) {
+      expect(html).toContain(`<p>${numeral} – `);
+    }
+  });
+
+  it("a designação da sessão traz link, ID e senha em linhas simples, sem caixa", () => {
+    const html = cartaAoConvidado(BASE);
+    expect(html).toContain("<strong>Link para acesso à sessão:</strong> Plataforma Zoom Workplace");
+    expect(html).toContain("Link: https://zoom.example/1");
+    expect(html).toContain("ID da reunião: 123");
+    expect(html).toContain("Senha: abc");
+    expect(html).not.toContain('class="sessao">\n  <dl>');
+  });
+
+  it("data e hora da sessão aparecem em destaque, como no modelo", () => {
+    const html = cartaAoSolicitante(BASE);
+    expect(html).toContain("<strong><em>01/01/2026</em></strong>");
+    expect(html).toContain("<strong>14:00 horas</strong>");
+  });
+
+  it("o logotipo vem depois de 'Atenciosamente,', no lugar da linha de assinatura", () => {
+    const html = cartaAoSolicitante(BASE);
+    expect(html.indexOf("Atenciosamente,")).toBeLessThan(html.indexOf('class="logo-carta"'));
+    expect(html).not.toContain('class="linha"');
+  });
+
+  it("a carta ao Convidado não traz o cadastro nem a lista de documentos", () => {
+    const html = cartaAoConvidado(BASE);
+    expect(html).not.toContain("Cadastro e formação do procedimento");
+    expect(html).not.toContain('class="itens"');
+  });
+});
