@@ -2,6 +2,7 @@
 import { revalidatePath } from "next/cache";
 import {
   CanalEnvio,
+  ModalidadeSessao,
   PapelNoAto,
   StatusAto,
   TipoDocumento,
@@ -431,6 +432,7 @@ async function dispararPelaArOnline(
           dataReservada: true,
           dataConfirmada: true,
           linkVideoconferencia: true,
+          modalidade: true,
           partes: {
             where: { papel: { in: [PapelNoAto.SOLICITANTE, PapelNoAto.CONVIDADO] } },
             select: { papel: true, pessoa: { select: { nome: true } } },
@@ -472,6 +474,7 @@ async function dispararPelaArOnline(
           ato.partes.find((p) => p.papel === PapelNoAto.CONVIDADO)?.pessoa.nome ?? "—",
         data: formatarData(ato.dataConfirmada ?? ato.dataReservada),
         hora: formatarHora(ato.dataConfirmada ?? ato.dataReservada),
+        presencial: ato.modalidade === ModalidadeSessao.PRESENCIAL,
         linkDaReuniao: ato.linkVideoconferencia,
       }),
     });

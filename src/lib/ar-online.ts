@@ -115,22 +115,29 @@ export type PedidoDeEnvio = {
  * as duas — teste do cliente em 24/09: só um nome aparecia. Por isso vão
  * juntas, "Solicitante x Convidado".
  *
- * A AR Online recusa variável vazia, e nem toda sessão tem sala do Zoom já
- * criada: sem link, o texto manda consultar a carta em anexo, que traz os
- * dados de acesso ou o local.
+ * LINK_REUNIAO depende da modalidade (pedido do cliente em 24/09): sessão
+ * presencial não tem sala, então a variável leva a orientação de comparecimento;
+ * virtual e híbrida levam o link do Zoom. A AR Online recusa variável vazia, e
+ * nem toda sessão tem a sala já criada: sem link, manda consultar a carta.
  */
+export const ORIENTACAO_PRESENCIAL =
+  "As orientações para comparecimento e a relação dos documentos necessários constam na carta-convite.";
+
 export function montarVariaveisDoConvite(dados: {
   solicitante: string;
   convidado: string;
   data: string;
   hora: string;
+  presencial: boolean;
   linkDaReuniao: string | null;
 }): Record<string, string> {
   return {
     INSTITUICAO: `${dados.solicitante} x ${dados.convidado}`,
     DATA: dados.data,
     HORA: dados.hora,
-    LINK_REUNIAO: dados.linkDaReuniao || "consulte a carta-convite em anexo",
+    LINK_REUNIAO: dados.presencial
+      ? ORIENTACAO_PRESENCIAL
+      : dados.linkDaReuniao || "consulte a carta-convite em anexo",
   };
 }
 

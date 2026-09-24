@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   canaisPossiveis,
   montarCorpo,
+  ORIENTACAO_PRESENCIAL,
   montarVariaveisDoConvite,
   normalizarTelefone,
   statusIndicaEntrega,
@@ -112,6 +113,7 @@ describe("variáveis do template de WhatsApp da carta-convite", () => {
       convidado: "Banco Exemplo S.A.",
       data: "15/10/2026",
       hora: "14:00",
+      presencial: false,
       linkDaReuniao: "https://zoom.us/j/123",
     });
     expect(variaveis).toEqual({
@@ -140,9 +142,37 @@ describe("variáveis do template de WhatsApp da carta-convite", () => {
       convidado: "Banco Exemplo S.A.",
       data: "15/10/2026",
       hora: "14:00",
+      presencial: false,
       linkDaReuniao: null,
     });
     expect(variaveis.LINK_REUNIAO).toMatch(/carta-convite em anexo/);
     expect(Object.values(variaveis).every((v) => v.length > 0)).toBe(true);
+  });
+
+  it("sessão presencial manda a orientação de comparecimento, mesmo havendo link", () => {
+    const variaveis = montarVariaveisDoConvite({
+      solicitante: "Maria da Silva",
+      convidado: "Banco Exemplo S.A.",
+      data: "15/10/2026",
+      hora: "14:00",
+      presencial: true,
+      linkDaReuniao: "https://zoom.us/j/123",
+    });
+    expect(variaveis.LINK_REUNIAO).toBe(
+      "As orientações para comparecimento e a relação dos documentos necessários constam na carta-convite."
+    );
+    expect(variaveis.LINK_REUNIAO).toBe(ORIENTACAO_PRESENCIAL);
+  });
+
+  it("sessão híbrida continua mandando o link do Zoom", () => {
+    const variaveis = montarVariaveisDoConvite({
+      solicitante: "Maria da Silva",
+      convidado: "Banco Exemplo S.A.",
+      data: "15/10/2026",
+      hora: "14:00",
+      presencial: false,
+      linkDaReuniao: "https://zoom.us/j/123",
+    });
+    expect(variaveis.LINK_REUNIAO).toBe("https://zoom.us/j/123");
   });
 });
