@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   canaisPossiveis,
   montarCorpo,
+  montarVariaveisDoConvite,
   normalizarTelefone,
   statusIndicaEntrega,
 } from "@/lib/ar-online";
@@ -100,5 +101,46 @@ describe("leitura do status", () => {
   it("status ausente não é entrega", () => {
     expect(statusIndicaEntrega(null)).toBe(false);
     expect(statusIndicaEntrega("")).toBe(false);
+  });
+});
+
+describe("variáveis do template de WhatsApp da carta-convite", () => {
+  it("usa exatamente os nomes aprovados na AR Online", () => {
+    process.env.AR_ONLINE_TEMPLATE_WHATSAPP = "template-novo";
+    const variaveis = montarVariaveisDoConvite({
+      instituicaoConvidada: "Banco Exemplo S.A.",
+      data: "15/10/2026",
+      hora: "14:00",
+      linkDaReuniao: "https://zoom.us/j/123",
+    });
+    expect(variaveis).toEqual({
+      INSTITUICAO: "Banco Exemplo S.A.",
+      DATA: "15/10/2026",
+      HORA: "14:00",
+      LINK_REUNIAO: "https://zoom.us/j/123",
+    });
+
+    const corpo = montarCorpo({
+      destinatario: PESSOA,
+      assunto: "a",
+      conteudoHtml: "<p>a</p>",
+      referencia: "env-1",
+      variaveisDoTemplate: variaveis,
+    });
+    expect(corpo.whatsapp).toEqual({
+      number: "11999998888",
+      variables: { template: "template-novo", ...variaveis },
+    });
+  });
+
+  it("nunca manda variável vazia: sessão presencial não tem link", () => {
+    const variaveis = montarVariaveisDoConvite({
+      instituicaoConvidada: "Banco Exemplo S.A.",
+      data: "15/10/2026",
+      hora: "14:00",
+      linkDaReuniao: null,
+    });
+    expect(variaveis.LINK_REUNIAO).toMatch(/presencial/);
+    expect(Object.values(variaveis).every((v) => v.length > 0)).toBe(true);
   });
 });

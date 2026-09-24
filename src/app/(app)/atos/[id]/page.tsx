@@ -27,6 +27,7 @@ import { SecaoDeFluxo } from "./secao-fluxo";
 import { AgendaDoProcedimento } from "./agenda";
 import { SalaDaVideoconferencia } from "./sala";
 import { TituloDoProcedimento } from "./titulo";
+import { ExcluirProcedimento } from "./excluir";
 
 export const metadata = { title: "Procedimento — Consensus One" };
 
@@ -364,6 +365,10 @@ export default async function PaginaDoAto({ params }: { params: Promise<{ id: st
                 </p>
               )}
             </div>
+
+            {usuario.papel === Papel.ADMIN && (
+              <ExcluirProcedimento atoId={ato.id} numero={ato.numero} />
+            )}
           </aside>
         </div>
       </div>

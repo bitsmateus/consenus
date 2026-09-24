@@ -8,7 +8,7 @@ import {
   TipoEvento,
 } from "@prisma/client";
 import { z } from "zod";
-import { envioAutomaticoAtivo, enviarNotificacao } from "@/lib/ar-online";
+import { envioAutomaticoAtivo, enviarNotificacao, montarVariaveisDoConvite } from "@/lib/ar-online";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { configuracaoDoSistema } from "@/lib/configuracao";
 import { db } from "@/lib/db";
@@ -428,9 +428,11 @@ async function dispararPelaArOnline(
         where: { id: atoId },
         select: {
           numero: true,
-          objeto: true,
+          dataReservada: true,
+          dataConfirmada: true,
+          linkVideoconferencia: true,
           partes: {
-            where: { papel: PapelNoAto.SOLICITANTE },
+            where: { papel: PapelNoAto.CONVIDADO },
             select: { pessoa: { select: { nome: true } } },
           },
         },
@@ -462,12 +464,12 @@ async function dispararPelaArOnline(
         nome: documento.nomeArquivo,
         conteudo: await baixarArquivo(documento.chaveStorage),
       },
-      variaveisDoTemplate: {
-        NOME_EMPRESA: config.nomeCamara,
-        PROCEDIMENTO: ato.objeto ?? "Procedimento Privado de Composição Consensual",
-        N_PROCEDIMENTO: ato.numero,
-        SOLICITANTE: ato.partes[0]?.pessoa.nome ?? destinatario.nome,
-      },
+      variaveisDoTemplate: montarVariaveisDoConvite({
+        instituicaoConvidada: ato.partes[0]?.pessoa.nome ?? destinatario.nome,
+        data: formatarData(ato.dataConfirmada ?? ato.dataReservada),
+        hora: formatarHora(ato.dataConfirmada ?? ato.dataReservada),
+        linkDaReuniao: ato.linkVideoconferencia,
+      }),
     });
 
     await db.envio.update({

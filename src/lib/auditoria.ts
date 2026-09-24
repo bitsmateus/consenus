@@ -19,6 +19,7 @@ export type AcaoAuditada =
   | "ALTEROU_PESSOA"
   | "CRIOU_ATO"
   | "ALTEROU_ATO"
+  | "EXCLUIU_ATO"
   | "ADICIONOU_PARTE"
   | "REMOVEU_PARTE"
   | "CONFIRMOU_DATA"

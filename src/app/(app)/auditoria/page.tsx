@@ -20,6 +20,7 @@ const ROTULO: Record<string, string> = {
   ALTEROU_PESSOA: "Alterou pessoa",
   CRIOU_ATO: "Abriu procedimento",
   ALTEROU_ATO: "Alterou procedimento",
+  EXCLUIU_ATO: "Excluiu procedimento",
   ADICIONOU_PARTE: "Vinculou parte",
   REMOVEU_PARTE: "Removeu vínculo",
   CONFIRMOU_DATA: "Confirmou a data da sessão",
@@ -43,6 +44,7 @@ const SENSIVEIS = new Set([
   "VARREDURA_SUSPEITA",
   "ALTEROU_PERMISSAO",
   "REDEFINIU_SENHA",
+  "EXCLUIU_ATO",
   "RECUPEROU_ACESSO",
 ]);
 

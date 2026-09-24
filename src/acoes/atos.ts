@@ -23,8 +23,9 @@ import { ErroDeNegocio } from "@/lib/erros";
 import { proximoNumeroDoAto } from "@/lib/numeracao";
 import { conferirCoerencia, esquemaDePessoa, montarDadosDePessoa } from "@/lib/pessoas";
 import { calcularDataDaSessao, calcularPrazoDocumentacao, FUSO } from "@/lib/prazos";
-import { exigirAcessoAoAto, exigirEquipe } from "@/lib/sessao";
+import { exigirAcessoAoAto, exigirAdmin, exigirEquipe } from "@/lib/sessao";
 import { exigirPermissao } from "@/lib/permissoes";
+import { removerArquivo } from "@/lib/storage";
 
 export type EstadoDeFormulario = { erro?: string; campo?: string };
 
@@ -462,6 +463,94 @@ export async function registrarObservacao(
 
   revalidatePath(`/atos/${atoId}`);
   return {};
+}
+
+const exclusao = z.object({
+  atoId: z.string().min(1),
+  confirmacao: z.string().trim(),
+});
+
+/**
+ * Exclui o procedimento por inteiro — pedido do cliente em 24/09, só para o
+ * administrador. É irreversível e leva junto partes, documentos, envios,
+ * conferências, termo e assinaturas; os arquivos saem do storage.
+ *
+ * Duas travas contra o engano: o administrador digita o número do
+ * procedimento (a checagem é aqui, não na tela), e a exclusão fica na
+ * auditoria com o que existia — inclusive os códigos de verificação dos
+ * documentos, que passam a responder "não encontrado" na página pública.
+ */
+export async function excluirAto(
+  _anterior: EstadoDeFormulario,
+  entrada: FormData
+): Promise<EstadoDeFormulario> {
+  const admin = await exigirAdmin();
+
+  const analise = exclusao.safeParse(Object.fromEntries(entrada));
+  if (!analise.success) return { erro: "Dados inválidos." };
+  const { atoId, confirmacao } = analise.data;
+
+  const ato = await db.ato.findUnique({
+    where: { id: atoId },
+    select: {
+      id: true,
+      numero: true,
+      status: true,
+      idReuniao: true,
+      documentos: { select: { chaveStorage: true, codigoVerificacao: true } },
+    },
+  });
+  if (!ato) return { erro: "Procedimento não encontrado." };
+
+  if (confirmacao !== ato.numero) {
+    return {
+      erro: `Para excluir, digite o número do procedimento: ${ato.numero}.`,
+      campo: "confirmacao",
+    };
+  }
+
+  // Envio e OperacaoAssinatura apontam para Documento sem cascata: sem apagá-los
+  // antes, o banco recusa a exclusão do procedimento.
+  await db.$transaction([
+    db.operacaoAssinatura.deleteMany({ where: { atoId } }),
+    db.envio.deleteMany({ where: { atoId } }),
+    db.ato.delete({ where: { id: atoId } }),
+  ]);
+
+  await registrarAuditoria({
+    usuarioId: admin.id,
+    acao: "EXCLUIU_ATO",
+    entidade: "Ato",
+    entidadeId: atoId,
+    metadados: {
+      numero: ato.numero,
+      status: ato.status,
+      documentos: ato.documentos.length,
+      codigosDeVerificacao: ato.documentos
+        .map((d) => d.codigoVerificacao)
+        .filter((c): c is string => Boolean(c)),
+    },
+  });
+
+  // Best effort, como nas demais integrações: o procedimento já foi excluído, e
+  // sobra de arquivo ou sala órfã não pode transformar isso em erro para o admin.
+  for (const documento of ato.documentos) {
+    try {
+      await removerArquivo(documento.chaveStorage);
+    } catch (erro) {
+      console.error("[excluirAto] arquivo não removido do storage", documento.chaveStorage, erro);
+    }
+  }
+  if (ato.idReuniao && videoconferenciaAtiva()) {
+    try {
+      await cancelarReuniao(ato.idReuniao);
+    } catch (erro) {
+      console.error("[excluirAto] reunião do Zoom não cancelada", ato.idReuniao, erro);
+    }
+  }
+
+  revalidatePath("/atos");
+  redirect("/atos");
 }
 
 const renomeacao = z.object({

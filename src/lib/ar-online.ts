@@ -105,6 +105,30 @@ export type PedidoDeEnvio = {
 };
 
 /**
+ * Variáveis do template de WhatsApp da carta-convite, com os nomes exatos que
+ * a AR Online aprovou: INSTITUICAO, DATA, HORA e LINK_REUNIAO. O texto do
+ * template é "…carta-convite para sessão de CONCILIAÇÃO EXTRAJUDICIAL –
+ * [INSTITUIÇÃO CONVIDADA], em [DATA], às [HORÁRIO]…"; o link do AR Digital é
+ * anexado pela própria AR Online.
+ *
+ * A AR Online recusa variável vazia, e sessão presencial não tem link: nesse
+ * caso o texto manda consultar a carta, que traz o local.
+ */
+export function montarVariaveisDoConvite(dados: {
+  instituicaoConvidada: string;
+  data: string;
+  hora: string;
+  linkDaReuniao: string | null;
+}): Record<string, string> {
+  return {
+    INSTITUICAO: dados.instituicaoConvidada,
+    DATA: dados.data,
+    HORA: dados.hora,
+    LINK_REUNIAO: dados.linkDaReuniao || "consulte a carta-convite (sessão presencial)",
+  };
+}
+
+/**
  * Monta o corpo do envio. Separado da chamada de rede para poder ser testado
  * sem tocar na API — é aqui que mora a chance de errar campo.
  */
