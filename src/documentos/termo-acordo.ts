@@ -52,7 +52,7 @@ function paragrafos(texto: string | null): string {
 const CLAUSULAS_FIXAS = `
 <h2>VI – Do inadimplemento e dos efeitos da mora</h2>
 <p>O inadimplemento de qualquer obrigação assumida neste Termo, inclusive o atraso superior a
-05 (cinco) dias no cumprimento de obrigação pecuniária ou o descumprimento injustificado de
+<strong>05 (cinco) dias</strong> no cumprimento de obrigação pecuniária ou o descumprimento injustificado de
 obrigação de fazer, não fazer ou entregar coisa, constituirá a Parte inadimplente em mora de
 pleno direito, independentemente de notificação ou interpelação judicial ou extrajudicial.</p>
 
@@ -60,13 +60,13 @@ pleno direito, independentemente de notificação ou interpelação judicial ou 
 vincendas decorrentes do presente acordo, tornando-se imediatamente exigível o saldo
 remanescente.</p>
 
-<p>Sobre os valores inadimplidos incidirão:</p>
-<ol class="romanos" type="a">
-  <li>multa moratória de 10% (dez por cento) sobre o débito atualizado;</li>
-  <li>juros de mora de 1% (um por cento) ao mês, calculados pro rata die;</li>
-  <li>atualização monetária pelo IPCA/IBGE, ou outro índice oficial que venha a
-      substituí-lo.</li>
-</ol>
+<p class="antes-da-lista">Sobre os valores inadimplidos incidirão:</p>
+<div class="itens">
+  <p><strong>a)</strong> multa moratória de <strong>10% (dez por cento)</strong> sobre o débito atualizado;</p>
+  <p><strong>b)</strong> juros de mora de <strong>1% (um por cento) ao mês</strong>, calculados <strong>pro rata die</strong>;</p>
+  <p><strong>c)</strong> atualização monetária pelo <strong>IPCA/IBGE</strong>, ou outro índice oficial que venha a
+      substituí-lo.</p>
+</div>
 
 <p>O inadimplemento autorizará a Parte prejudicada a promover a execução deste Termo de Acordo,
 quando preenchidos os requisitos legais aplicáveis, bem como a adotar as demais medidas
@@ -81,7 +81,7 @@ previstas em lei.</p>
 
 <h2>VIII – Das declarações dos interessados</h2>
 <p>Os interessados declaram que participaram voluntariamente do procedimento privado de
-conciliação administrado pela Consensus One, tendo-lhes sido assegurada plena oportunidade para
+conciliação administrado pela <strong>Consensus One</strong>, tendo-lhes sido assegurada plena oportunidade para
 exposição de suas posições, apresentação de documentos, esclarecimentos e formulação de
 propostas.</p>
 
@@ -95,7 +95,7 @@ comprometendo-se ao seu fiel e integral cumprimento.</p>
 composição consensual e obrigam-se ao fiel cumprimento das obrigações nele assumidas.</p>
 
 <p>Quando preenchidos os requisitos previstos na legislação aplicável, o presente instrumento
-produzirá os efeitos de título executivo extrajudicial, podendo o interessado prejudicado
+produzirá os efeitos de <strong>título executivo extrajudicial</strong>, podendo o interessado prejudicado
 promover sua execução em caso de inadimplemento, sem prejuízo das demais medidas judiciais ou
 extrajudiciais cabíveis.</p>
 
@@ -168,9 +168,9 @@ ${cabecalhoDoDocumento("Termo de Acordo", dados.codigo)}
 </div>
 
 <h2>II – Das considerações preliminares</h2>
-<p>Os interessados acima identificados, após participarem de Sessão Privada de Conciliação
-regularmente administrada pela Consensus One – Câmara Privada de Composição Estratégica
-Consensual, resolvem celebrar o presente Termo de Acordo, de forma livre, consciente e
+<p>Os interessados acima identificados, após participarem de <strong>Sessão Privada de Conciliação</strong>
+regularmente administrada pela <strong>Consensus One – Câmara Privada de Composição Estratégica
+Consensual</strong>, resolvem celebrar o presente <strong>Termo de Acordo</strong>, de forma livre, consciente e
 voluntária, mediante concessões recíprocas, observando os princípios da autonomia privada,
 boa-fé objetiva, cooperação e respeito à livre manifestação de vontade.</p>
 
@@ -186,35 +186,32 @@ procedimento, mediante as condições livremente pactuadas entre os interessados
 <p>As Partes, por livre manifestação de vontade, estabelecem as seguintes cláusulas e condições,
 que passam a integrar o presente instrumento para todos os fins de direito.</p>
 
-<p style="margin-bottom:1mm;"><strong>Cláusula Primeira – Do objeto</strong></p>
+<p class="clausula"><strong>CLÁUSULA PRIMEIRA – DO OBJETO</strong></p>
 ${paragrafos(dados.objetoDoAcordo)}
 
-<p style="margin-bottom:1mm;"><strong>Cláusula Segunda – Das obrigações da primeira parte</strong></p>
+<p class="clausula"><strong>CLÁUSULA SEGUNDA – DAS OBRIGAÇÕES DA PRIMEIRA PARTE</strong></p>
 ${paragrafos(dados.obrigacoesPrimeiraParte)}
 
-<p style="margin-bottom:1mm;"><strong>Cláusula Terceira – Das obrigações da segunda parte</strong></p>
+<p class="clausula"><strong>CLÁUSULA TERCEIRA – DAS OBRIGAÇÕES DA SEGUNDA PARTE</strong></p>
 ${paragrafos(dados.obrigacoesSegundaParte)}
 
-<p style="margin-bottom:1mm;"><strong>Cláusula Quarta – Das condições específicas</strong></p>
+<p class="clausula"><strong>CLÁUSULA QUARTA – DAS CONDIÇÕES ESPECÍFICAS</strong></p>
 ${paragrafos(dados.condicoesEspecificas)}
 
 <h2>V – Do cumprimento do acordo</h2>
 <p>As Partes obrigam-se ao fiel cumprimento das obrigações assumidas neste instrumento,
 observando os prazos, condições e demais disposições livremente convencionadas.</p>
 
-<p style="margin-bottom:1mm;"><strong>§ 1º O cumprimento das obrigações observará os seguintes
-prazos:</strong></p>
+<p class="clausula"><strong>§ 1º</strong> O cumprimento das obrigações observará os seguintes prazos:</p>
 ${paragrafos(dados.prazosDeCumprimento)}
 
-<p style="margin-bottom:1mm;"><strong>§ 2º O cumprimento ocorrerá da seguinte forma:</strong></p>
+<p class="clausula"><strong>§ 2º</strong> O cumprimento ocorrerá da seguinte forma:</p>
 ${paragrafos(dados.formaDeCumprimento)}
 
-<p style="margin-bottom:1mm;"><strong>§ 3º O pagamento, quando houver, será realizado por meio
-de:</strong></p>
+<p class="clausula"><strong>§ 3º</strong> O pagamento, quando houver, será realizado por meio de:</p>
 ${paragrafos(dados.formaDePagamento)}
 
-<p style="margin-bottom:1mm;"><strong>§ 4º As demais condições específicas são as
-seguintes:</strong></p>
+<p class="clausula"><strong>§ 4º</strong> As demais condições específicas são as seguintes:</p>
 ${paragrafos(dados.demaisCondicoes)}
 
 ${CLAUSULAS_FIXAS}

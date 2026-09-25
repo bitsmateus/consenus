@@ -181,6 +181,7 @@ export const ESTILO_DO_CORPO = `
   }
   p { margin: 0 0 4.2mm; }
   .itens { margin: 0 0 4.2mm; text-align: left; break-inside: avoid; page-break-inside: avoid; }
+  .clausula { margin-bottom: 1.5mm; text-align: left; break-after: avoid; page-break-after: avoid; }
   .antes-da-lista { break-after: avoid; page-break-after: avoid; }
   .itens p { margin: 0; }
   /* break-inside: um bloco curto não pode ser cortado ao meio pelo motor de

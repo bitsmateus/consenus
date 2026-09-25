@@ -105,15 +105,15 @@ ${cabecalhoDoDocumento("Ata de Sessão Privada de Conciliação", dados.codigo)}
 
 <h2>I – Identificação do procedimento</h2>
 <div class="parte">
-  <div class="rotulo">Interessado Solicitante</div>
+  <div class="rotulo">Interessado Solicitante:</div>
   <div class="nome">${escapar(dados.solicitante)}</div>
 </div>
 <div class="parte">
-  <div class="rotulo">Interessado Convidado</div>
+  <div class="rotulo">Interessado Convidado:</div>
   <div class="nome">${escapar(dados.convidado)}</div>
 </div>
 <div class="parte">
-  <div class="rotulo">Objeto do procedimento</div>
+  <div class="rotulo">Objeto do Procedimento:</div>
   <div>${escapar(dados.objeto) || "—"}</div>
 </div>
 
