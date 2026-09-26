@@ -33,6 +33,7 @@ export function itemAtivo(caminho: string, itens: ItemDeMenu[]): string | null {
 export const MENU_EQUIPE: ItemDeMenu[] = [
   { href: "/painel", rotulo: "Painel" },
   { href: "/atos", rotulo: "Procedimentos" },
+  { href: "/calendario", rotulo: "Calendário" },
   { href: "/pessoas", rotulo: "Interessados" },
   { href: "/equipe", rotulo: "Equipe", somenteAdmin: true },
   { href: "/seguranca", rotulo: "Segurança" },

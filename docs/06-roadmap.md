@@ -145,6 +145,22 @@ Ajustes feitos depois de o sistema subir, fora do escopo das sprints:
   no corpo do HTML, e não no headerTemplate do Chromium, que não pinta os 5 mm
   junto à borda. O Dockerfile instala `font-carlito` (equivalente livre do
   Calibri): sem ela o PDF de produção sai em outra fonte e quebra diferente.
+- **Agenda de sessões e Calendário (25/09/2026).** Sessão só em dia útil, das
+  09:00 às 17:00 com o almoço (12:00–13:00) fechado, 20 minutos por sessão e
+  nunca duas ao mesmo tempo. Feriados e pontos facultativos nacionais (mais o 9 de
+  julho, de SP) são calculados em `src/lib/agenda.ts`, inclusive os que dependem
+  da Páscoa; feriado municipal e recesso o administrador cadastra na tela
+  Calendário. O horário, o almoço e a duração vivem em `ConfiguracaoSistema`
+  (regra 12); `duracaoSessaoMinutos` passou de 90 para 20, que também é a
+  duração prevista da reunião do Zoom. A escolha de vaga roda sob trava do
+  Postgres (`pg_advisory_xact_lock`), para dois operadores não pegarem o mesmo
+  horário. A regra vale na abertura do procedimento (a data D+30 vai para a
+  próxima vaga livre) e ao alterar a agenda — só quando o horário muda, para
+  procedimento antigo continuar editável.
+- **Sub-perfis (correção, 25/09/2026).** As ações que nenhum sub-perfil lista
+  (agenda, sessão, ata, termo, cancelamento, observação, laudo) só exigiam
+  `exigirEquipe()` e passavam para qualquer operador; agora exigem
+  `exigirAcessoCompleto()`, como o desenho previa.
 
 ## Etapa 2 — após a Etapa 1
 

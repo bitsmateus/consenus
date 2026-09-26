@@ -19,7 +19,7 @@ import { validarArquivo, extensaoDoTipo } from "@/lib/mime";
 import { emitirDocumento } from "@/lib/emissao";
 import { baixarArquivo, enviarArquivo, gerarUrlDeDownload, montarChave } from "@/lib/storage";
 import { exigirAcessoAoAto, exigirEquipe } from "@/lib/sessao";
-import { exigirPermissao, garantirPermissao } from "@/lib/permissoes";
+import { exigirPermissao, garantirPermissao, exigirAcessoCompleto } from "@/lib/permissoes";
 import { cartaAoSolicitante } from "@/documentos/carta-convite";
 import { formatarRepresentantes, ROTULO_MODALIDADE } from "@/lib/formato";
 export type EstadoDeFormulario = { erro?: string; aviso?: string };
@@ -315,7 +315,7 @@ export async function registrarEnvio(
  * da ciência e deixa de ser provisório.
  */
 export async function vincularLaudo(entrada: FormData): Promise<void> {
-  const usuario = await exigirEquipe();
+  const usuario = await exigirAcessoCompleto();
   const atoId = String(entrada.get("atoId") ?? "");
   const envioId = String(entrada.get("envioId") ?? "");
   const laudoId = String(entrada.get("laudoId") ?? "");

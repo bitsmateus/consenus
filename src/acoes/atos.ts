@@ -21,10 +21,12 @@ import { configuracaoDoSistema } from "@/lib/configuracao";
 import { db } from "@/lib/db";
 import { ErroDeNegocio } from "@/lib/erros";
 import { proximoNumeroDoAto } from "@/lib/numeracao";
+import { formatarDiaHora, proximaVagaLivre, validarHorario } from "@/lib/agenda";
+import { carregarContextoDaAgenda, travarAgenda } from "@/lib/agenda-db";
 import { conferirCoerencia, esquemaDePessoa, montarDadosDePessoa } from "@/lib/pessoas";
 import { calcularDataDaSessao, calcularPrazoDocumentacao, FUSO } from "@/lib/prazos";
-import { exigirAcessoAoAto, exigirAdmin, exigirEquipe } from "@/lib/sessao";
-import { exigirPermissao } from "@/lib/permissoes";
+import { exigirAcessoAoAto, exigirAdmin } from "@/lib/sessao";
+import { exigirPermissao, exigirAcessoCompleto } from "@/lib/permissoes";
 import { removerArquivo } from "@/lib/storage";
 
 export type EstadoDeFormulario = { erro?: string; campo?: string };
@@ -201,6 +203,17 @@ export async function criarAto(
       const ato = await db.$transaction(async (tx) => {
         const numero = await proximoNumeroDoAto(tx, ano);
 
+        // A data nasce em D+30, no horário padrão, mas só em vaga que a agenda
+        // aceita: dia útil, dentro do expediente, sem outra sessão em cima.
+        await travarAgenda(tx);
+        const agendaAtual = await carregarContextoDaAgenda(tx);
+        const dataReservada = proximaVagaLivre(
+          calcularDataDaSessao(agora, config.diasAteSessao, config.horaDaSessao),
+          agendaAtual.regras,
+          agendaAtual.extras,
+          agendaAtual.marcadas
+        );
+
         const criado = await tx.ato.create({
           data: {
             numero,
@@ -209,7 +222,7 @@ export async function criarAto(
             modalidade: modalidade ?? ModalidadeSessao.VIDEOCONFERENCIA,
             localPresencial: localParaSalvar(modalidade, localPresencial),
             observacoes: observacoes || null,
-            dataReservada: calcularDataDaSessao(agora, config.diasAteSessao, config.horaDaSessao),
+            dataReservada,
             prazoDocumentacaoAte: calcularPrazoDocumentacao(agora, config.prazoDocumentacaoDias),
             criadoPorId: usuario.id,
             partes: {
@@ -307,6 +320,7 @@ export async function criarAto(
   }
 
   revalidatePath("/atos");
+  revalidatePath("/calendario");
   redirect(`/atos/${atoId}`);
 }
 
@@ -451,7 +465,7 @@ export async function registrarObservacao(
   _anterior: EstadoDeFormulario,
   entrada: FormData
 ): Promise<EstadoDeFormulario> {
-  const usuario = await exigirEquipe();
+  const usuario = await exigirAcessoCompleto();
 
   const analise = anotacao.safeParse(Object.fromEntries(entrada));
   if (!analise.success) {
@@ -581,7 +595,7 @@ export async function renomearAto(
   _anterior: EstadoDeFormulario,
   entrada: FormData
 ): Promise<EstadoDeFormulario> {
-  const usuario = await exigirEquipe();
+  const usuario = await exigirAcessoCompleto();
 
   const analise = renomeacao.safeParse(Object.fromEntries(entrada));
   if (!analise.success) {
@@ -702,7 +716,7 @@ export async function alterarAgenda(
   _anterior: EstadoDeFormulario,
   entrada: FormData
 ): Promise<EstadoDeFormulario> {
-  const usuario = await exigirEquipe();
+  const usuario = await exigirAcessoCompleto();
 
   const analise = agenda.safeParse(Object.fromEntries(entrada));
   if (!analise.success) {
@@ -735,16 +749,40 @@ export async function alterarAgenda(
 
     const nova = interpretarDataDaSessao(dataDaSessao);
     const confirmada = ato.dataConfirmada !== null;
+    const atual = ato.dataConfirmada ?? ato.dataReservada;
+    // Só confere a agenda quando o horário muda: trocar modalidade ou local de
+    // um procedimento antigo (data à meia-noite, de antes das regras) não pode
+    // ser barrado por uma data que ninguém está mexendo.
+    const mudouOHorario = !atual || atual.getTime() !== nova.getTime();
 
-    await db.ato.update({
-      where: { id: atoId },
-      data: {
-        modalidade,
-        localPresencial: localParaSalvar(modalidade, localPresencial),
-        dataReservada: nova,
-        // se a data já estava confirmada, ela continua confirmada na data nova
-        ...(confirmada ? { dataConfirmada: nova } : {}),
-      },
+    await db.$transaction(async (tx) => {
+      if (mudouOHorario) {
+        await travarAgenda(tx);
+        const agendaAtual = await carregarContextoDaAgenda(tx, atoId);
+        const problema = validarHorario(nova, agendaAtual.regras, agendaAtual.extras, agendaAtual.marcadas);
+        if (problema) {
+          const vaga = proximaVagaLivre(
+            nova,
+            agendaAtual.regras,
+            agendaAtual.extras,
+            agendaAtual.marcadas
+          );
+          throw new ErroDeNegocio(
+            `${problema} Próxima vaga livre: ${formatarDiaHora(vaga)}.`
+          );
+        }
+      }
+
+      await tx.ato.update({
+        where: { id: atoId },
+        data: {
+          modalidade,
+          localPresencial: localParaSalvar(modalidade, localPresencial),
+          dataReservada: nova,
+          // se a data já estava confirmada, ela continua confirmada na data nova
+          ...(confirmada ? { dataConfirmada: nova } : {}),
+        },
+      });
     });
 
     await db.eventoAto.create({
@@ -779,6 +817,7 @@ export async function alterarAgenda(
 
   revalidatePath(`/atos/${atoId}`);
   revalidatePath("/atos");
+  revalidatePath("/calendario");
   return {};
 }
 

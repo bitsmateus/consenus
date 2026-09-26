@@ -19,8 +19,8 @@ import { DESFECHOS_COM_ACORDO } from "@/lib/desfechos";
 import { cancelarReuniao, videoconferenciaAtiva } from "@/lib/zoom";
 import { FUSO, sessaoAntesDaDataMarcada } from "@/lib/prazos";
 import { faltamItens } from "@/lib/documentacao";
-import { exigirAcessoAoAto, exigirEquipe } from "@/lib/sessao";
-import { exigirPermissao } from "@/lib/permissoes";
+import { exigirAcessoAoAto } from "@/lib/sessao";
+import { exigirPermissao, exigirAcessoCompleto } from "@/lib/permissoes";
 import { cartaAoConvidado } from "@/documentos/carta-convite";
 import { ataDaSessao, type Desfecho } from "@/documentos/ata";
 import { termoDeAcordo } from "@/documentos/termo-acordo";
@@ -309,7 +309,7 @@ export async function registrarSessao(
   _anterior: EstadoDeFormulario,
   entrada: FormData
 ): Promise<EstadoDeFormulario> {
-  const usuario = await exigirEquipe();
+  const usuario = await exigirAcessoCompleto();
 
   const analise = sessao.safeParse(Object.fromEntries(entrada));
   if (!analise.success) {
@@ -420,7 +420,7 @@ export async function registrarSessao(
 
 /** Lavra a ata. Obrigatória em toda sessão, qualquer que seja o desfecho. */
 export async function gerarAta(entrada: FormData): Promise<void> {
-  const usuario = await exigirEquipe();
+  const usuario = await exigirAcessoCompleto();
   const atoId = String(entrada.get("atoId") ?? "");
   if (!atoId) throw new ErroDeNegocio("Procedimento não informado.");
 
@@ -532,7 +532,7 @@ export async function gerarTermoDeAcordo(
   _anterior: EstadoDeFormulario,
   entrada: FormData
 ): Promise<EstadoDeFormulario> {
-  const usuario = await exigirEquipe();
+  const usuario = await exigirAcessoCompleto();
 
   const analise = termo.safeParse(Object.fromEntries(entrada));
   if (!analise.success) {
@@ -635,7 +635,7 @@ export async function gerarTermoDeAcordo(
  * cadastro." Ver docs/09, item 7.
  */
 export async function cancelarAto(entrada: FormData): Promise<void> {
-  const usuario = await exigirEquipe();
+  const usuario = await exigirAcessoCompleto();
 
   const atoId = String(entrada.get("atoId") ?? "");
   const motivo = String(entrada.get("motivo") ?? "").trim();

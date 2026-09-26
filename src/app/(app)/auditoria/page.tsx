@@ -21,6 +21,7 @@ const ROTULO: Record<string, string> = {
   CRIOU_ATO: "Abriu procedimento",
   ALTEROU_ATO: "Alterou procedimento",
   EXCLUIU_ATO: "Excluiu procedimento",
+  ALTEROU_CALENDARIO: "Alterou dias sem sessão do calendário",
   ADICIONOU_PARTE: "Vinculou parte",
   REMOVEU_PARTE: "Removeu vínculo",
   CONFIRMOU_DATA: "Confirmou a data da sessão",

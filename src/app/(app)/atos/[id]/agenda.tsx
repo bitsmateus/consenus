@@ -21,6 +21,7 @@ export function AgendaDoProcedimento({
   localPresencial,
   dataDaSessao,
   confirmada,
+  regras,
 }: {
   atoId: string;
   modalidade: ModalidadeSessao;
@@ -28,6 +29,8 @@ export function AgendaDoProcedimento({
   /** "AAAA-MM-DDTHH:MM" no fuso da câmara, pronto para o input. */
   dataDaSessao: string;
   confirmada: boolean;
+  /** As regras da agenda, numa frase, mostradas ao lado do campo de data. */
+  regras?: string;
 }) {
   const [editando, setEditando] = useState(false);
   const [estado, acao, pendente] = useActionState<EstadoDeFormulario, FormData>(
@@ -85,6 +88,8 @@ export function AgendaDoProcedimento({
         defaultValue={localPresencial ?? ""}
         dica="Vai na Carta-Convite quando a sessão for presencial ou híbrida."
       />
+
+      {regras && <p className="mb-3 text-[11px] leading-relaxed text-carvao-500">{regras}</p>}
 
       <p className="mb-3 text-[11px] text-carvao-300">
         {confirmada

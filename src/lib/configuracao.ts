@@ -12,7 +12,11 @@ const PADRAO = {
   horasAvisoModalidade: 48,
   diasAteSessao: 30,
   horaDaSessao: "14:00",
-  duracaoSessaoMinutos: 90,
+  duracaoSessaoMinutos: 20,
+  agendaInicio: "09:00",
+  agendaFim: "17:00",
+  almocoInicio: "12:00",
+  almocoFim: "13:00",
 };
 
 /**
@@ -28,5 +32,9 @@ export const configuracaoDoSistema = cache(async () => {
     diasAteSessao: registro?.diasAteSessao ?? PADRAO.diasAteSessao,
     horaDaSessao: registro?.horaDaSessao ?? PADRAO.horaDaSessao,
     duracaoSessaoMinutos: registro?.duracaoSessaoMinutos ?? PADRAO.duracaoSessaoMinutos,
+    agendaInicio: registro?.agendaInicio ?? PADRAO.agendaInicio,
+    agendaFim: registro?.agendaFim ?? PADRAO.agendaFim,
+    almocoInicio: registro?.almocoInicio ?? PADRAO.almocoInicio,
+    almocoFim: registro?.almocoFim ?? PADRAO.almocoFim,
   };
 });

@@ -86,3 +86,13 @@ describe("garantirPermissao", () => {
     ).toThrow(SemPermissao);
   });
 });
+
+describe("temAcessoCompleto", () => {
+  it("administrador e operador sem sub-perfil têm; operador com sub-perfil não", async () => {
+    const { temAcessoCompleto } = await import("@/lib/permissoes");
+    expect(temAcessoCompleto({ papel: Papel.ADMIN, subPapelOperador: SubPapelOperador.CAMARA })).toBe(true);
+    expect(temAcessoCompleto({ papel: Papel.OPERADOR, subPapelOperador: null })).toBe(true);
+    expect(temAcessoCompleto({ papel: Papel.OPERADOR, subPapelOperador: SubPapelOperador.CAMARA })).toBe(false);
+    expect(temAcessoCompleto({ papel: Papel.OPERADOR, subPapelOperador: SubPapelOperador.INTERESSADO })).toBe(false);
+  });
+});

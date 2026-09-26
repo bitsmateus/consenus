@@ -46,6 +46,14 @@ export function temPermissao(usuario: UsuarioComPapel, acao: Acao): boolean {
   return PERMISSOES_POR_SUBPAPEL[usuario.subPapelOperador].has(acao);
 }
 
+/**
+ * Operador sem sub-perfil, ou administrador: pode tudo o que o fluxo tem, inclusive
+ * o que nenhum sub-perfil lista (agenda, sessão, ata, termo, cancelamento).
+ */
+export function temAcessoCompleto(usuario: UsuarioComPapel): boolean {
+  return usuario.papel === Papel.ADMIN || !usuario.subPapelOperador;
+}
+
 export function garantirPermissao(usuario: UsuarioComPapel, acao: Acao): void {
   if (!temPermissao(usuario, acao)) {
     throw new SemPermissao("Seu perfil de operador não tem permissão para esta ação.");
@@ -56,5 +64,17 @@ export function garantirPermissao(usuario: UsuarioComPapel, acao: Acao): void {
 export async function exigirPermissao(acao: Acao) {
   const usuario = await exigirEquipe();
   garantirPermissao(usuario, acao);
+  return usuario;
+}
+
+/**
+ * Para as ações que nenhum sub-perfil lista: agenda, sessão, ata, termo,
+ * cancelamento, observação. Só administrador ou operador sem sub-perfil.
+ */
+export async function exigirAcessoCompleto() {
+  const usuario = await exigirEquipe();
+  if (!temAcessoCompleto(usuario)) {
+    throw new SemPermissao("Seu perfil de operador não tem permissão para esta ação.");
+  }
   return usuario;
 }

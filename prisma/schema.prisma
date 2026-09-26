@@ -556,9 +556,28 @@ model ConfiguracaoSistema {
   diasAteSessao         Int      @default(30)
   /// horário padrão da sessão, usado na Carta-Convite e no agendamento do Zoom
   horaDaSessao          String   @default("14:00")
-  /// duração prevista, para a reunião do Zoom nascer com fim previsto
-  duracaoSessaoMinutos  Int      @default(90)
+  /// Quanto cada sessão ocupa na agenda — e a duração prevista da reunião do
+  /// Zoom. Duas sessões não podem se sobrepor: 20 minutos, pedido do cliente
+  /// em 25/09.
+  duracaoSessaoMinutos  Int      @default(20)
+  /// Janela em que a câmara marca sessão, em dias úteis. Só entra sessão que
+  /// termina até `agendaFim` e que não encosta no almoço.
+  agendaInicio          String   @default("09:00")
+  agendaFim             String   @default("17:00")
+  almocoInicio          String   @default("12:00")
+  almocoFim             String   @default("13:00")
   urlVerificacao        String   @default("https://consensusone.com.br/verificar")
   emailRemetente        String?
   atualizadoEm          DateTime @updatedAt @db.Timestamptz(3)
+}
+
+/// Dia em que a câmara não marca sessão, além de fim de semana e dos feriados e
+/// pontos facultativos nacionais (calculados em src/lib/agenda.ts): feriado
+/// municipal, recesso, dia de manutenção. Cadastrado pelo administrador.
+model DiaSemSessao {
+  id        String   @id @default(cuid())
+  /// só a data, sem hora
+  data      DateTime @unique @db.Date
+  descricao String
+  criadoEm  DateTime @default(now()) @db.Timestamptz(3)
 }

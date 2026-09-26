@@ -152,6 +152,62 @@ export async function listarAtosEm(where: Prisma.AtoWhereInput) {
   });
 }
 
+/**
+ * Sessões marcadas entre duas datas, com o que a agenda mostra do procedimento.
+ *
+ * A data é a confirmada, quando existe, ou a reservada — a mesma que ocupa a
+ * vaga na agenda (ver agenda-db.ts). Cancelado e redesignado ficam de fora: não
+ * têm horário vigente.
+ */
+export async function listarCompromissosEm(where: Prisma.AtoWhereInput, de: Date, ate: Date) {
+  const noPeriodo = (campo: "dataConfirmada" | "dataReservada") => ({
+    [campo]: { gte: de, lt: ate },
+  });
+
+  const atos = await db.ato.findMany({
+    where: {
+      AND: [
+        where,
+        { status: { notIn: [StatusAto.CANCELADO, StatusAto.REDESIGNADA] } },
+        {
+          OR: [
+            noPeriodo("dataConfirmada"),
+            { dataConfirmada: null, ...noPeriodo("dataReservada") },
+          ],
+        },
+      ],
+    },
+    select: {
+      id: true,
+      numero: true,
+      titulo: true,
+      objeto: true,
+      status: true,
+      modalidade: true,
+      localPresencial: true,
+      linkVideoconferencia: true,
+      idReuniao: true,
+      senhaReuniao: true,
+      dataReservada: true,
+      dataConfirmada: true,
+      prazoDocumentacaoAte: true,
+      observacoes: true,
+      partes: {
+        select: {
+          id: true,
+          papel: true,
+          representaId: true,
+          pessoa: { select: { id: true, nome: true, tipoProcurador: true } },
+        },
+      },
+    },
+  });
+
+  return atos
+    .map((ato) => ({ ...ato, inicio: (ato.dataConfirmada ?? ato.dataReservada) as Date }))
+    .sort((a, b) => a.inicio.getTime() - b.inicio.getTime());
+}
+
 export async function contarPorStatusEm(where: Prisma.AtoWhereInput) {
   const agrupado = await db.ato.groupBy({
     by: ["status"],

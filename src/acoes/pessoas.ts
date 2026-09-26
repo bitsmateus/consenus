@@ -14,8 +14,7 @@ import {
   type LinhaDaPlanilha,
 } from "@/lib/importacao-pessoas";
 import { conferirCoerencia, esquemaDePessoa, montarDadosDePessoa } from "@/lib/pessoas";
-import { exigirEquipe } from "@/lib/sessao";
-import { exigirPermissao } from "@/lib/permissoes";
+import { exigirPermissao, exigirAcessoCompleto } from "@/lib/permissoes";
 import { adicionarParte } from "./atos";
 
 export type EstadoDeFormulario = { erro?: string; campo?: string };
@@ -138,7 +137,7 @@ export async function cadastrarEVincular(
  * nunca é afetado, mesmo que o id venha marcado por engano.
  */
 export async function desvincularPessoas(entrada: FormData): Promise<void> {
-  const usuario = await exigirEquipe();
+  const usuario = await exigirAcessoCompleto();
 
   const ids = entrada.getAll("id").map(String).filter(Boolean);
   if (ids.length === 0) throw new ErroDeNegocio("Nenhuma pessoa selecionada.");

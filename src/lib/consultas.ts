@@ -13,6 +13,7 @@ import {
   contarPorModalidadeEm,
   contarPorProcuracaoEm,
   contarPorStatusEm,
+  listarCompromissosEm,
   contarInteressadosEm,
   contarProcuradoresEm,
   listarAtosEm,
@@ -54,6 +55,11 @@ export async function contarPorModalidade(filtros: FiltrosDeAtos) {
 
 export async function contarPorProcuracao(filtros: FiltrosDeAtos) {
   return contarPorProcuracaoEm(await montarWhereDeAtos({ ...filtros, comProcuracao: undefined }));
+}
+
+/** Sessões marcadas no período, só as dos procedimentos que o usuário pode ver. */
+export async function listarCompromissos(de: Date, ate: Date) {
+  return listarCompromissosEm(await filtroDeAtosVisiveis(), de, ate);
 }
 
 export async function buscarAto(id: string) {

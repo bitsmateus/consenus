@@ -18,6 +18,8 @@ import {
   formatarDataHora,
 } from "@/lib/formato";
 import { diasRestantes, prazoEhProvisorio, situacaoDoPrazo } from "@/lib/prazos";
+import { resumoDasRegras } from "@/lib/agenda";
+import { configuracaoDoSistema } from "@/lib/configuracao";
 import { exigirUsuario } from "@/lib/sessao";
 import { FormularioDeObservacao } from "./observacao";
 import { FormularioDeVinculo } from "./vinculos";
@@ -40,6 +42,7 @@ export default async function PaginaDoAto({ params }: { params: Promise<{ id: st
   if (!ato) notFound();
 
   const equipe = usuario.papel === Papel.ADMIN || usuario.papel === Papel.OPERADOR;
+  const config = await configuracaoDoSistema();
 
   const interessados = ato.partes.filter(
     (p) => p.papel === PapelNoAto.SOLICITANTE || p.papel === PapelNoAto.CONVIDADO
@@ -310,6 +313,13 @@ export default async function PaginaDoAto({ params }: { params: Promise<{ id: st
                     localPresencial={ato.localPresencial}
                     dataDaSessao={paraCampoDeDataHora(ato.dataConfirmada ?? ato.dataReservada)}
                     confirmada={ato.dataConfirmada !== null}
+                    regras={resumoDasRegras({
+                      inicio: config.agendaInicio,
+                      fim: config.agendaFim,
+                      almocoInicio: config.almocoInicio,
+                      almocoFim: config.almocoFim,
+                      duracaoMinutos: config.duracaoSessaoMinutos,
+                    })}
                   />
                 </div>
               )}
