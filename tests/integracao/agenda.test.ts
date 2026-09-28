@@ -138,6 +138,37 @@ describe("abertura do procedimento: a data reservada respeita a agenda", () => {
     );
     expect(diaNovo).not.toBe(diaLocal);
   });
+
+  it("dia do alvo D+30 já com 15 sessões: a abertura vai para o próximo dia (pedido do cliente em 28/09)", async () => {
+    // descobre o dia-alvo (D+30) sem gastar vaga nele
+    const sonda = await db.ato.findUniqueOrThrow({ where: { id: await criarPelaAcao() } });
+    const diaAlvo = new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Sao_Paulo" }).format(
+      sonda.dataReservada!
+    );
+    await db.ato.delete({ where: { id: sonda.id } });
+
+    // lota o dia inteiro (manhã e tarde), como uma agenda cheia de verdade —
+    // e não só as 9 vagas que o D+30 alcançaria sozinho a partir das 14h
+    let minuto = 9 * 60;
+    for (let i = 0; i < 15; i++) {
+      if (minuto >= 12 * 60 && minuto < 13 * 60) minuto = 13 * 60;
+      const hh = String(Math.floor(minuto / 60)).padStart(2, "0");
+      const mm = String(minuto % 60).padStart(2, "0");
+      await atoMarcadoPara(`${diaAlvo}T${hh}:${mm}`);
+      minuto += 20;
+    }
+
+    const novo = await db.ato.findUniqueOrThrow({ where: { id: await criarPelaAcao() } });
+    const diaNovo = new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Sao_Paulo" }).format(
+      novo.dataReservada!
+    );
+    expect(diaNovo).not.toBe(diaAlvo);
+
+    const contexto = await carregarContextoDaAgenda(db, novo.id);
+    expect(
+      validarHorario(novo.dataReservada!, contexto.regras, contexto.extras, contexto.marcadas)
+    ).toBeNull();
+  });
 });
 
 describe("alterar a agenda", () => {
