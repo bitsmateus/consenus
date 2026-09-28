@@ -222,7 +222,15 @@ export async function anexarDocumento(
     return { aviso: "Documento anexado." };
   } catch (erro) {
     if (erro instanceof ErroDeNegocio) return { erro: erro.message };
-    throw erro;
+    // Falha técnica (storage fora do ar, rede) derrubava a tela inteira do
+    // procedimento — quem estava anexando o 3º documento via a página toda
+    // travar com "Não foi possível abrir esta tela", só porque o envio ao
+    // MinIO falhou uma vez. Documento nunca chega a existir sem o arquivo
+    // gravado: o retry é seguro, e os documentos já anexados continuam lá.
+    console.error("[anexarDocumento] falha ao gravar o anexo", atoId, erro);
+    return {
+      erro: "Não foi possível anexar o arquivo agora. Tente novamente; se continuar, avise o suporte.",
+    };
   }
 }
 const envio = z.object({
