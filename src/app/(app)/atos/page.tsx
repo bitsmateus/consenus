@@ -22,6 +22,7 @@ import {
   formatarData,
 } from "@/lib/formato";
 import { exigirUsuario } from "@/lib/sessao";
+import { FiltroEmLista } from "./filtro-em-lista";
 
 export const metadata = { title: "Procedimentos — Consensus One" };
 
@@ -196,82 +197,49 @@ export default async function PaginaDeAtos({
 
         {/* filtro por procurador, com contagem por representante (docs/10) */}
         {procuradores.length > 0 && (
-          <div className="mb-5">
-            <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-carvao-300">
-              Por procurador
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              <Chip
-                href={comFiltro(filtrosDaUrl, { procurador: undefined })}
-                ativo={!filtrosDaUrl.procurador}
-              >
-                Todos
-              </Chip>
-              {procuradores.map((p) => (
-                <Chip
-                  key={p.id}
-                  href={comFiltro(filtrosDaUrl, { procurador: p.id })}
-                  ativo={filtrosDaUrl.procurador === p.id}
-                  titulo={p.tipoProcurador ? ROTULO_TIPO_PROCURADOR[p.tipoProcurador] : undefined}
-                >
-                  {p.nome} · {p.total}
-                </Chip>
-              ))}
-            </div>
-          </div>
+          <FiltroEmLista
+            rotulo="Por procurador"
+            ativoId={filtrosDaUrl.procurador}
+            hrefTodos={comFiltro(filtrosDaUrl, { procurador: undefined })}
+            opcoes={procuradores.map((p) => ({
+              id: p.id,
+              rotulo: p.nome,
+              total: p.total,
+              href: comFiltro(filtrosDaUrl, { procurador: p.id }),
+              titulo: p.tipoProcurador ? ROTULO_TIPO_PROCURADOR[p.tipoProcurador] : undefined,
+            }))}
+          />
         )}
 
         {/* filtro por Interessado — pedido do cliente em 24/08 */}
         {interessados.length > 0 && (
-          <div className="mb-5">
-            <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-carvao-300">
-              Por interessado
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              <Chip
-                href={comFiltro(filtrosDaUrl, { interessado: undefined })}
-                ativo={!filtrosDaUrl.interessado}
-              >
-                Todos
-              </Chip>
-              {interessados.map((p) => (
-                <Chip
-                  key={p.id}
-                  href={comFiltro(filtrosDaUrl, { interessado: p.id })}
-                  ativo={filtrosDaUrl.interessado === p.id}
-                  titulo={formatarDocumento(p.documento)}
-                >
-                  {p.nome} · {p.total}
-                </Chip>
-              ))}
-            </div>
-          </div>
+          <FiltroEmLista
+            rotulo="Por interessado"
+            ativoId={filtrosDaUrl.interessado}
+            hrefTodos={comFiltro(filtrosDaUrl, { interessado: undefined })}
+            opcoes={interessados.map((p) => ({
+              id: p.id,
+              rotulo: p.nome,
+              total: p.total,
+              href: comFiltro(filtrosDaUrl, { interessado: p.id }),
+              titulo: formatarDocumento(p.documento),
+            }))}
+          />
         )}
 
         {/* filtro por conciliador */}
         {conciliadores.length > 0 && (
-          <div className="mb-5">
-            <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-carvao-300">
-              Por conciliador
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              <Chip
-                href={comFiltro(filtrosDaUrl, { conciliador: undefined })}
-                ativo={!filtrosDaUrl.conciliador}
-              >
-                Todos
-              </Chip>
-              {conciliadores.map((p) => (
-                <Chip
-                  key={p.id}
-                  href={comFiltro(filtrosDaUrl, { conciliador: p.id })}
-                  ativo={filtrosDaUrl.conciliador === p.id}
-                >
-                  {p.nome} · {p.total}
-                </Chip>
-              ))}
-            </div>
-          </div>
+          <FiltroEmLista
+            rotulo="Por conciliador"
+            ativoId={filtrosDaUrl.conciliador}
+            hrefTodos={comFiltro(filtrosDaUrl, { conciliador: undefined })}
+            opcoes={conciliadores.map((p) => ({
+              id: p.id,
+              rotulo: p.nome,
+              total: p.total,
+              href: comFiltro(filtrosDaUrl, { conciliador: p.id }),
+            }))}
+          />
         )}
 
         {/* filtro por modalidade */}
