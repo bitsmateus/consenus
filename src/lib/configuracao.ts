@@ -17,6 +17,7 @@ const PADRAO = {
   agendaFim: "17:00",
   almocoInicio: "12:00",
   almocoFim: "13:00",
+  maxSessoesPorDia: 15,
 };
 
 /**
@@ -36,5 +37,6 @@ export const configuracaoDoSistema = cache(async () => {
     agendaFim: registro?.agendaFim ?? PADRAO.agendaFim,
     almocoInicio: registro?.almocoInicio ?? PADRAO.almocoInicio,
     almocoFim: registro?.almocoFim ?? PADRAO.almocoFim,
+    maxSessoesPorDia: registro?.maxSessoesPorDia ?? PADRAO.maxSessoesPorDia,
   };
 });

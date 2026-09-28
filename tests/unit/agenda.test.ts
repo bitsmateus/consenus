@@ -22,6 +22,7 @@ const REGRAS: RegrasDaAgenda = {
   almocoInicio: "12:00",
   almocoFim: "13:00",
   duracaoMinutos: 20,
+  maxPorDia: 15,
 };
 
 /** Instante em hora de parede de São Paulo, "AAAA-MM-DDTHH:MM". */
@@ -142,6 +143,45 @@ describe("duas sessões nunca ao mesmo tempo", () => {
 
   it("em outro dia o mesmo horário está livre", () => {
     expect(ok("2026-09-29T14:00", marcadas)).toBeNull();
+  });
+});
+
+/** N sessões de 20 em 20 minutos, começando às 09:00 de `dia`, pulando o almoço. */
+function marcarNoDia(dia: string, quantidade: number): SessaoMarcada[] {
+  const marcadas: SessaoMarcada[] = [];
+  for (let m = 9 * 60; m < 17 * 60 && marcadas.length < quantidade; m += 20) {
+    if (m >= 12 * 60 && m < 13 * 60) continue;
+    const hh = String(Math.floor(m / 60)).padStart(2, "0");
+    const mm = String(m % 60).padStart(2, "0");
+    marcadas.push({ inicio: sp(`${dia}T${hh}:${mm}`), rotulo: `sessão ${marcadas.length + 1}` });
+  }
+  return marcadas;
+}
+
+describe("limite de sessões por dia (pedido do cliente em 28/09: no máximo 15)", () => {
+  it("aceita a 15ª sessão do dia, num horário livre", () => {
+    const marcadas = marcarNoDia("2026-09-28", 14);
+    expect(ok("2026-09-28T16:40", marcadas)).toBeNull();
+  });
+
+  it("recusa a 16ª sessão do dia, mesmo com horário livre", () => {
+    const marcadas = marcarNoDia("2026-09-28", 15);
+    expect(ok("2026-09-28T16:40", marcadas)).toMatch(
+      /Este dia já tem 15 sessões marcadas — o máximo é 15 por dia/
+    );
+  });
+
+  it("o limite é por dia: outro dia com 15 sessões continua livre", () => {
+    const marcadas = marcarNoDia("2026-09-28", 15);
+    expect(ok("2026-09-29T09:00", marcadas)).toBeNull();
+  });
+
+  it("próxima vaga livre pula o dia que já bateu o limite, mesmo com horário vago", () => {
+    const marcadas = marcarNoDia("2026-09-28", 15);
+    // ainda sobrariam 16:40 e o resto da tarde livres por horário, mas o dia já
+    // está no teto — a vaga tem que ir para o próximo dia útil
+    const vaga = proximaVagaLivre(sp("2026-09-28T09:00"), REGRAS, [], marcadas);
+    expect(diaHora(vaga)).toBe("2026-09-29T09:00");
   });
 });
 

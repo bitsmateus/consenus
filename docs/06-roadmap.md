@@ -157,6 +157,11 @@ Ajustes feitos depois de o sistema subir, fora do escopo das sprints:
   horário. A regra vale na abertura do procedimento (a data D+30 vai para a
   próxima vaga livre) e ao alterar a agenda — só quando o horário muda, para
   procedimento antigo continuar editável.
+- **Limite de 15 sessões por dia (28/09/2026).** O cálculo do cliente ("por dia
+  serão realizadas então 21 audiências e já agendamos 26") mostrou que sobrava
+  vaga de horário além do que ele queria marcar. `maxSessoesPorDia` em
+  `ConfiguracaoSistema` (padrão 15) limita o dia mesmo com horário livre — vale
+  na abertura do procedimento e ao alterar a agenda, junto das demais regras.
 - **Sub-perfis (correção, 25/09/2026).** As ações que nenhum sub-perfil lista
   (agenda, sessão, ata, termo, cancelamento, observação, laudo) só exigiam
   `exigirEquipe()` e passavam para qualquer operador; agora exigem

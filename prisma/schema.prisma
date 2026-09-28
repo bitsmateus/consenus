@@ -566,6 +566,9 @@ model ConfiguracaoSistema {
   agendaFim             String   @default("17:00")
   almocoInicio          String   @default("12:00")
   almocoFim             String   @default("13:00")
+  /// Teto de sessões no mesmo dia, mesmo havendo vaga de horário sobrando —
+  /// pedido do cliente em 28/09.
+  maxSessoesPorDia      Int      @default(15)
   urlVerificacao        String   @default("https://consensusone.com.br/verificar")
   emailRemetente        String?
   atualizadoEm          DateTime @updatedAt @db.Timestamptz(3)

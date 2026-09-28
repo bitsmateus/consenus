@@ -92,6 +92,7 @@ export default async function PaginaDoCalendario({
     almocoInicio: config.almocoInicio,
     almocoFim: config.almocoFim,
     duracaoMinutos: config.duracaoSessaoMinutos,
+    maxPorDia: config.maxSessoesPorDia,
   };
   const extras: DiaExtra[] = diasCadastrados.map((d) => ({
     data: d.data.toISOString().slice(0, 10),

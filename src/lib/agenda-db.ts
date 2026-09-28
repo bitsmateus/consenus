@@ -36,6 +36,7 @@ export async function carregarContextoDaAgenda(cliente: Cliente, ignorarAtoId?: 
     almocoInicio: config.almocoInicio,
     almocoFim: config.almocoFim,
     duracaoMinutos: config.duracaoSessaoMinutos,
+    maxPorDia: config.maxSessoesPorDia,
   };
 
   const [dias, atos] = await Promise.all([

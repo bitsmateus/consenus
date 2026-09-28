@@ -1,9 +1,12 @@
 /**
- * Regras da agenda de sessões — pedido do cliente em 25/09.
+ * Regras da agenda de sessões — pedido do cliente em 25/09, com o limite diário
+ * acordado em 28/09 (o cálculo do cliente: 9 vagas de manhã + 12 à tarde dariam
+ * 21 por dia, e ele quis um teto menor, redondo).
  *
  *   - só em dia útil: nada de sábado, domingo, feriado nem ponto facultativo;
  *   - só das 09:00 às 17:00, com 12:00 às 13:00 fechado;
- *   - cada sessão ocupa 20 minutos, e duas não podem se sobrepor.
+ *   - cada sessão ocupa 20 minutos, e duas não podem se sobrepor;
+ *   - no máximo 15 sessões por dia, mesmo havendo vaga de horário sobrando.
  *
  * Módulo puro, sem banco, na mesma linha de `prazos.ts`: o horário e a duração
  * vêm da configuração (CLAUDE.md, regra 12), e os dias sem sessão extras
@@ -22,6 +25,8 @@ export type RegrasDaAgenda = {
   almocoFim: string;
   /** Quanto cada sessão ocupa. */
   duracaoMinutos: number;
+  /** Teto de sessões no mesmo dia civil, mesmo com vaga de horário sobrando. */
+  maxPorDia: number;
 };
 
 /** Dia sem sessão cadastrado à mão: data "AAAA-MM-DD" e o motivo. */
@@ -192,6 +197,15 @@ export function validarHorario(
     return `Horário no intervalo de almoço: não há sessão das ${regras.almocoInicio} às ${regras.almocoFim}.`;
   }
 
+  const diaDoCandidato = diaCivil(inicio);
+  const noMesmoDia = marcadas.filter((s) => diaCivil(s.inicio) === diaDoCandidato).length;
+  if (noMesmoDia >= regras.maxPorDia) {
+    return (
+      `Este dia já tem ${noMesmoDia} sessões marcadas — o máximo é ${regras.maxPorDia} por dia. ` +
+      "Escolha outro dia."
+    );
+  }
+
   const duracaoEmMs = regras.duracaoMinutos * 60_000;
   const conflito = marcadas.find(
     (s) => Math.abs(s.inicio.getTime() - inicio.getTime()) < duracaoEmMs
@@ -249,8 +263,9 @@ export function proximaVagaLivre(
 export function resumoDasRegras(regras: RegrasDaAgenda): string {
   return (
     `Sessões de segunda a sexta, das ${regras.inicio} às ${regras.fim} ` +
-    `(fechado das ${regras.almocoInicio} às ${regras.almocoFim}), ${regras.duracaoMinutos} minutos cada; ` +
-    "não há sessão em feriados nem pontos facultativos e duas sessões não podem coincidir."
+    `(fechado das ${regras.almocoInicio} às ${regras.almocoFim}), ${regras.duracaoMinutos} minutos cada, ` +
+    `no máximo ${regras.maxPorDia} por dia; não há sessão em feriados nem pontos facultativos ` +
+    "e duas sessões não podem coincidir."
   );
 }
 

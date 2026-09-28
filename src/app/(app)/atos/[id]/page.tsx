@@ -319,6 +319,7 @@ export default async function PaginaDoAto({ params }: { params: Promise<{ id: st
                       almocoInicio: config.almocoInicio,
                       almocoFim: config.almocoFim,
                       duracaoMinutos: config.duracaoSessaoMinutos,
+                      maxPorDia: config.maxSessoesPorDia,
                     })}
                   />
                 </div>

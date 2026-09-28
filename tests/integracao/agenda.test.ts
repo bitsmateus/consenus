@@ -197,6 +197,21 @@ describe("alterar a agenda", () => {
     expect((await alterar(id, "2026-10-06T15:00")).erro).toBeUndefined();
   });
 
+  it("recusa a 16ª sessão do dia, mesmo com horário livre (limite de 15 por dia)", async () => {
+    let minuto = 9 * 60;
+    for (let i = 0; i < 15; i++) {
+      if (minuto >= 12 * 60 && minuto < 13 * 60) minuto = 13 * 60;
+      const hh = String(Math.floor(minuto / 60)).padStart(2, "0");
+      const mm = String(minuto % 60).padStart(2, "0");
+      await atoMarcadoPara(`2026-10-06T${hh}:${mm}`);
+      minuto += 20;
+    }
+
+    const id = await novoAto();
+    const resposta = await alterar(id, "2026-10-06T16:40"); // horário em si está livre
+    expect(resposta.erro).toMatch(/Este dia já tem 15 sessões marcadas — o máximo é 15 por dia/);
+  });
+
   it("o próprio horário do procedimento não conta como conflito", async () => {
     const id = await novoAto();
     expect((await alterar(id, "2026-10-06T10:00")).erro).toBeUndefined();
