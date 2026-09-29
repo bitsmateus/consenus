@@ -7,8 +7,17 @@
  */
 import { ErroDeNegocio } from "./erros";
 
-/** 20 MB por arquivo. Documento de conciliação é texto e digitalização, não vídeo. */
-export const TAMANHO_MAXIMO_BYTES = 20 * 1024 * 1024;
+/**
+ * 50 MB por arquivo — pedido do cliente em 29/09, para caber digitalização em
+ * alta resolução ou com muitas páginas. Documento de conciliação é texto e
+ * digitalização, não vídeo, mas 20 MB apertava demais.
+ *
+ * Se subir de novo, ajuste também os limites do Next em `next.config.ts`
+ * (`serverActions.bodySizeLimit` e `middlewareClientMaxBodySize`) — eles
+ * cortam a requisição ANTES deste limite entrar em ação, então precisam ficar
+ * sempre acima deste valor, nunca abaixo.
+ */
+export const TAMANHO_MAXIMO_BYTES = 50 * 1024 * 1024;
 
 export type TipoPermitido = "application/pdf" | "image/jpeg" | "image/png";
 

@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { detectarTipo, extensaoDoTipo, formatarTamanho, validarArquivo } from "@/lib/mime";
+import {
+  TAMANHO_MAXIMO_BYTES,
+  detectarTipo,
+  extensaoDoTipo,
+  formatarTamanho,
+  validarArquivo,
+} from "@/lib/mime";
 import { ErroDeNegocio } from "@/lib/erros";
 
 const pdf = () => Buffer.concat([Buffer.from("%PDF-1.7\n"), Buffer.alloc(64, 0x20)]);
@@ -35,7 +41,10 @@ describe("validação de arquivo pelo conteúdo", () => {
   });
 
   it("recusa arquivo acima do limite", () => {
-    const grande = Buffer.concat([Buffer.from("%PDF-1.7\n"), Buffer.alloc(21 * 1024 * 1024)]);
+    const grande = Buffer.concat([
+      Buffer.from("%PDF-1.7\n"),
+      Buffer.alloc(TAMANHO_MAXIMO_BYTES + 1),
+    ]);
     expect(() => validarArquivo(grande, "enorme.pdf")).toThrow(/MB/);
   });
 
