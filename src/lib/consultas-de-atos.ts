@@ -311,6 +311,26 @@ export async function buscarAtoEm(where: Prisma.AtoWhereInput) {
   });
 }
 
+/**
+ * Limite para quando HÁ termo de busca: o `contains` dificilmente bate em mais
+ * de algumas dezenas de pessoas, e estoura só em caso patológico.
+ */
+const LIMITE_COM_BUSCA = 200;
+
+/**
+ * Limite para quando NÃO há termo de busca — ou seja, quando quem chama quer o
+ * cadastro inteiro para popular um seletor com busca no próprio navegador
+ * (`SeletorDePessoa`, o `<select>` de vincular pessoa ao procedimento). Esse
+ * limite já truncou silenciosamente a lista em produção em 06/10: a base
+ * passou de 200 cadastros, e quem viesse depois disso em ordem alfabética
+ * ("Valdivan...") simplesmente não chegava ao navegador — a busca client-side
+ * não via erro nenhum, só não encontrava, porque a pessoa nunca tinha sido
+ * enviada. 5000 cobre o crescimento da base por anos; se um dia isto apertar
+ * de novo, a solução correta é busca no servidor nestas telas, não só subir o
+ * número de novo.
+ */
+const LIMITE_SEM_BUSCA = 5000;
+
 /** Pessoas para as telas de cadastro e vínculo. Não depende de visibilidade de ato. */
 export async function listarPessoas(busca?: string, apenasProcuradores = false) {
   const termo = busca?.trim();
@@ -330,7 +350,7 @@ export async function listarPessoas(busca?: string, apenasProcuradores = false) 
   return db.pessoa.findMany({
     where,
     orderBy: { nome: "asc" },
-    take: 200,
+    take: termo ? LIMITE_COM_BUSCA : LIMITE_SEM_BUSCA,
     include: {
       vinculadoA: { select: { id: true, nome: true } },
       _count: { select: { participacoes: true } },
