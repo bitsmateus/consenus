@@ -22,6 +22,7 @@ import { resumoDasRegras } from "@/lib/agenda";
 import { configuracaoDoSistema } from "@/lib/configuracao";
 import { exigirUsuario } from "@/lib/sessao";
 import { FormularioDeObservacao } from "./observacao";
+import { ObservacoesDoProcedimento } from "./observacoes-do-procedimento";
 import { FormularioDeVinculo } from "./vinculos";
 import { SecaoDeDocumentos } from "./secao-documentos";
 import { assinaturaDigitalAtiva } from "@/lib/d4sign";
@@ -371,10 +372,8 @@ export default async function PaginaDoAto({ params }: { params: Promise<{ id: st
                 <Linha rotulo="Aberto em" valor={formatarData(ato.criadoEm)} />
                 {equipe && <Linha rotulo="Aberto por" valor={ato.criadoPor.nome} />}
               </dl>
-              {ato.observacoes && equipe && (
-                <p className="mt-3 border-t border-carvao-100 pt-3 text-xs leading-relaxed text-carvao-500">
-                  {ato.observacoes}
-                </p>
+              {equipe && (
+                <ObservacoesDoProcedimento atoId={ato.id} observacoes={ato.observacoes} />
               )}
             </div>
 

@@ -37,7 +37,28 @@ export type FiltrosDeAtos = {
    */
   dataDe?: string;
   dataAte?: string;
+  /**
+   * Intervalo pelo prazo de envio da documentação (`prazoDocumentacaoAte`) —
+   * pedido do cliente em 08/10: saber quem precisa anexar documentação hoje.
+   * Mesmo formato de `dataDe`/`dataAte`; só olha procedimento ainda vivo.
+   */
+  prazoDe?: string;
+  prazoAte?: string;
 };
+
+/**
+ * Ordem da listagem. Na aba "Aguardando documentação" (ou com filtro de prazo)
+ * o que importa é quem vence primeiro — hoje, depois amanhã, e assim por
+ * diante; sem prazo vai para o fim. Nas demais, o mais recente primeiro.
+ */
+export function ordemDaListagem(
+  filtros: Pick<FiltrosDeAtos, "status" | "prazoDe" | "prazoAte">
+): Prisma.AtoOrderByWithRelationInput[] {
+  const porPrazo =
+    filtros.status === StatusAto.AGUARDANDO_DOCUMENTACAO || filtros.prazoDe || filtros.prazoAte;
+  if (!porPrazo) return [{ criadoEm: "desc" }];
+  return [{ prazoDocumentacaoAte: { sort: "asc", nulls: "last" } }, { criadoEm: "desc" }];
+}
 
 /**
  * Busca livre: nome, CPF, CNPJ e OAB de qualquer pessoa vinculada, mais o
@@ -134,13 +155,27 @@ export function comFiltros(
     });
   }
 
+  const prazoInicio = inicioDoDiaOuIndefinido(filtros.prazoDe);
+  const prazoFim = inicioDoDiaOuIndefinido(filtros.prazoAte);
+
+  if (prazoInicio || prazoFim) {
+    const intervalo: Prisma.DateTimeFilter = {};
+    if (prazoInicio) intervalo.gte = prazoInicio;
+    if (prazoFim) intervalo.lt = addDays(prazoFim, 1);
+    // prazo de procedimento encerrado não tem mais o que cobrar
+    condicoes.push({ status: { notIn: ESTADOS_FINAIS }, prazoDocumentacaoAte: intervalo });
+  }
+
   return { AND: condicoes };
 }
 
-export async function listarAtosEm(where: Prisma.AtoWhereInput) {
+export async function listarAtosEm(
+  where: Prisma.AtoWhereInput,
+  filtros: Pick<FiltrosDeAtos, "status" | "prazoDe" | "prazoAte"> = {}
+) {
   return db.ato.findMany({
     where,
-    orderBy: { criadoEm: "desc" },
+    orderBy: ordemDaListagem(filtros),
     take: 100,
     include: {
       partes: {

@@ -356,6 +356,10 @@ model Documento {
   tamanhoBytes Int
   hashSha256   String // integridade do arquivo
 
+  /// Informação complementar do operador sobre o documento anexado (pedido do
+  /// cliente em 08/10). Interna: não vai no PDF nem na página de verificação.
+  observacao String?
+
   enviadoPorId String?
   enviadoPor   Usuario? @relation("DocumentoEnviadoPor", fields: [enviadoPorId], references: [id])
 

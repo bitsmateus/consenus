@@ -8,6 +8,7 @@ import { formatarTamanho } from "@/lib/mime";
 import { formatarDataHora } from "@/lib/formato";
 import { FormularioDeAnexo, FormularioDeEnvio } from "./documentos";
 import { Assinatura, type AssinaturaDoDocumento } from "./assinatura";
+import { ObservacaoDoDocumento } from "./observacao-do-documento";
 
 const ROTULO_TIPO: Record<TipoDocumento, string> = {
   CARTA_CONVITE_SOLICITANTE: "Carta-Convite ao Solicitante",
@@ -30,6 +31,7 @@ type Documento = {
   tamanhoBytes: number;
   hashSha256: string;
   emitidoPelaCamara: boolean;
+  observacao: string | null;
   criadoEm: Date;
   /** null = ainda não foi para assinatura eletrônica */
   assinatura: AssinaturaDoDocumento | null;
@@ -109,6 +111,14 @@ export function SecaoDeDocumentos({
                   </a>
                 </div>
               </div>
+
+              {equipe && (
+                <ObservacaoDoDocumento
+                  documentoId={doc.id}
+                  observacao={doc.observacao}
+                  editavel
+                />
+              )}
 
               {equipe && assinaturaAtiva && ASSINAVEIS.includes(doc.tipo) && (
                 <Assinatura documentoId={doc.id} assinatura={doc.assinatura} />

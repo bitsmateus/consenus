@@ -152,6 +152,7 @@ const anexo = z.object({
     TipoDocumento.OUTRO,
   ]),
   descricao: z.string().trim().max(200).optional(),
+  observacao: z.string().trim().max(2000, "A observação cabe em 2000 caracteres.").optional(),
 });
 /**
  * Anexa documento recebido. Diferente do emitido pela esteira, não recebe
@@ -169,11 +170,12 @@ export async function anexarDocumento(
     atoId: entrada.get("atoId"),
     tipo: entrada.get("tipo"),
     descricao: entrada.get("descricao") ?? undefined,
+    observacao: entrada.get("observacao") ?? undefined,
   });
   if (!analise.success) {
     return { erro: analise.error.issues[0]?.message ?? "Dados inválidos." };
   }
-  const { atoId, tipo, descricao } = analise.data;
+  const { atoId, tipo, descricao, observacao } = analise.data;
   const arquivo = entrada.get("arquivo");
   try {
     if (!(arquivo instanceof File) || arquivo.size === 0) {
@@ -198,6 +200,7 @@ export async function anexarDocumento(
         mimeType: tipoReal,
         tamanhoBytes: guardado.tamanhoBytes,
         hashSha256: guardado.hashSha256,
+        observacao: observacao || null,
         enviadoPorId: usuario.id,
       },
     });
@@ -233,6 +236,65 @@ export async function anexarDocumento(
     };
   }
 }
+const observacaoDoDocumento = z.object({
+  documentoId: z.string().min(1),
+  observacao: z.string().trim().max(2000, "A observação cabe em 2000 caracteres."),
+});
+
+/**
+ * Edita a observação (informação complementar) de um documento já anexado —
+ * pedido do cliente em 08/10. Observação vazia limpa o campo. É anotação
+ * interna: não altera o arquivo, o hash nem o que a página de verificação diz.
+ */
+export async function atualizarObservacaoDoDocumento(
+  _anterior: EstadoDeFormulario,
+  entrada: FormData
+): Promise<EstadoDeFormulario> {
+  const usuario = await exigirPermissao("SUBIR_DOCUMENTO");
+  const analise = observacaoDoDocumento.safeParse(Object.fromEntries(entrada));
+  if (!analise.success) {
+    return { erro: analise.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+  const { documentoId, observacao } = analise.data;
+
+  try {
+    const documento = await db.documento.findUnique({
+      where: { id: documentoId },
+      select: { id: true, atoId: true, observacao: true, nomeArquivo: true },
+    });
+    if (!documento) throw new ErroDeNegocio("Documento não encontrado.");
+    await exigirAcessoAoAto(documento.atoId, db);
+
+    const nova = observacao || null;
+    if (nova === documento.observacao) return {};
+
+    await db.documento.update({ where: { id: documentoId }, data: { observacao: nova } });
+    await db.eventoAto.create({
+      data: {
+        atoId: documento.atoId,
+        tipo: TipoEvento.OBSERVACAO,
+        descricao: nova
+          ? `Observação registrada no documento ${documento.nomeArquivo}.`
+          : `Observação removida do documento ${documento.nomeArquivo}.`,
+        usuarioId: usuario.id,
+      },
+    });
+    await registrarAuditoria({
+      usuarioId: usuario.id,
+      acao: "ALTEROU_ATO",
+      entidade: "Documento",
+      entidadeId: documentoId,
+      metadados: { atoId: documento.atoId, evento: "OBSERVACAO_DO_DOCUMENTO" },
+    });
+
+    revalidatePath(`/atos/${documento.atoId}`);
+    return {};
+  } catch (erro) {
+    if (erro instanceof ErroDeNegocio) return { erro: erro.message };
+    throw erro;
+  }
+}
+
 const envio = z.object({
   atoId: z.string().min(1),
   documentoId: z.string().min(1, "Selecione o documento enviado."),

@@ -20,7 +20,9 @@ import {
   ROTULO_TIPO_PROCURADOR,
   TOM_DO_STATUS,
   formatarData,
+  rotuloDoPrazo,
 } from "@/lib/formato";
+import { diaEmSaoPaulo, somarDiasAoDia } from "@/lib/prazos";
 import { exigirUsuario } from "@/lib/sessao";
 import { FiltroEmLista } from "./filtro-em-lista";
 
@@ -37,7 +39,15 @@ type Busca = {
   situacao?: string;
   dataDe?: string;
   dataAte?: string;
+  prazoDe?: string;
+  prazoAte?: string;
 };
+
+/** Status em que ainda se espera documento do Interessado Solicitante. */
+const STATUS_COM_PRAZO: StatusAto[] = [
+  StatusAto.AGUARDANDO_DOCUMENTACAO,
+  StatusAto.DOCUMENTACAO_EM_ANALISE,
+];
 
 /** Monta a query string preservando os demais filtros. */
 function comFiltro(atual: Busca, mudanca: Partial<Busca>): string {
@@ -53,6 +63,8 @@ function comFiltro(atual: Busca, mudanca: Partial<Busca>): string {
   if (final.situacao) params.set("situacao", final.situacao);
   if (final.dataDe) params.set("dataDe", final.dataDe);
   if (final.dataAte) params.set("dataAte", final.dataAte);
+  if (final.prazoDe) params.set("prazoDe", final.prazoDe);
+  if (final.prazoAte) params.set("prazoAte", final.prazoAte);
   const query = params.toString();
   return query ? `/atos?${query}` : "/atos";
 }
@@ -97,6 +109,8 @@ export default async function PaginaDeAtos({
     situacao,
     dataDe: filtrosDaUrl.dataDe,
     dataAte: filtrosDaUrl.dataAte,
+    prazoDe: filtrosDaUrl.prazoDe,
+    prazoAte: filtrosDaUrl.prazoAte,
   };
 
   const [atos, porStatus, procuradores, interessados, conciliadores, porModalidade, porProcuracao] =
@@ -121,8 +135,20 @@ export default async function PaginaDeAtos({
       modalidade ||
       procuracao ||
       filtrosDaUrl.dataDe ||
-      filtrosDaUrl.dataAte
+      filtrosDaUrl.dataAte ||
+      filtrosDaUrl.prazoDe ||
+      filtrosDaUrl.prazoAte
   );
+
+  // recortes de prazo: o cliente cobra os consultores dia a dia (08/10)
+  const hoje = diaEmSaoPaulo();
+  const amanha = somarDiasAoDia(hoje, 1);
+  const emSeteDias = somarDiasAoDia(hoje, 7);
+  const prazoEh = (de: string, ate: string) =>
+    filtrosDaUrl.prazoDe === de && filtrosDaUrl.prazoAte === ate;
+  const mostrarPrazo =
+    (status !== undefined && STATUS_COM_PRAZO.includes(status)) ||
+    Boolean(filtrosDaUrl.prazoDe || filtrosDaUrl.prazoAte);
 
   return (
     <>
@@ -160,6 +186,12 @@ export default async function PaginaDeAtos({
             {filtrosDaUrl.dataDe && <input type="hidden" name="dataDe" value={filtrosDaUrl.dataDe} />}
             {filtrosDaUrl.dataAte && (
               <input type="hidden" name="dataAte" value={filtrosDaUrl.dataAte} />
+            )}
+            {filtrosDaUrl.prazoDe && (
+              <input type="hidden" name="prazoDe" value={filtrosDaUrl.prazoDe} />
+            )}
+            {filtrosDaUrl.prazoAte && (
+              <input type="hidden" name="prazoAte" value={filtrosDaUrl.prazoAte} />
             )}
             <input
               name="busca"
@@ -281,6 +313,105 @@ export default async function PaginaDeAtos({
           </div>
         </div>
 
+        {/* prazo de envio da documentação — quem precisa anexar e quando */}
+        {mostrarPrazo && (
+          <div className="mb-5">
+            <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-carvao-300">
+              Prazo da documentação
+            </p>
+            <div className="mb-2 flex flex-wrap gap-1.5">
+              <Chip
+                href={comFiltro(filtrosDaUrl, {
+                  prazoDe: undefined,
+                  prazoAte: undefined,
+                  situacao: undefined,
+                })}
+                ativo={!filtrosDaUrl.prazoDe && !filtrosDaUrl.prazoAte && !situacao}
+              >
+                Todos
+              </Chip>
+              <Chip
+                href={comFiltro(filtrosDaUrl, { prazoDe: hoje, prazoAte: hoje, situacao: undefined })}
+                ativo={prazoEh(hoje, hoje)}
+              >
+                Vence hoje
+              </Chip>
+              <Chip
+                href={comFiltro(filtrosDaUrl, {
+                  prazoDe: amanha,
+                  prazoAte: amanha,
+                  situacao: undefined,
+                })}
+                ativo={prazoEh(amanha, amanha)}
+              >
+                Vence amanhã
+              </Chip>
+              <Chip
+                href={comFiltro(filtrosDaUrl, {
+                  prazoDe: hoje,
+                  prazoAte: emSeteDias,
+                  situacao: undefined,
+                })}
+                ativo={prazoEh(hoje, emSeteDias)}
+              >
+                Próximos 7 dias
+              </Chip>
+              <Chip
+                href={comFiltro(filtrosDaUrl, {
+                  situacao: "prazo_vencido",
+                  prazoDe: undefined,
+                  prazoAte: undefined,
+                })}
+                ativo={situacao === "prazo_vencido"}
+              >
+                Vencidos
+              </Chip>
+            </div>
+            <form method="get" className="flex flex-wrap items-end gap-2">
+              {status && <input type="hidden" name="status" value={status} />}
+              {filtrosDaUrl.procurador && (
+                <input type="hidden" name="procurador" value={filtrosDaUrl.procurador} />
+              )}
+              {filtrosDaUrl.interessado && (
+                <input type="hidden" name="interessado" value={filtrosDaUrl.interessado} />
+              )}
+              {filtrosDaUrl.conciliador && (
+                <input type="hidden" name="conciliador" value={filtrosDaUrl.conciliador} />
+              )}
+              {modalidade && <input type="hidden" name="modalidade" value={modalidade} />}
+              {procuracao && <input type="hidden" name="procuracao" value={procuracao} />}
+              {filtrosDaUrl.busca && (
+                <input type="hidden" name="busca" value={filtrosDaUrl.busca} />
+              )}
+              {filtrosDaUrl.dataDe && <input type="hidden" name="dataDe" value={filtrosDaUrl.dataDe} />}
+              {filtrosDaUrl.dataAte && (
+                <input type="hidden" name="dataAte" value={filtrosDaUrl.dataAte} />
+              )}
+              <label className="text-xs text-carvao-500">
+                Vence de
+                <input
+                  type="date"
+                  name="prazoDe"
+                  defaultValue={filtrosDaUrl.prazoDe ?? ""}
+                  className="mt-1 block rounded-md border border-carvao-100 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-grafite-500"
+                />
+              </label>
+              <label className="text-xs text-carvao-500">
+                Até
+                <input
+                  type="date"
+                  name="prazoAte"
+                  defaultValue={filtrosDaUrl.prazoAte ?? ""}
+                  className="mt-1 block rounded-md border border-carvao-100 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-grafite-500"
+                />
+              </label>
+              <button className="rounded-md border border-carvao-100 bg-white px-3 py-1.5 text-xs font-medium text-grafite-700 hover:border-dourado-600">
+                Filtrar por prazo
+              </button>
+            </form>
+          </div>
+        )}
+
         {/* filtro por período da sessão */}
         <form method="get" className="mb-5 flex flex-wrap items-end gap-2">
           {status && <input type="hidden" name="status" value={status} />}
@@ -297,6 +428,10 @@ export default async function PaginaDeAtos({
           {procuracao && <input type="hidden" name="procuracao" value={procuracao} />}
           {situacao && <input type="hidden" name="situacao" value={situacao} />}
           {filtrosDaUrl.busca && <input type="hidden" name="busca" value={filtrosDaUrl.busca} />}
+          {filtrosDaUrl.prazoDe && <input type="hidden" name="prazoDe" value={filtrosDaUrl.prazoDe} />}
+          {filtrosDaUrl.prazoAte && (
+            <input type="hidden" name="prazoAte" value={filtrosDaUrl.prazoAte} />
+          )}
           <label className="text-xs text-carvao-500">
             Sessão de
             <input
@@ -394,6 +529,17 @@ export default async function PaginaDeAtos({
                           <dt className="shrink-0 text-carvao-300">Procurador:</dt>
                           <dd className="truncate text-carvao-700">
                             {procuradoresDoAto.map((p) => p.pessoa.nome).join(", ")}
+                          </dd>
+                        </div>
+                      )}
+                      {ato.prazoDocumentacaoAte && STATUS_COM_PRAZO.includes(ato.status) && (
+                        <div className="flex flex-wrap items-center gap-1.5 sm:col-span-2">
+                          <dt className="shrink-0 text-carvao-300">Prazo da documentação:</dt>
+                          <dd className="tabular flex items-center gap-1.5 text-carvao-700">
+                            {formatarData(ato.prazoDocumentacaoAte)}
+                            <Etiqueta tom={rotuloDoPrazo(ato.prazoDocumentacaoAte).tom}>
+                              {rotuloDoPrazo(ato.prazoDocumentacaoAte).texto}
+                            </Etiqueta>
                           </dd>
                         </div>
                       )}

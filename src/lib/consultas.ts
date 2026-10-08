@@ -29,7 +29,7 @@ export async function montarWhereDeAtos(filtros: FiltrosDeAtos): Promise<Prisma.
 }
 
 export async function listarAtos(filtros: FiltrosDeAtos) {
-  return listarAtosEm(await montarWhereDeAtos(filtros));
+  return listarAtosEm(await montarWhereDeAtos(filtros), filtros);
 }
 
 /** Contagem por status, respeitando busca e filtro de procurador já aplicados. */

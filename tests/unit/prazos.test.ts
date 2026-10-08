@@ -3,11 +3,13 @@ import {
   FUSO,
   calcularDataDaSessao,
   calcularPrazoDocumentacao,
+  diaEmSaoPaulo,
   diasRestantes,
   interpretarDataDeCiencia,
   prazoEhProvisorio,
   sessaoAntesDaDataMarcada,
   situacaoDoPrazo,
+  somarDiasAoDia,
 } from "@/lib/prazos";
 import { paraCampoDeDataHora } from "@/lib/formato";
 
@@ -171,5 +173,20 @@ describe("data da sessão no campo da tela", () => {
 
   it("sem data, campo vazio", () => {
     expect(paraCampoDeDataHora(null)).toBe("");
+  });
+});
+
+describe("dia de calendário para os filtros de prazo", () => {
+  it("usa o dia de São Paulo, não o de UTC", () => {
+    // 23h30 em São Paulo ainda é 7/10, embora em UTC já seja 8/10
+    expect(diaEmSaoPaulo(new Date("2026-10-07T23:30:00-03:00"))).toBe("2026-10-07");
+    expect(diaEmSaoPaulo(new Date("2026-10-08T00:30:00-03:00"))).toBe("2026-10-08");
+  });
+
+  it("soma dias atravessando fim de mês e de ano", () => {
+    expect(somarDiasAoDia("2026-10-08", 1)).toBe("2026-10-09");
+    expect(somarDiasAoDia("2026-10-30", 2)).toBe("2026-11-01");
+    expect(somarDiasAoDia("2026-12-31", 1)).toBe("2027-01-01");
+    expect(somarDiasAoDia("2026-03-01", -1)).toBe("2026-02-28");
   });
 });

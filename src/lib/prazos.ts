@@ -21,6 +21,17 @@ export function inicioDoDiaOuIndefinido(data: string | undefined): Date | undefi
   return Number.isNaN(convertido.getTime()) ? undefined : convertido;
 }
 
+/** Dia de calendário ("AAAA-MM-DD") em São Paulo — o formato dos filtros de data. */
+export function diaEmSaoPaulo(referencia = new Date()): string {
+  return new Intl.DateTimeFormat("sv-SE", { timeZone: FUSO }).format(referencia);
+}
+
+/** Soma dias a um "AAAA-MM-DD", sem passar por fuso (é aritmética de calendário). */
+export function somarDiasAoDia(dia: string, dias: number): string {
+  const [ano, mes, d] = dia.split("-").map(Number);
+  return new Date(Date.UTC(ano!, mes! - 1, d! + dias)).toISOString().slice(0, 10);
+}
+
 export function agoraEmSaoPaulo(): Date {
   return toZonedTime(new Date(), FUSO);
 }

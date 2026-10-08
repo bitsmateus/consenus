@@ -11,7 +11,7 @@ import {
   SubPapelOperador,
   TipoProcurador,
 } from "@prisma/client";
-import { FUSO } from "./prazos";
+import { FUSO, diasRestantes } from "./prazos";
 
 export function formatarData(data: Date | null | undefined): string {
   if (!data) return "—";
@@ -136,4 +136,22 @@ export function paraCampoDeDataHora(data: Date | null | undefined): string {
     hour12: false,
   }).format(data);
   return partes.replace(" ", "T");
+}
+
+/**
+ * Texto e cor do prazo de envio da documentação, para a listagem: "Vence hoje",
+ * "Vence amanhã", "Faltam 5 dias", "Vencido há 2 dias".
+ */
+export function rotuloDoPrazo(
+  prazoFinal: Date,
+  referencia = new Date()
+): { texto: string; tom: TomDeStatus } {
+  const dias = diasRestantes(prazoFinal, referencia);
+  if (dias < 0) {
+    const atraso = -dias;
+    return { texto: atraso === 1 ? "Vencido há 1 dia" : `Vencido há ${atraso} dias`, tom: "encerrado" };
+  }
+  if (dias === 0) return { texto: "Vence hoje", tom: "atencao" };
+  if (dias === 1) return { texto: "Vence amanhã", tom: "atencao" };
+  return { texto: `Faltam ${dias} dias`, tom: dias <= 3 ? "atencao" : "sucesso" };
 }

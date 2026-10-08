@@ -19,14 +19,14 @@ import { ROTULO_MODALIDADE } from "@/lib/formato";
 import { cancelarReuniao, criarReuniao, remarcarReuniao, videoconferenciaAtiva } from "@/lib/zoom";
 import { configuracaoDoSistema } from "@/lib/configuracao";
 import { db } from "@/lib/db";
-import { ErroDeNegocio } from "@/lib/erros";
+import { ErroDeNegocio, SemPermissao } from "@/lib/erros";
 import { proximoNumeroDoAto } from "@/lib/numeracao";
 import { formatarDiaHora, proximaVagaLivre, validarHorario } from "@/lib/agenda";
 import { carregarContextoDaAgenda, travarAgenda } from "@/lib/agenda-db";
 import { conferirCoerencia, esquemaDePessoa, montarDadosDePessoa } from "@/lib/pessoas";
 import { calcularDataDaSessao, calcularPrazoDocumentacao, FUSO } from "@/lib/prazos";
-import { exigirAcessoAoAto, exigirAdmin } from "@/lib/sessao";
-import { exigirPermissao, exigirAcessoCompleto } from "@/lib/permissoes";
+import { exigirAcessoAoAto, exigirAdmin, exigirEquipe } from "@/lib/sessao";
+import { exigirPermissao, exigirAcessoCompleto, temPermissao } from "@/lib/permissoes";
 import { removerArquivo } from "@/lib/storage";
 
 export type EstadoDeFormulario = { erro?: string; campo?: string };
@@ -488,6 +488,64 @@ export async function registrarObservacao(
   });
 
   revalidatePath(`/atos/${atoId}`);
+  return {};
+}
+
+const observacoesGerais = z.object({
+  atoId: z.string().min(1),
+  observacoes: z.string().trim().max(2000, "As observações cabem em 2000 caracteres."),
+});
+
+/**
+ * Observações gerais do procedimento (visão geral) — pedido do cliente em
+ * 08/10. Antes só dava para escrevê-las na abertura; agora o operador as
+ * mantém ao longo do fluxo, por exemplo ao anexar a documentação. Vazio limpa.
+ */
+export async function atualizarObservacoesDoAto(
+  _anterior: EstadoDeFormulario,
+  entrada: FormData
+): Promise<EstadoDeFormulario> {
+  const usuario = await exigirEquipe();
+  if (
+    !temPermissao(usuario, "CADASTRAR_DEMANDA") &&
+    !temPermissao(usuario, "CONFERIR_DOCUMENTO")
+  ) {
+    throw new SemPermissao("Seu perfil de operador não tem permissão para esta ação.");
+  }
+
+  const analise = observacoesGerais.safeParse(Object.fromEntries(entrada));
+  if (!analise.success) {
+    return { erro: analise.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+
+  const { atoId, observacoes } = analise.data;
+  const ato = await exigirAcessoAoAto(atoId, db);
+
+  const novas = observacoes || null;
+  if (novas === ato.observacoes) return {};
+
+  await db.ato.update({ where: { id: atoId }, data: { observacoes: novas } });
+
+  await db.eventoAto.create({
+    data: {
+      atoId,
+      tipo: TipoEvento.OBSERVACAO,
+      descricao: novas
+        ? "Observações do procedimento atualizadas."
+        : "Observações do procedimento removidas.",
+      usuarioId: usuario.id,
+    },
+  });
+
+  await registrarAuditoria({
+    usuarioId: usuario.id,
+    acao: "ALTEROU_ATO",
+    entidade: "Ato",
+    entidadeId: atoId,
+    metadados: { evento: "OBSERVACOES", de: ato.observacoes, para: novas },
+  });
+
+  revalidatePath("/atos/" + atoId);
   return {};
 }
 

@@ -42,6 +42,20 @@ export function FormularioDeAnexo({ atoId }: { atoId: string }) {
       </div>
 
       <div className="mb-4">
+        <label htmlFor="observacao" className="mb-1.5 block text-xs font-medium text-carvao-700">
+          Observações
+        </label>
+        <textarea
+          id="observacao"
+          name="observacao"
+          rows={3}
+          maxLength={2000}
+          placeholder="opcional — informação complementar sobre o documento"
+          className="w-full rounded-md border border-carvao-100 bg-white px-3 py-2.5 text-sm text-carvao-700 outline-none focus:border-grafite-500"
+        />
+      </div>
+
+      <div className="mb-4">
         <label htmlFor="arquivo" className="mb-1.5 block text-xs font-medium text-carvao-700">
           Arquivo
         </label>
