@@ -78,11 +78,11 @@ const criacao = z.object({
  * do sistema, e não pode existir nem por um instante.
  *
  * Os prazos saem de ConfiguracaoSistema, nunca de número fixo (regra 12):
- *   dataReservada        = criação + diasAteSessao (D+20)
+ *   dataReservada        = criação + diasAteSessao (D+30), sem consultar a agenda
  *   prazoDocumentacaoAte = criação + prazoDocumentacaoDias (15 dias)
  *
  * A data fica RESERVADA, nunca confirmada: só o OK do operador no passo 3
- * efetiva a data (docs/02, regra 1). E a reserva vale para a primeira carta,
+ * efetiva a data (docs/02, regra 1) — e é só aí que a agenda entra. E a reserva vale para a primeira carta,
  * que é da Sprint 2 — na emissão dela o prazo é recontado a partir do envio.
  */
 export async function criarAto(
@@ -203,15 +203,14 @@ export async function criarAto(
       const ato = await db.$transaction(async (tx) => {
         const numero = await proximoNumeroDoAto(tx, ano);
 
-        // A data nasce em D+30, no horário padrão, mas só em vaga que a agenda
-        // aceita: dia útil, dentro do expediente, sem outra sessão em cima.
-        await travarAgenda(tx);
-        const agendaAtual = await carregarContextoDaAgenda(tx);
-        const dataReservada = proximaVagaLivre(
-          calcularDataDaSessao(agora, config.diasAteSessao, config.horaDaSessao),
-          agendaAtual.regras,
-          agendaAtual.extras,
-          agendaAtual.marcadas
+        // A data nasce em D+30, no horário padrão, SEM olhar a agenda (pedido do
+        // cliente em 14/10): enquanto o procedimento está em negociação, a
+        // data é só referência para a primeira carta e não ocupa vaga. A vaga
+        // real sai na confirmação da data, em confirmarData().
+        const dataReservada = calcularDataDaSessao(
+          agora,
+          config.diasAteSessao,
+          config.horaDaSessao
         );
 
         const criado = await tx.ato.create({

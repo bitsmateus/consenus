@@ -21,6 +21,7 @@ vi.mock("next/navigation", () => ({
 
 const { db } = await import("@/lib/db");
 const { criarAto, alterarAgenda } = await import("@/acoes/atos");
+const { confirmarData } = await import("@/acoes/fluxo");
 const { adicionarDiaSemSessao, removerDiaSemSessao } = await import("@/acoes/calendario");
 const { validarHorario, proximaVagaLivre } = await import("@/lib/agenda");
 const { carregarContextoDaAgenda } = await import("@/lib/agenda-db");
@@ -48,6 +49,7 @@ async function atoMarcadoPara(quando: string) {
       numero: `2097.${String(contador).padStart(4, "0")}`,
       criadoPorId: adminId,
       dataReservada: sp(quando),
+      dataConfirmada: sp(quando), // sessão marcada de verdade: é ela que ocupa a vaga
       partes: { create: [{ pessoaId: solicitanteId, papel: "SOLICITANTE" }, { pessoaId: convidadoId, papel: "CONVIDADO" }] },
     },
   });
@@ -106,68 +108,123 @@ afterAll(async () => {
   await db.$disconnect();
 });
 
-describe("abertura do procedimento: a data reservada respeita a agenda", () => {
-  it("nasce em vaga válida: dia útil, dentro do expediente, fora do almoço", async () => {
+const diaLocalDe = (data: Date) =>
+  new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Sao_Paulo" }).format(data);
+
+/** Procedimento aguardando documentação, com tudo conferido: pronto para confirmar a data. */
+async function atoProntoParaConfirmar(reservada: string) {
+  contador++;
+  const ato = await db.ato.create({
+    data: {
+      numero: `2097.${String(contador).padStart(4, "0")}`,
+      criadoPorId: adminId,
+      status: "AGUARDANDO_DOCUMENTACAO",
+      dataReservada: sp(reservada),
+      partes: { create: [{ pessoaId: solicitanteId, papel: "SOLICITANTE" }, { pessoaId: convidadoId, papel: "CONVIDADO" }] },
+      conferencias: {
+        create: (
+          ["CONTRATO_PRESTACAO_SERVICOS", "PROCURACAO", "CONTRATO_FINANCIAMENTO", "PROVA_TECNICA", "DOCUMENTOS_PESSOAIS"] as const
+        ).map((item) => ({ item, conferido: true })),
+      },
+    },
+  });
+  criados.atos.push(ato.id);
+  return ato;
+}
+
+async function confirmar(atoId: string) {
+  await confirmarData(formulario({ atoId }));
+  return db.ato.findUniqueOrThrow({ where: { id: atoId } });
+}
+
+describe("abertura do procedimento: D+30 sem vínculo com a agenda (pedido do cliente em 14/10)", () => {
+  it("a data reservada é D+30 no horário padrão, sem ajuste de agenda", async () => {
     const id = await criarPelaAcao();
     const ato = await db.ato.findUniqueOrThrow({ where: { id } });
-    const contexto = await carregarContextoDaAgenda(db, id);
+    const { calcularDataDaSessao } = await import("@/lib/prazos");
+    const { configuracaoDoSistema } = await import("@/lib/configuracao");
+    const config = await configuracaoDoSistema();
 
-    expect(validarHorario(ato.dataReservada!, contexto.regras, contexto.extras, contexto.marcadas)).toBeNull();
+    const esperada = calcularDataDaSessao(ato.criadoEm, config.diasAteSessao, config.horaDaSessao);
+    expect(ato.dataReservada!.getTime()).toBe(esperada.getTime());
+    expect(ato.dataConfirmada).toBeNull();
   });
 
-  it("duas aberturas seguidas não caem no mesmo horário", async () => {
+  it("aberturas seguidas ficam todas na mesma data: reserva não ocupa vaga", async () => {
     const a = await db.ato.findUniqueOrThrow({ where: { id: await criarPelaAcao() } });
     const b = await db.ato.findUniqueOrThrow({ where: { id: await criarPelaAcao() } });
-
-    const distancia = Math.abs(a.dataReservada!.getTime() - b.dataReservada!.getTime());
-    expect(distancia).toBeGreaterThanOrEqual(20 * 60_000);
+    expect(a.dataReservada!.getTime()).toBe(b.dataReservada!.getTime());
   });
 
-  it("dia bloqueado pelo administrador é pulado", async () => {
-    const primeiro = await db.ato.findUniqueOrThrow({ where: { id: await criarPelaAcao() } });
-    const diaLocal = new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Sao_Paulo" }).format(
-      primeiro.dataReservada!
-    );
-    await db.ato.delete({ where: { id: primeiro.id } });
-
-    await db.diaSemSessao.create({ data: { data: new Date(`${diaLocal}T00:00:00Z`), descricao: "Recesso" } });
-
-    const novo = await db.ato.findUniqueOrThrow({ where: { id: await criarPelaAcao() } });
-    const diaNovo = new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Sao_Paulo" }).format(
-      novo.dataReservada!
-    );
-    expect(diaNovo).not.toBe(diaLocal);
-  });
-
-  it("dia do alvo D+30 já com 15 sessões: a abertura vai para o próximo dia (pedido do cliente em 28/09)", async () => {
-    // descobre o dia-alvo (D+30) sem gastar vaga nele
+  it("agenda lotada, dia bloqueado ou feriado no D+30 não empurram a abertura", async () => {
     const sonda = await db.ato.findUniqueOrThrow({ where: { id: await criarPelaAcao() } });
-    const diaAlvo = new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Sao_Paulo" }).format(
-      sonda.dataReservada!
-    );
+    const diaAlvo = diaLocalDe(sonda.dataReservada!);
     await db.ato.delete({ where: { id: sonda.id } });
 
-    // lota o dia inteiro (manhã e tarde), como uma agenda cheia de verdade —
-    // e não só as 9 vagas que o D+30 alcançaria sozinho a partir das 14h
-    let minuto = 9 * 60;
-    for (let i = 0; i < 15; i++) {
-      if (minuto >= 12 * 60 && minuto < 13 * 60) minuto = 13 * 60;
-      const hh = String(Math.floor(minuto / 60)).padStart(2, "0");
-      const mm = String(minuto % 60).padStart(2, "0");
-      await atoMarcadoPara(`${diaAlvo}T${hh}:${mm}`);
-      minuto += 20;
-    }
+    await db.diaSemSessao.create({ data: { data: new Date(`${diaAlvo}T00:00:00Z`), descricao: "Recesso" } });
 
     const novo = await db.ato.findUniqueOrThrow({ where: { id: await criarPelaAcao() } });
-    const diaNovo = new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Sao_Paulo" }).format(
-      novo.dataReservada!
-    );
-    expect(diaNovo).not.toBe(diaAlvo);
+    expect(diaLocalDe(novo.dataReservada!)).toBe(diaAlvo);
+  });
 
-    const contexto = await carregarContextoDaAgenda(db, novo.id);
-    expect(
-      validarHorario(novo.dataReservada!, contexto.regras, contexto.extras, contexto.marcadas)
-    ).toBeNull();
+  it("data reservada não conta como sessão marcada na agenda", async () => {
+    await db.ato.create({
+      data: {
+        numero: "2097.9001",
+        criadoPorId: adminId,
+        dataReservada: sp("2026-10-06T10:00"),
+        partes: { create: [{ pessoaId: solicitanteId, papel: "SOLICITANTE" }, { pessoaId: convidadoId, papel: "CONVIDADO" }] },
+      },
+    }).then((a) => criados.atos.push(a.id));
+
+    const contexto = await carregarContextoDaAgenda(db);
+    expect(contexto.marcadas.some((m) => m.inicio.getTime() === sp("2026-10-06T10:00").getTime())).toBe(false);
+  });
+});
+
+describe("confirmação da data: é aqui que a agenda entra", () => {
+  it("vaga livre: a data reservada vira a data da sessão, sem mudar", async () => {
+    const ato = await atoProntoParaConfirmar("2026-10-06T10:00");
+    const depois = await confirmar(ato.id);
+
+    expect(depois.status).toBe("DATA_CONFIRMADA");
+    expect(depois.dataConfirmada!.getTime()).toBe(sp("2026-10-06T10:00").getTime());
+    expect(depois.dataReservada!.getTime()).toBe(sp("2026-10-06T10:00").getTime());
+  });
+
+  it("horário ocupado por sessão confirmada: vai para a próxima vaga livre e registra o motivo", async () => {
+    await atoMarcadoPara("2026-10-06T10:00");
+    const ato = await atoProntoParaConfirmar("2026-10-06T10:00");
+    const depois = await confirmar(ato.id);
+
+    expect(depois.dataConfirmada!.getTime()).toBe(sp("2026-10-06T10:20").getTime());
+    expect(depois.dataReservada!.getTime()).toBe(sp("2026-10-06T10:20").getTime());
+    const evento = await db.eventoAto.findFirstOrThrow({ where: { atoId: ato.id, tipo: "DATA_CONFIRMADA" } });
+    expect(evento.descricao).toMatch(/não estava livre/);
+  });
+
+  it("reservada num sábado: a sessão vai para o próximo dia útil (12/10 é feriado)", async () => {
+    const ato = await atoProntoParaConfirmar("2026-10-10T10:00");
+    const depois = await confirmar(ato.id);
+
+    expect(diaLocalDe(depois.dataConfirmada!)).toBe("2026-10-13");
+  });
+
+  it("dia bloqueado pelo administrador: pula o dia", async () => {
+    await db.diaSemSessao.create({ data: { data: new Date("2026-10-06T00:00:00Z"), descricao: "Recesso" } });
+    const ato = await atoProntoParaConfirmar("2026-10-06T10:00");
+    const depois = await confirmar(ato.id);
+
+    expect(diaLocalDe(depois.dataConfirmada!)).not.toBe("2026-10-06");
+  });
+
+  it("duas confirmações para o mesmo horário não ficam no mesmo instante", async () => {
+    const a = await atoProntoParaConfirmar("2026-10-06T10:00");
+    const b = await atoProntoParaConfirmar("2026-10-06T10:00");
+    const depoisA = await confirmar(a.id);
+    const depoisB = await confirmar(b.id);
+
+    expect(depoisA.dataConfirmada!.getTime()).not.toBe(depoisB.dataConfirmada!.getTime());
   });
 });
 

@@ -45,9 +45,12 @@ export async function carregarContextoDaAgenda(cliente: Cliente, ignorarAtoId?: 
       where: {
         ...(ignorarAtoId ? { id: { not: ignorarAtoId } } : {}),
         status: { notIn: STATUS_SEM_VAGA_OCUPADA },
-        OR: [{ dataConfirmada: { not: null } }, { dataReservada: { not: null } }],
+        // Só a data CONFIRMADA ocupa vaga. A reservada (D+30 da abertura) é
+        // referência da primeira carta e não disputa agenda — pedido do
+        // cliente em 14/10.
+        dataConfirmada: { not: null },
       },
-      select: { numero: true, dataReservada: true, dataConfirmada: true },
+      select: { numero: true, dataConfirmada: true },
     }),
   ]);
 
@@ -58,8 +61,9 @@ export async function carregarContextoDaAgenda(cliente: Cliente, ignorarAtoId?: 
 
   const marcadas: SessaoMarcada[] = [];
   for (const ato of atos) {
-    const inicio = ato.dataConfirmada ?? ato.dataReservada;
-    if (inicio) marcadas.push({ inicio, rotulo: `procedimento ${ato.numero}` });
+    if (ato.dataConfirmada) {
+      marcadas.push({ inicio: ato.dataConfirmada, rotulo: `procedimento ${ato.numero}` });
+    }
   }
 
   return { regras, extras, marcadas };

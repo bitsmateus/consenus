@@ -16,7 +16,9 @@ import { db } from "@/lib/db";
 import { emitirDocumento } from "@/lib/emissao";
 import { ErroDeNegocio, FluxoInvalido } from "@/lib/erros";
 import { DESFECHOS_COM_ACORDO } from "@/lib/desfechos";
-import { cancelarReuniao, videoconferenciaAtiva } from "@/lib/zoom";
+import { cancelarReuniao, remarcarReuniao, videoconferenciaAtiva } from "@/lib/zoom";
+import { formatarDiaHora, proximaVagaLivre, validarHorario } from "@/lib/agenda";
+import { carregarContextoDaAgenda, travarAgenda } from "@/lib/agenda-db";
 import { FUSO, sessaoAntesDaDataMarcada } from "@/lib/prazos";
 import { faltamItens } from "@/lib/documentacao";
 import { exigirAcessoAoAto } from "@/lib/sessao";
@@ -145,10 +147,26 @@ export async function confirmarData(entrada: FormData): Promise<void> {
     );
   }
 
-  await db.$transaction(async (tx) => {
+  // É aqui que a agenda entra (pedido do cliente em 14/10): a data reservada
+  // na abertura é só D+30 e não ocupou vaga. Se ela ainda serve (dia útil,
+  // expediente, sem outra sessão, abaixo do limite do dia), vira a data da
+  // sessão; senão a sessão vai para a próxima vaga livre depois dela.
+  const reservada = ato.dataReservada;
+  const { dataEfetivada } = await db.$transaction(async (tx) => {
+    await travarAgenda(tx);
+    const agenda = await carregarContextoDaAgenda(tx, atoId);
+    const problema = validarHorario(reservada, agenda.regras, agenda.extras, agenda.marcadas);
+    const efetivada = problema
+      ? proximaVagaLivre(reservada, agenda.regras, agenda.extras, agenda.marcadas)
+      : reservada;
+
     await tx.ato.update({
       where: { id: atoId },
-      data: { status: StatusAto.DATA_CONFIRMADA, dataConfirmada: ato.dataReservada },
+      data: {
+        status: StatusAto.DATA_CONFIRMADA,
+        dataReservada: efetivada,
+        dataConfirmada: efetivada,
+      },
     });
     await tx.eventoAto.create({
       data: {
@@ -162,10 +180,14 @@ export async function confirmarData(entrada: FormData): Promise<void> {
       data: {
         atoId,
         tipo: TipoEvento.DATA_CONFIRMADA,
-        descricao: `Data da sessão efetivada para ${formatarData(ato.dataReservada)}.`,
+        descricao: problema
+          ? `Data da sessão efetivada para ${formatarDiaHora(efetivada)}: a data reservada ` +
+            `(${formatarData(reservada)}) não estava livre na agenda. ${problema}`
+          : `Data da sessão efetivada para ${formatarData(efetivada)}.`,
         usuarioId: usuario.id,
       },
     });
+    return { dataEfetivada: efetivada };
   });
 
   await registrarAuditoria({
@@ -173,8 +195,31 @@ export async function confirmarData(entrada: FormData): Promise<void> {
     acao: "CONFIRMOU_DATA",
     entidade: "Ato",
     entidadeId: atoId,
-    metadados: { data: ato.dataReservada.toISOString() },
+    metadados: { data: dataEfetivada.toISOString(), reservada: reservada.toISOString() },
   });
+
+  // a sala do Zoom nasceu na data reservada: se a vaga mudou, ela acompanha
+  if (dataEfetivada.getTime() !== reservada.getTime() && ato.idReuniao && videoconferenciaAtiva()) {
+    try {
+      const config = await configuracaoDoSistema();
+      await remarcarReuniao({
+        idReuniao: ato.idReuniao,
+        quando: dataEfetivada,
+        duracaoMinutos: config.duracaoSessaoMinutos,
+      });
+    } catch (erro) {
+      console.error("[zoom] falha ao remarcar a sala na confirmação da data", ato.numero, erro);
+      await db.eventoAto.create({
+        data: {
+          atoId,
+          tipo: TipoEvento.OBSERVACAO,
+          descricao:
+            "A data da sessão mudou, mas não foi possível remarcar a sala no Zoom. Confira o horário da sala antes de emitir a Carta-Convite ao Interessado Convidado.",
+          usuarioId: usuario.id,
+        },
+      });
+    }
+  }
 
   revalidatePath(`/atos/${atoId}`);
 }
