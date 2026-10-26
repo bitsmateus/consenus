@@ -19,6 +19,14 @@ describe("identificação de quem assina", () => {
     expect(lados.ladoB.procurador).toBeNull();
   });
 
+  it("não repete o prefixo quando o cadastro já traz 'OAB/SP 69212'", () => {
+    const lados = identificarLados([
+      { id: "s", papel: "SOLICITANTE", representaId: null, pessoa: { nome: "A", documento: "12345678909" } },
+      { id: "p", papel: "PROCURADOR", representaId: "s", pessoa: { nome: "B", documento: "1", oab: "OAB/SP 69212" } },
+    ]);
+    expect(lados.ladoA.procurador?.documento).toBe("OAB/SP 69212");
+  });
+
   it("sem procurador ou sem cadastro, a linha continua em branco para preencher", () => {
     const html = assinaturasDasPartes(
       {

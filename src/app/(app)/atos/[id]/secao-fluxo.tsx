@@ -14,6 +14,7 @@ import { Etiqueta } from "@/components/ui/etiqueta";
 import { formatarData } from "@/lib/formato";
 import { sessaoAntesDaDataMarcada } from "@/lib/prazos";
 import { FormularioDaSessao, FormularioDoTermo } from "./formularios-da-sessao";
+import { ROTULO_TIPO } from "./secao-documentos";
 
 type Conferencia = {
   item: ItemDaDocumentacao;
@@ -41,7 +42,7 @@ export function SecaoDeFluxo({
     dataConfirmada: Date | null;
     desfecho: DesfechoSessao | null;
     conferencias: Conferencia[];
-    documentos: { tipo: TipoDocumento }[];
+    documentos: { id: string; tipo: TipoDocumento; nomeArquivo: string; criadoEm: Date }[];
     partes: { id: string; pessoa: { nome: string }; papel: string }[];
   };
   equipe: boolean;
@@ -207,6 +208,40 @@ export function SecaoDeFluxo({
       )}
 
       {/* ---------------------------------------------- passo 5 */}
+      {/* documentos à mão para conduzir e registrar a sessão — pedido do cliente em 26/10 */}
+      {(ato.status === StatusAto.DATA_CONFIRMADA ||
+        ato.status === StatusAto.CONVIDADO_CONVOCADO ||
+        ato.status === StatusAto.SESSAO_REALIZADA) &&
+        !temAta &&
+        ato.documentos.length > 0 && (
+          <div className="mb-3 rounded-lg border border-carvao-100 bg-white p-4">
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-carvao-500">
+              Documentos do procedimento
+            </p>
+            <ul className="space-y-1.5">
+              {ato.documentos.map((doc) => (
+                <li
+                  key={doc.id}
+                  className="flex flex-wrap items-center justify-between gap-2 text-xs"
+                >
+                  <span className="min-w-0 truncate text-carvao-700">
+                    <span className="font-medium">{ROTULO_TIPO[doc.tipo]}</span>
+                    <span className="text-carvao-300"> · {doc.nomeArquivo}</span>
+                  </span>
+                  <a
+                    href={`/api/documentos/${doc.id}/download`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="shrink-0 rounded-md border border-carvao-100 px-3 py-1.5 text-[11px] font-medium text-grafite-700 hover:border-dourado-600"
+                  >
+                    Abrir
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
       {semConciliador &&
         (ato.status === StatusAto.CONVIDADO_CONVOCADO ||
           ato.status === StatusAto.SESSAO_REALIZADA) &&

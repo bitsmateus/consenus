@@ -10,7 +10,7 @@ import { FormularioDeAnexo, FormularioDeEnvio } from "./documentos";
 import { Assinatura, type AssinaturaDoDocumento } from "./assinatura";
 import { ObservacaoDoDocumento } from "./observacao-do-documento";
 
-const ROTULO_TIPO: Record<TipoDocumento, string> = {
+export const ROTULO_TIPO: Record<TipoDocumento, string> = {
   CARTA_CONVITE_SOLICITANTE: "Carta-Convite ao Solicitante",
   CARTA_CONVITE_CONVIDADO: "Carta-Convite ao Convidado",
   ATA: "Ata de Sessão",

@@ -23,6 +23,12 @@ type ParteComPessoa = {
   pessoa: { nome: string; documento: string; oab?: string | null };
 };
 
+/** O cadastro às vezes já traz o prefixo ("OAB/SP 69212"); não repetir. */
+function numeroDaOab(oab: string): string {
+  const limpa = oab.trim();
+  return /^oab\b/i.test(limpa) ? limpa : `OAB ${limpa}`;
+}
+
 function identificar(partes: ParteComPessoa[], ehProcurador: boolean): Identificacao | null {
   if (partes.length === 0) return null;
   return {
@@ -30,7 +36,7 @@ function identificar(partes: ParteComPessoa[], ehProcurador: boolean): Identific
     // advogado se identifica pela OAB; o titular, pelo CPF/CNPJ
     documento: partes
       .map((p) =>
-        ehProcurador && p.pessoa.oab ? `OAB ${p.pessoa.oab}` : formatarDocumento(p.pessoa.documento)
+        ehProcurador && p.pessoa.oab ? numeroDaOab(p.pessoa.oab) : formatarDocumento(p.pessoa.documento)
       )
       .join("; "),
   };
