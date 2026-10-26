@@ -7,6 +7,7 @@
  * A ata é obrigatória em toda sessão, independentemente do resultado — inclusive
  * quando ninguém comparece (docs/02, regra 3).
  */
+import type { IdentificacaoDosLados } from "@/lib/identificacao-das-partes";
 import {
   assinaturaDoConciliador,
   assinaturasDasPartes,
@@ -40,6 +41,8 @@ export type DadosDaAta = {
   motivoPrejudicada: string | null;
   observacoes: string | null;
   conciliador: string | null;
+  /** nome e documento de quem assina, do cadastro; sem isso as linhas saem em branco */
+  identificacao?: IdentificacaoDosLados;
 };
 
 /** Redação de cada desfecho, literal do modelo. */
@@ -86,14 +89,14 @@ function lista(nomes: string[]): string {
 }
 
 /** Cinco linhas de assinatura, conforme o modelo: conciliador e os dois lados. */
-function assinaturas(conciliador: string | null): string {
+function assinaturas(conciliador: string | null, identificacao?: IdentificacaoDosLados): string {
   return `
 <div style="margin-top:16mm;">
   ${assinaturaDoConciliador(conciliador)}
   ${assinaturasDasPartes({
     ladoA: { titular: "Interessado Solicitante", procurador: "Procurador do Solicitante" },
     ladoB: { titular: "Interessado Convidado", procurador: "Procurador do Convidado" },
-  })}
+  }, identificacao)}
 </div>`;
 }
 
@@ -173,7 +176,7 @@ interessados quanto à adoção das medidas que entenderem cabíveis.</p>
 <p>Lida e aprovada, segue a presente Ata assinada eletronicamente pelos participantes ou
 certificada pela Consensus One, conforme a modalidade de realização da sessão.</p>
 
-${assinaturas(dados.conciliador)}`;
+${assinaturas(dados.conciliador, dados.identificacao)}`;
 
   return montarDocumento(corpo);
 }

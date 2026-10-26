@@ -21,6 +21,7 @@ import { formatarDiaHora, proximaVagaLivre, validarHorario } from "@/lib/agenda"
 import { carregarContextoDaAgenda, travarAgenda } from "@/lib/agenda-db";
 import { FUSO, sessaoAntesDaDataMarcada } from "@/lib/prazos";
 import { faltamItens } from "@/lib/documentacao";
+import { identificarLados } from "@/lib/identificacao-das-partes";
 import { exigirAcessoAoAto } from "@/lib/sessao";
 import { exigirPermissao, exigirAcessoCompleto } from "@/lib/permissoes";
 import { cartaAoConvidado } from "@/documentos/carta-convite";
@@ -474,7 +475,7 @@ export async function gerarAta(entrada: FormData): Promise<void> {
   const ato = await db.ato.findUnique({
     where: { id: atoId },
     include: {
-      partes: { include: { pessoa: { select: { nome: true } } } },
+      partes: { include: { pessoa: { select: { nome: true, documento: true, oab: true } } } },
       documentos: { select: { tipo: true } },
     },
   });
@@ -482,6 +483,15 @@ export async function gerarAta(entrada: FormData): Promise<void> {
 
   if (!ato.desfecho || !ato.horaInicio) {
     throw new FluxoInvalido("Registre a sessão antes de lavrar a ata.");
+  }
+  // A ata só se lavra uma vez e não se regera. Sem Conciliador vinculado ela
+  // sairia sem o nome dele e sem ele entre os signatários (relato do cliente em
+  // 26/10), e não haveria como corrigir depois.
+  if (!ato.partes.some((p) => p.papel === PapelNoAto.CONCILIADOR)) {
+    throw new FluxoInvalido(
+      "Vincule o Conciliador ao procedimento antes de lavrar a ata. Ela leva o nome dele " +
+        "e a linha de assinatura, e não pode ser refeita depois de lavrada."
+    );
   }
   if (ato.documentos.some((d) => d.tipo === TipoDocumento.ATA)) {
     throw new FluxoInvalido("A ata deste procedimento já foi lavrada.");
@@ -525,6 +535,7 @@ export async function gerarAta(entrada: FormData): Promise<void> {
         motivoPrejudicada: ato.motivoPrejudicada,
         observacoes: ato.observacoesSessao,
         conciliador: conciliador?.pessoa.nome ?? null,
+        identificacao: identificarLados(ato.partes),
       }),
     aoRegistrar: async (tx, codigo) => {
       await tx.ato.update({
@@ -592,7 +603,9 @@ export async function gerarTermoDeAcordo(
     const ato = await db.ato.findUnique({
       where: { id: atoId },
       include: {
-        partes: { include: { pessoa: { select: { nome: true, cidade: true } } } },
+        partes: {
+          include: { pessoa: { select: { nome: true, cidade: true, documento: true, oab: true } } },
+        },
         documentos: { select: { tipo: true } },
       },
     });
@@ -633,6 +646,7 @@ export async function gerarTermoDeAcordo(
           mes,
           ano,
           conciliador: conciliador?.pessoa.nome ?? null,
+          identificacao: identificarLados(ato.partes),
           objetoDoAcordo: campos.objetoDoAcordo,
           obrigacoesPrimeiraParte: campos.obrigacoesPrimeiraParte,
           obrigacoesSegundaParte: campos.obrigacoesSegundaParte,

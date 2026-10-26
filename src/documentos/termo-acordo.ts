@@ -10,6 +10,7 @@
  * decisão jurídica do cliente, não do operador que lavra o termo no fim de uma
  * sessão. Ver docs/09, item 9.
  */
+import type { IdentificacaoDosLados } from "@/lib/identificacao-das-partes";
 import {
   assinaturaDoConciliador,
   assinaturasDasPartes,
@@ -27,6 +28,8 @@ export type DadosDoTermo = {
   mes: string;
   ano: string;
   conciliador: string | null;
+  /** nome e documento de quem assina, do cadastro; sem isso as linhas saem em branco */
+  identificacao?: IdentificacaoDosLados;
 
   // ---- campos livres, preenchidos pelo conciliador ----
   objetoDoAcordo: string;
@@ -224,7 +227,7 @@ ${escapar(dados.mes)} de ${escapar(dados.ano)}.</p>
   ${assinaturasDasPartes({
     ladoA: { titular: "Parte 1", procurador: "Procurador da Parte 1" },
     ladoB: { titular: "Parte 2", procurador: "Procurador da Parte 2" },
-  })}
+  }, dados.identificacao)}
 </div>`;
 
   return montarDocumento(corpo);

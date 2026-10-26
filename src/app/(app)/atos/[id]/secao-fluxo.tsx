@@ -49,6 +49,7 @@ export function SecaoDeFluxo({
   if (!equipe) return null;
 
   const temAta = ato.documentos.some((d) => d.tipo === TipoDocumento.ATA);
+  const semConciliador = !ato.partes.some((p) => p.papel === "CONCILIADOR");
   const temTermo = ato.documentos.some((d) => d.tipo === TipoDocumento.TERMO_ACORDO);
   const pendentes = faltamItens(ato.conferencias);
   const cabeAcordo =
@@ -206,6 +207,18 @@ export function SecaoDeFluxo({
       )}
 
       {/* ---------------------------------------------- passo 5 */}
+      {semConciliador &&
+        (ato.status === StatusAto.CONVIDADO_CONVOCADO ||
+          ato.status === StatusAto.SESSAO_REALIZADA) &&
+        !temAta && (
+          <p className="mb-3 rounded-md bg-atencao-bg px-3 py-2.5 text-xs leading-relaxed text-atencao">
+            <strong>Nenhum Conciliador vinculado.</strong> A ata leva o nome e a linha de
+            assinatura do Conciliador, e só pode ser lavrada uma vez. Vincule-o em
+            &ldquo;Procuradores e conciliador&rdquo;, aqui no procedimento, antes de lavrar a
+            ata.
+          </p>
+        )}
+
       {ato.status === StatusAto.CONVIDADO_CONVOCADO && (
         <div className="mb-3">
           <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-dourado-600">

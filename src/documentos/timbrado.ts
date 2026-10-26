@@ -16,6 +16,7 @@
  */
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import type { Identificacao, IdentificacaoDosLados } from "@/lib/identificacao-das-partes";
 
 const PRETO = "#0A0A0A";
 const DOURADO = "#946810";
@@ -236,22 +237,27 @@ export function assinaturaDoConciliador(conciliador: string | null): string {
  * lados —, em branco para preencher na hora. Mesmo layout do modelo oficial
  * na Ata e no Termo de Acordo: só o rótulo muda (Interessado/Parte).
  */
-export function assinaturasDasPartes(rotulos: {
-  ladoA: { titular: string; procurador: string };
-  ladoB: { titular: string; procurador: string };
-}): string {
-  const bloco = (rotulo: string) => `
+export function assinaturasDasPartes(
+  rotulos: {
+    ladoA: { titular: string; procurador: string };
+    ladoB: { titular: string; procurador: string };
+  },
+  identificacao?: IdentificacaoDosLados
+): string {
+  // nome e documento vêm do cadastro quando existem; sem eles, a linha fica em
+  // branco para preencher na hora, como no modelo oficial
+  const bloco = (rotulo: string, quem: Identificacao | null | undefined) => `
       <td style="width:50%;text-align:center;padding:0 4mm 8mm;">
         <div class="linha"></div>
-        <div class="cargo">Nome:</div>
-        <div class="cargo">Documento:</div>
+        <div class="cargo">Nome:${quem ? ` ${escapar(quem.nome)}` : ""}</div>
+        <div class="cargo">Documento:${quem?.documento ? ` ${escapar(quem.documento)}` : ""}</div>
         <div class="cargo" style="margin-top:1mm;font-weight:bold;">${rotulo}</div>
       </td>`;
 
   return `
   <table style="width:100%;margin-top:12mm;border-collapse:collapse;">
-    <tr>${bloco(rotulos.ladoA.titular)}${bloco(rotulos.ladoA.procurador)}</tr>
-    <tr>${bloco(rotulos.ladoB.titular)}${bloco(rotulos.ladoB.procurador)}</tr>
+    <tr>${bloco(rotulos.ladoA.titular, identificacao?.ladoA.titular)}${bloco(rotulos.ladoA.procurador, identificacao?.ladoA.procurador)}</tr>
+    <tr>${bloco(rotulos.ladoB.titular, identificacao?.ladoB.titular)}${bloco(rotulos.ladoB.procurador, identificacao?.ladoB.procurador)}</tr>
   </table>`;
 }
 
