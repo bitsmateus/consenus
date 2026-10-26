@@ -14,6 +14,19 @@ import { cn } from "@/lib/cn";
 import { desfechosPara } from "@/lib/desfechos";
 import { ROTULO_DESFECHO } from "@/lib/formato";
 
+type RespostaDaSessao = "acordo" | "sem_acordo" | "prejudicada";
+
+/**
+ * "Sessão prejudicada" fica no primeiro nível, ao lado de "houve acordo": estava
+ * escondida atrás de "Não houve acordo" e o operador não a achava na hora de
+ * lavrar a ata (relato do cliente em 26/10).
+ */
+const OPCOES_DA_RESPOSTA: { valor: RespostaDaSessao; rotulo: string }[] = [
+  { valor: "acordo", rotulo: "Sim, houve acordo" },
+  { valor: "sem_acordo", rotulo: "Não houve acordo" },
+  { valor: "prejudicada", rotulo: "Sessão prejudicada" },
+];
+
 /** Passo 5 — registro da sessão realizada. */
 export function FormularioDaSessao({
   atoId,
@@ -31,14 +44,18 @@ export function FormularioDaSessao({
     registrarSessao,
     {}
   );
-  const [acordo, setAcordo] = useState(true);
+  const [resposta, setResposta] = useState<RespostaDaSessao>("acordo");
   const [desfecho, setDesfecho] = useState<DesfechoSessao>(DesfechoSessao.COMPOSICAO_INTEGRAL);
+  const acordo = resposta === "acordo";
+  const prejudicada = desfecho === DesfechoSessao.SESSAO_PREJUDICADA;
 
-  // trocar a resposta do acordo troca o leque de desfechos: manter o antigo
-  // deixaria "composição integral" selecionado depois de dizer que não houve acordo
-  const trocarAcordo = (novo: boolean) => {
-    setAcordo(novo);
-    setDesfecho(desfechosPara(novo)[0]!);
+  // trocar a resposta troca o leque de desfechos: manter o antigo deixaria
+  // "composição integral" selecionado depois de dizer que não houve acordo
+  const trocarResposta = (nova: RespostaDaSessao) => {
+    setResposta(nova);
+    setDesfecho(
+      nova === "prejudicada" ? DesfechoSessao.SESSAO_PREJUDICADA : desfechosPara(nova === "acordo")[0]!
+    );
   };
 
   return (
@@ -109,13 +126,13 @@ export function FormularioDaSessao({
         <legend className="mb-1.5 block text-xs font-medium text-carvao-700">
           Houve acordo?
         </legend>
-        <div className="flex gap-2">
-          {[true, false].map((valor) => (
+        <div className="flex flex-col gap-2 sm:flex-row">
+          {OPCOES_DA_RESPOSTA.map((opcao) => (
             <label
-              key={String(valor)}
+              key={opcao.valor}
               className={cn(
-                "flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-md border px-3 py-2.5 text-sm",
-                acordo === valor
+                "flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-md border px-3 py-2.5 text-center text-sm",
+                resposta === opcao.valor
                   ? "border-dourado-600 bg-dourado-100 font-medium text-dourado-600"
                   : "border-carvao-100 text-carvao-700 hover:border-carvao-300"
               )}
@@ -123,33 +140,37 @@ export function FormularioDaSessao({
               <input
                 type="radio"
                 name="houveAcordo"
-                value={valor ? "sim" : "nao"}
-                checked={acordo === valor}
-                onChange={() => trocarAcordo(valor)}
+                value={opcao.valor}
+                checked={resposta === opcao.valor}
+                onChange={() => trocarResposta(opcao.valor)}
                 className="sr-only"
               />
-              {valor ? "Sim, houve acordo" : "Não houve acordo"}
+              {opcao.rotulo}
             </label>
           ))}
         </div>
       </fieldset>
 
-      <Selecao
-        rotulo="Desfecho"
-        name="desfecho"
-        value={desfecho}
-        onChange={(e) => setDesfecho(e.target.value as DesfechoSessao)}
-        opcoes={desfechosPara(acordo).map((d) => ({
-          valor: d,
-          rotulo: ROTULO_DESFECHO[d],
-        }))}
-      />
+      {resposta === "prejudicada" ? (
+        <input type="hidden" name="desfecho" value={DesfechoSessao.SESSAO_PREJUDICADA} />
+      ) : (
+        <Selecao
+          rotulo="Desfecho"
+          name="desfecho"
+          value={desfecho}
+          onChange={(e) => setDesfecho(e.target.value as DesfechoSessao)}
+          opcoes={desfechosPara(acordo).map((d) => ({
+            valor: d,
+            rotulo: ROTULO_DESFECHO[d],
+          }))}
+        />
+      )}
 
-      {desfecho === DesfechoSessao.SESSAO_PREJUDICADA && (
+      {prejudicada && (
         <Campo
           rotulo="Motivo"
           name="motivoPrejudicada"
-          dica="O modelo exige o registro do motivo."
+          dica="O modelo exige o registro do motivo. Vai na Ata."
           required
         />
       )}
