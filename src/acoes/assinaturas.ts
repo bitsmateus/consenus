@@ -9,6 +9,7 @@ import {
   cadastrarSignatarios,
   enviarParaAssinatura as dispararConvites,
   enviarPdf,
+  explicarFalhaDaD4Sign,
   registrarWebhook,
   urlDoWebhook,
 } from "@/lib/d4sign";
@@ -196,10 +197,13 @@ export async function enviarParaAssinatura(
     if (erro instanceof ErroDeNegocio) return { erro: erro.message };
 
     console.error("[assinatura] falha ao enviar para a D4Sign", erro);
-    const mensagem =
-      erro instanceof Error && erro.message.includes("Limite de requisições")
-        ? "A D4Sign recusou por limite de requisições. Aguarde alguns minutos e tente de novo."
-        : "Não foi possível falar com o serviço de assinatura agora. Tente de novo em alguns minutos.";
-    return { erro: mensagem };
+    const motivo = explicarFalhaDaD4Sign(erro);
+    // ficou documento criado lá: reenviar daqui cria um segundo, e o primeiro
+    // fica pendente com convite meio configurado
+    return {
+      erro: uuidNaD4Sign
+        ? `${motivo} O documento chegou a ser criado na D4Sign (veja a linha do tempo); conclua o envio pelo painel deles, ou cancele o documento lá antes de reenviar daqui.`
+        : motivo,
+    };
   }
 }

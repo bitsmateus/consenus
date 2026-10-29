@@ -69,6 +69,54 @@ export class ErroDaD4Sign extends Error {
 }
 
 /**
+ * Texto para o operador quando a chamada à D4Sign falha.
+ *
+ * Antes, toda falha virava "Não foi possível falar com o serviço de assinatura"
+ * — relato do cliente em 29/10: sem saber se era saldo, cadastro ou queda, só
+ * dava para abrir chamado. A D4Sign explica a recusa no corpo da resposta
+ * (`message`); esse texto vai para a tela. O corpo nunca carrega o token: a
+ * URL não entra no erro (ver `montarUrl`).
+ */
+export function explicarFalhaDaD4Sign(erro: unknown): string {
+  if (erro instanceof ErroDaD4Sign) {
+    if (erro.status === 429) {
+      return "A D4Sign recusou por limite de requisições. Aguarde alguns minutos e tente de novo.";
+    }
+    if (erro.status === 401 || erro.status === 403) {
+      return "A D4Sign recusou o acesso da câmara (credencial inválida ou sem permissão). Avise o suporte.";
+    }
+    const motivo = motivoNoCorpo(erro.corpo);
+    if (erro.status >= 400 && erro.status < 500 && motivo) {
+      return `A D4Sign recusou o envio: ${motivo}`;
+    }
+    if (erro.status >= 500) {
+      return "A D4Sign está com instabilidade agora. Tente de novo em alguns minutos.";
+    }
+  }
+  if (erro instanceof Error && (erro.name === "TimeoutError" || erro.name === "AbortError")) {
+    return "A D4Sign demorou demais para responder. Tente de novo em alguns minutos.";
+  }
+  return "Não foi possível falar com o serviço de assinatura agora. Tente de novo em alguns minutos.";
+}
+
+function motivoNoCorpo(corpo: string): string | null {
+  try {
+    const dados = JSON.parse(corpo) as unknown;
+    const alvo = Array.isArray(dados) ? dados[0] : dados;
+    if (alvo && typeof alvo === "object") {
+      for (const chave of ["message", "mensagem", "error", "erro"]) {
+        const valor = (alvo as Record<string, unknown>)[chave];
+        if (typeof valor === "string" && valor.trim()) return valor.trim().slice(0, 200);
+      }
+    }
+  } catch {
+    // corpo não é JSON: texto curto serve, HTML de página de erro não
+  }
+  const texto = corpo.trim();
+  return texto && !texto.startsWith("<") ? texto.slice(0, 200) : null;
+}
+
+/**
  * A autenticação da D4Sign vai na query string, não em cabeçalho.
  *
  * Consequência prática: a URL COMPLETA carrega o token. Ela não pode ser

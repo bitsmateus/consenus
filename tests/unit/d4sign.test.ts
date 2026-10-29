@@ -104,3 +104,33 @@ describe("integração desligada", () => {
     expect(assinaturaDigitalAtiva()).toBe(true);
   });
 });
+
+describe("explicação da falha para o operador", () => {
+  it("mostra o motivo que a D4Sign devolve numa recusa", async () => {
+    const { ErroDaD4Sign, explicarFalhaDaD4Sign } = await import("@/lib/d4sign");
+    const erro = new ErroDaD4Sign(400, JSON.stringify({ message: "Saldo de documentos insuficiente." }));
+    expect(explicarFalhaDaD4Sign(erro)).toBe("A D4Sign recusou o envio: Saldo de documentos insuficiente.");
+  });
+
+  it("aceita resposta em lista e texto puro, mas não despeja HTML", async () => {
+    const { ErroDaD4Sign, explicarFalhaDaD4Sign } = await import("@/lib/d4sign");
+    expect(explicarFalhaDaD4Sign(new ErroDaD4Sign(400, JSON.stringify([{ message: "E-mail inválido" }])))).toMatch(
+      /E-mail inválido/
+    );
+    expect(explicarFalhaDaD4Sign(new ErroDaD4Sign(422, "cpf obrigatório"))).toMatch(/cpf obrigatório/);
+    expect(explicarFalhaDaD4Sign(new ErroDaD4Sign(400, "<html>erro</html>"))).toMatch(
+      /Não foi possível falar/
+    );
+  });
+
+  it("separa credencial, limite, instabilidade e tempo esgotado", async () => {
+    const { ErroDaD4Sign, explicarFalhaDaD4Sign } = await import("@/lib/d4sign");
+    expect(explicarFalhaDaD4Sign(new ErroDaD4Sign(401, "{}"))).toMatch(/credencial/);
+    expect(explicarFalhaDaD4Sign(new ErroDaD4Sign(429, ""))).toMatch(/limite de requisições/);
+    expect(explicarFalhaDaD4Sign(new ErroDaD4Sign(503, "x"))).toMatch(/instabilidade/);
+    const tempo = new Error("tempo");
+    tempo.name = "TimeoutError";
+    expect(explicarFalhaDaD4Sign(tempo)).toMatch(/demorou demais/);
+    expect(explicarFalhaDaD4Sign(new Error("ECONNRESET"))).toMatch(/Não foi possível falar/);
+  });
+});
