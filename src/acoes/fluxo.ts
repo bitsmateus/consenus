@@ -5,6 +5,8 @@ import {
   DesfechoSessao,
   ItemDaDocumentacao,
   PapelNoAto,
+  Prisma,
+  StatusAssinatura,
   StatusAto,
   TipoDocumento,
   TipoEvento,
@@ -14,6 +16,8 @@ import { registrarAuditoria } from "@/lib/auditoria";
 import { configuracaoDoSistema } from "@/lib/configuracao";
 import { db } from "@/lib/db";
 import { emitirDocumento } from "@/lib/emissao";
+import { assinaturaDigitalAtiva, cancelarDocumento } from "@/lib/d4sign";
+import { fromZonedTime } from "date-fns-tz";
 import { ErroDeNegocio, FluxoInvalido } from "@/lib/erros";
 import { DESFECHOS_COM_ACORDO } from "@/lib/desfechos";
 import { cancelarReuniao, remarcarReuniao, videoconferenciaAtiva } from "@/lib/zoom";
@@ -21,6 +25,7 @@ import { formatarDiaHora, proximaVagaLivre, validarHorario } from "@/lib/agenda"
 import { carregarContextoDaAgenda, travarAgenda } from "@/lib/agenda-db";
 import { FUSO, sessaoAntesDaDataMarcada } from "@/lib/prazos";
 import { faltamItens } from "@/lib/documentacao";
+import { ataJaAssinada, envioAindaAberto } from "@/lib/retificacao";
 import { identificarLados } from "@/lib/identificacao-das-partes";
 import { exigirAcessoAoAto } from "@/lib/sessao";
 import { exigirPermissao, exigirAcessoCompleto } from "@/lib/permissoes";
@@ -464,50 +469,52 @@ export async function registrarSessao(
   }
 }
 
-/** Lavra a ata. Obrigatória em toda sessão, qualquer que seja o desfecho. */
-export async function gerarAta(entrada: FormData): Promise<void> {
-  const usuario = await exigirAcessoCompleto();
-  const atoId = String(entrada.get("atoId") ?? "");
-  if (!atoId) throw new ErroDeNegocio("Procedimento não informado.");
-
-  await exigirAcessoAoAto(atoId, db);
-
+/** Os dados do procedimento que a ata imprime. Igual na ata original e na retificada. */
+async function carregarParaAta(atoId: string) {
   const ato = await db.ato.findUnique({
     where: { id: atoId },
     include: {
       partes: { include: { pessoa: { select: { nome: true, documento: true, oab: true } } } },
-      documentos: { select: { tipo: true } },
+      documentos: {
+        where: { tipo: TipoDocumento.ATA },
+        orderBy: { criadoEm: "desc" },
+        include: { emAssinatura: { select: { status: true, jaAssinaram: true, identificadorExterno: true } } },
+      },
     },
   });
   if (!ato) throw new ErroDeNegocio("Procedimento não encontrado.");
-
   if (!ato.desfecho || !ato.horaInicio) {
     throw new FluxoInvalido("Registre a sessão antes de lavrar a ata.");
   }
-  // A ata só se lavra uma vez e não se regera. Sem Conciliador vinculado ela
-  // sairia sem o nome dele e sem ele entre os signatários (relato do cliente em
-  // 26/10), e não haveria como corrigir depois.
+  // A ata leva o nome e a linha de assinatura do Conciliador; sem ele
+  // vinculado, sairia sem ambos (relato do cliente em 26/10).
   if (!ato.partes.some((p) => p.papel === PapelNoAto.CONCILIADOR)) {
     throw new FluxoInvalido(
       "Vincule o Conciliador ao procedimento antes de lavrar a ata. Ela leva o nome dele " +
-        "e a linha de assinatura, e não pode ser refeita depois de lavrada."
+        "e a linha de assinatura."
     );
   }
-  if (ato.documentos.some((d) => d.tipo === TipoDocumento.ATA)) {
-    throw new FluxoInvalido("A ata deste procedimento já foi lavrada.");
-  }
+  return ato;
+}
 
+type AtoParaAta = Awaited<ReturnType<typeof carregarParaAta>>;
+
+/** Emite o PDF da ata a partir do que está gravado no procedimento. */
+async function emitirAta(
+  ato: AtoParaAta,
+  usuarioId: string,
+  aoRegistrar: (tx: Prisma.TransactionClient, codigo: string, documentoId: string) => Promise<void>
+) {
   const solicitante = ato.partes.find((p) => p.papel === PapelNoAto.SOLICITANTE);
   const convidado = ato.partes.find((p) => p.papel === PapelNoAto.CONVIDADO);
   const conciliador = ato.partes.find((p) => p.papel === PapelNoAto.CONCILIADOR);
-  const { dia, mes, ano } = partesDaData(ato.horaInicio);
-  const desfechoRegistrado = ato.desfecho;
+  const { dia, mes, ano } = partesDaData(ato.horaInicio!);
 
-  const { codigo } = await emitirDocumento({
-    atoId,
+  return emitirDocumento({
+    atoId: ato.id,
     tipo: "ATA",
     pasta: "ata",
-    usuarioId: usuario.id,
+    usuarioId,
     montarHtml: (codigo) =>
       ataDaSessao({
         codigo,
@@ -531,27 +538,45 @@ export async function gerarAta(entrada: FormData): Promise<void> {
             .filter(Boolean),
         ],
         ausentes: ato.partes.filter((p) => p.compareceu === false).map((p) => p.pessoa.nome),
-        desfecho: desfechoRegistrado as Desfecho,
+        desfecho: ato.desfecho as Desfecho,
         motivoPrejudicada: ato.motivoPrejudicada,
         observacoes: ato.observacoesSessao,
         conciliador: conciliador?.pessoa.nome ?? null,
         identificacao: identificarLados(ato.partes),
       }),
-    aoRegistrar: async (tx, codigo) => {
-      await tx.ato.update({
-        where: { id: atoId },
-        data: { status: STATUS_DO_DESFECHO[desfechoRegistrado] },
-      });
-      await tx.eventoAto.create({
-        data: {
-          atoId,
-          tipo: TipoEvento.ATA_GERADA,
-          descricao: `Ata de Sessão lavrada sob o código ${codigo}.`,
-          usuarioId: usuario.id,
-          metadados: { codigo, desfecho: desfechoRegistrado },
-        },
-      });
-    },
+    aoRegistrar,
+  });
+}
+
+/** Lavra a ata. Obrigatória em toda sessão, qualquer que seja o desfecho. */
+export async function gerarAta(entrada: FormData): Promise<void> {
+  const usuario = await exigirAcessoCompleto();
+  const atoId = String(entrada.get("atoId") ?? "");
+  if (!atoId) throw new ErroDeNegocio("Procedimento não informado.");
+
+  await exigirAcessoAoAto(atoId, db);
+
+  const ato = await carregarParaAta(atoId);
+  // a retificação tem caminho próprio, que guarda a ata anterior
+  if (ato.documentos.length > 0) {
+    throw new FluxoInvalido("A ata deste procedimento já foi lavrada.");
+  }
+  const desfechoRegistrado = ato.desfecho!;
+
+  const { codigo } = await emitirAta(ato, usuario.id, async (tx, codigo) => {
+    await tx.ato.update({
+      where: { id: atoId },
+      data: { status: STATUS_DO_DESFECHO[desfechoRegistrado] },
+    });
+    await tx.eventoAto.create({
+      data: {
+        atoId,
+        tipo: TipoEvento.ATA_GERADA,
+        descricao: `Ata de Sessão lavrada sob o código ${codigo}.`,
+        usuarioId: usuario.id,
+        metadados: { codigo, desfecho: desfechoRegistrado },
+      },
+    });
   });
 
   await registrarAuditoria({
@@ -563,6 +588,169 @@ export async function gerarAta(entrada: FormData): Promise<void> {
   });
 
   revalidatePath(`/atos/${atoId}`);
+}
+
+const retificacao = z.object({
+  atoId: z.string().min(1),
+  motivoRetificacao: z
+    .string()
+    .trim()
+    .min(5, "Explique o que está sendo corrigido.")
+    .max(500, "O motivo cabe em 500 caracteres."),
+  horaInicio: z.string().regex(/^\d{2}:\d{2}$/, "Informe a hora de início."),
+  horaEncerramento: z.string().regex(/^\d{2}:\d{2}$/, "Informe a hora de encerramento."),
+  motivoPrejudicada: z.string().trim().optional(),
+  observacoesSessao: z.string().trim().optional(),
+  outrosPresentes: z.string().trim().max(500).optional(),
+});
+
+/** "HH:MM" no dia da sessão, em horário de São Paulo. */
+function naDataDaSessao(base: Date, hora: string): Date {
+  const dia = new Intl.DateTimeFormat("sv-SE", { timeZone: FUSO }).format(base);
+  return fromZonedTime(`${dia}T${hora}:00`, FUSO);
+}
+
+/**
+ * Retifica a ata — pedido do cliente em 29/10, para erro de digitação.
+ *
+ * Regras combinadas com o cliente:
+ *  - só ata que ninguém assinou ainda;
+ *  - quem pode lavrar a ata pode retificá-la;
+ *  - o desfecho não muda: retificação corrige texto, não o resultado;
+ *  - sai uma ata NOVA, com código novo. A anterior não é apagada nem
+ *    alterada: fica no repositório apontando para a nova, e a página de
+ *    verificação passa a dizer que ela foi substituída.
+ *
+ * Se a ata anterior estava na D4Sign esperando assinaturas, o envio lá é
+ * cancelado, para ninguém assinar a versão errada.
+ */
+export async function retificarAta(
+  _anterior: EstadoDeFormulario,
+  entrada: FormData
+): Promise<EstadoDeFormulario> {
+  const usuario = await exigirAcessoCompleto();
+
+  const analise = retificacao.safeParse(Object.fromEntries(entrada));
+  if (!analise.success) {
+    return { erro: analise.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+  const dados = analise.data;
+  const atoId = dados.atoId;
+  const presentes = entrada.getAll("presente").map(String);
+
+  try {
+    await exigirAcessoAoAto(atoId, db);
+    const antes = await carregarParaAta(atoId);
+
+    const vigente = antes.documentos.find((d) => !d.substituidoPorId);
+    if (!vigente) throw new FluxoInvalido("Este procedimento ainda não tem ata para retificar.");
+    if (ataJaAssinada(vigente.emAssinatura)) {
+      throw new FluxoInvalido(
+        "Esta ata já recebeu assinatura e não pode mais ser retificada."
+      );
+    }
+    if (antes.desfecho === DesfechoSessao.SESSAO_PREJUDICADA && !dados.motivoPrejudicada) {
+      throw new FluxoInvalido("Sessão prejudicada exige o registro do motivo.");
+    }
+
+    const inicio = naDataDaSessao(antes.horaInicio!, dados.horaInicio);
+    const encerramento = naDataDaSessao(antes.horaInicio!, dados.horaEncerramento);
+    if (encerramento.getTime() < inicio.getTime()) {
+      throw new FluxoInvalido("O encerramento não pode ser antes do início.");
+    }
+
+    await db.$transaction(async (tx) => {
+      await tx.ato.update({
+        where: { id: atoId },
+        data: {
+          horaInicio: inicio,
+          horaEncerramento: encerramento,
+          motivoPrejudicada: dados.motivoPrejudicada || null,
+          observacoesSessao: dados.observacoesSessao || null,
+          outrosPresentes: dados.outrosPresentes || null,
+        },
+      });
+      for (const parte of antes.partes) {
+        await tx.parteDoAto.update({
+          where: { id: parte.id },
+          data: { compareceu: presentes.includes(parte.id) },
+        });
+      }
+    });
+
+    const ato = await carregarParaAta(atoId);
+    const assinaturaPendente = envioAindaAberto(vigente.emAssinatura) ? vigente.emAssinatura : null;
+
+    const { codigo } = await emitirAta(ato, usuario.id, async (tx, codigo, novoId) => {
+      // condicional no próprio UPDATE: duas retificações simultâneas não
+      // conseguem substituir a mesma ata duas vezes
+      const marcada = await tx.documento.updateMany({
+        where: { id: vigente.id, substituidoPorId: null },
+        data: { substituidoPorId: novoId, substituidoEm: new Date() },
+      });
+      if (marcada.count !== 1) {
+        throw new FluxoInvalido("Esta ata acabou de ser retificada por outra pessoa. Atualize a página.");
+      }
+      if (assinaturaPendente) {
+        await tx.operacaoAssinatura.update({
+          where: { documentoId: vigente.id },
+          data: { status: StatusAssinatura.CANCELADA },
+        });
+      }
+      await tx.eventoAto.create({
+        data: {
+          atoId,
+          tipo: TipoEvento.ATA_GERADA,
+          descricao:
+            `Ata retificada: ${codigo} substitui ${vigente.codigoVerificacao}. ` +
+            `Motivo: ${dados.motivoRetificacao}`,
+          usuarioId: usuario.id,
+          metadados: { codigo, substitui: vigente.codigoVerificacao, motivo: dados.motivoRetificacao },
+        },
+      });
+    });
+
+    await registrarAuditoria({
+      usuarioId: usuario.id,
+      acao: "GEROU_DOCUMENTO",
+      entidade: "Documento",
+      entidadeId: codigo,
+      metadados: {
+        atoId,
+        tipo: TipoDocumento.ATA,
+        retificacao: true,
+        substitui: vigente.codigoVerificacao,
+        motivo: dados.motivoRetificacao,
+      },
+    });
+
+    // fora da transação: é chamada externa. Se falhar, o envio antigo segue
+    // aberto lá, e a linha do tempo diz o que fazer
+    if (assinaturaPendente && assinaturaDigitalAtiva()) {
+      try {
+        await cancelarDocumento(
+          assinaturaPendente.identificadorExterno,
+          `Ata retificada: substituída pela ${codigo}.`
+        );
+      } catch (erro) {
+        console.error("[assinatura] falha ao cancelar a ata retificada na D4Sign", erro);
+        await db.eventoAto.create({
+          data: {
+            atoId,
+            tipo: TipoEvento.OBSERVACAO,
+            descricao: `Não foi possível cancelar na D4Sign o envio da ata ${vigente.codigoVerificacao}. Cancele pelo painel deles, para ninguém assinar a versão substituída.`,
+            usuarioId: usuario.id,
+          },
+        });
+      }
+    }
+
+    revalidatePath(`/atos/${atoId}`);
+    return { aviso: `Ata retificada. A nova ata é a ${codigo}.` };
+  } catch (erro) {
+    if (erro instanceof ErroDeNegocio) return { erro: erro.message };
+    throw erro;
+  }
 }
 
 const termo = z.object({

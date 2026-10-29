@@ -32,6 +32,8 @@ type Documento = {
   hashSha256: string;
   emitidoPelaCamara: boolean;
   observacao: string | null;
+  /** preenchido quando a ata foi retificada e outra a substituiu */
+  substituidoPorId: string | null;
   criadoEm: Date;
   /** null = ainda não foi para assinatura eletrônica */
   assinatura: AssinaturaDoDocumento | null;
@@ -102,7 +104,11 @@ export function SecaoDeDocumentos({
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  {doc.emitidoPelaCamara && <Etiqueta tom="andamento">Emitido</Etiqueta>}
+                  {doc.substituidoPorId ? (
+                    <Etiqueta tom="atencao">Substituída</Etiqueta>
+                  ) : (
+                    doc.emitidoPelaCamara && <Etiqueta tom="andamento">Emitido</Etiqueta>
+                  )}
                   <a
                     href={`/api/documentos/${doc.id}/download`}
                     className="rounded-md border border-carvao-100 px-3 py-1.5 text-[11px] font-medium text-grafite-700 hover:border-dourado-600"
@@ -120,7 +126,8 @@ export function SecaoDeDocumentos({
                 />
               )}
 
-              {equipe && assinaturaAtiva && ASSINAVEIS.includes(doc.tipo) && (
+              {/* ata substituída por retificação não vai mais para assinatura */}
+              {equipe && assinaturaAtiva && ASSINAVEIS.includes(doc.tipo) && !doc.substituidoPorId && (
                 <Assinatura documentoId={doc.id} assinatura={doc.assinatura} />
               )}
             </li>

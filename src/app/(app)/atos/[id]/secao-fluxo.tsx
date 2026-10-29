@@ -1,4 +1,10 @@
-import { DesfechoSessao, ItemDaDocumentacao, StatusAto, TipoDocumento } from "@prisma/client";
+import {
+  DesfechoSessao,
+  ItemDaDocumentacao,
+  StatusAssinatura,
+  StatusAto,
+  TipoDocumento,
+} from "@prisma/client";
 import {
   cancelarAto,
   conferirItem,
@@ -15,6 +21,9 @@ import { formatarData } from "@/lib/formato";
 import { sessaoAntesDaDataMarcada } from "@/lib/prazos";
 import { FormularioDaSessao, FormularioDoTermo } from "./formularios-da-sessao";
 import { ROTULO_TIPO } from "./secao-documentos";
+import { RetificarAta } from "./retificar-ata";
+import { ataJaAssinada, envioAindaAberto } from "@/lib/retificacao";
+import { FUSO } from "@/lib/prazos";
 
 type Conferencia = {
   item: ItemDaDocumentacao;
@@ -42,14 +51,31 @@ export function SecaoDeFluxo({
     dataConfirmada: Date | null;
     desfecho: DesfechoSessao | null;
     conferencias: Conferencia[];
-    documentos: { id: string; tipo: TipoDocumento; nomeArquivo: string; criadoEm: Date }[];
-    partes: { id: string; pessoa: { nome: string }; papel: string }[];
+    documentos: {
+      id: string;
+      tipo: TipoDocumento;
+      nomeArquivo: string;
+      criadoEm: Date;
+      codigoVerificacao: string | null;
+      substituidoPorId: string | null;
+      emAssinatura: { status: StatusAssinatura; jaAssinaram: number } | null;
+    }[];
+    partes: { id: string; pessoa: { nome: string }; papel: string; compareceu: boolean | null }[];
+    horaInicio: Date | null;
+    horaEncerramento: Date | null;
+    outrosPresentes: string | null;
+    motivoPrejudicada: string | null;
+    observacoesSessao: string | null;
   };
   equipe: boolean;
 }) {
   if (!equipe) return null;
 
   const temAta = ato.documentos.some((d) => d.tipo === TipoDocumento.ATA);
+  const ataVigente = ato.documentos.find(
+    (d) => d.tipo === TipoDocumento.ATA && !d.substituidoPorId
+  );
+  const podeRetificar = Boolean(ataVigente && !ataJaAssinada(ataVigente.emAssinatura));
   const semConciliador = !ato.partes.some((p) => p.papel === "CONCILIADOR");
   const temTermo = ato.documentos.some((d) => d.tipo === TipoDocumento.TERMO_ACORDO);
   const pendentes = faltamItens(ato.conferencias);
@@ -285,6 +311,27 @@ export function SecaoDeFluxo({
         </form>
       )}
 
+      {/* ---------------------------------------------- retificação da ata */}
+      {podeRetificar && ataVigente && (
+        <RetificarAta
+          atoId={ato.id}
+          codigoVigente={ataVigente.codigoVerificacao ?? ataVigente.nomeArquivo}
+          enviadaParaAssinatura={envioAindaAberto(ataVigente.emAssinatura)}
+          partes={ato.partes.map((p) => ({
+            id: p.id,
+            nome: p.pessoa.nome,
+            papel: p.papel,
+            compareceu: p.compareceu === true,
+          }))}
+          horaInicio={horaParaCampo(ato.horaInicio)}
+          horaEncerramento={horaParaCampo(ato.horaEncerramento)}
+          outrosPresentes={ato.outrosPresentes ?? ""}
+          motivoPrejudicada={ato.motivoPrejudicada ?? ""}
+          observacoesSessao={ato.observacoesSessao ?? ""}
+          prejudicada={ato.desfecho === DesfechoSessao.SESSAO_PREJUDICADA}
+        />
+      )}
+
       {/* ---------------------------------------------- termo de acordo */}
       {temAta && cabeAcordo && !temTermo && (
         <div className="mb-3">
@@ -330,4 +377,15 @@ export function SecaoDeFluxo({
       )}
     </section>
   );
+}
+
+/** "HH:MM" em São Paulo, o formato do `<input type="time">`. */
+function horaParaCampo(data: Date | null): string {
+  if (!data) return "";
+  return new Intl.DateTimeFormat("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+    timeZone: FUSO,
+  }).format(data);
 }

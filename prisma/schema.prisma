@@ -371,6 +371,14 @@ model Documento {
   /// quando este documento É o PDF assinado que voltou
   assinaturaDeOrigem OperacaoAssinatura? @relation("DocumentoAssinadoDaOperacao")
 
+  /// Retificação da Ata (pedido do cliente em 29/10): a ata errada não é
+  /// apagada nem alterada — fica no repositório apontando para a que a
+  /// substituiu, e a página de verificação passa a dizer "substituído".
+  substituidoPorId String?    @unique
+  substituidoPor   Documento? @relation("Retificacao", fields: [substituidoPorId], references: [id])
+  substitui        Documento? @relation("Retificacao")
+  substituidoEm    DateTime?  @db.Timestamptz(3)
+
   criadoEm DateTime @default(now()) @db.Timestamptz(3)
 
   @@index([atoId])

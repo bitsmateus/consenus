@@ -43,7 +43,11 @@ export async function emitirDocumento(params: {
   /** Recebe o código já reservado e devolve o HTML do documento. */
   montarHtml: (codigo: string) => string;
   /** Roda dentro da mesma transação que cria o documento. */
-  aoRegistrar?: (tx: Prisma.TransactionClient, codigo: string) => Promise<void>;
+  aoRegistrar?: (
+    tx: Prisma.TransactionClient,
+    codigo: string,
+    documentoId: string
+  ) => Promise<void>;
 }): Promise<ResultadoDaEmissao> {
   const url = await urlDeVerificacao();
   const ano = Number(
@@ -91,7 +95,7 @@ export async function emitirDocumento(params: {
             enviadoPorId: params.usuarioId,
           },
         });
-        await params.aoRegistrar?.(tx, codigo);
+        await params.aoRegistrar?.(tx, codigo, criado.id);
         return criado;
       });
 

@@ -31,7 +31,17 @@ const ROTULO_PUBLICO: Partial<Record<TipoDocumento, string>> = {
 };
 
 export type Resultado =
-  | { situacao: "autentico"; tipo: string; codigo: string; emitidoEm: string }
+  | {
+      situacao: "autentico";
+      tipo: string;
+      codigo: string;
+      emitidoEm: string;
+      /**
+       * Data em que o documento foi substituído por retificação (decisão do
+       * cliente em 29/10). Só a data: o código do substituto não é exposto.
+       */
+      substituidoEm: string | null;
+    }
   | { situacao: "nao_encontrado" }
   | { situacao: "limite"; esperarSegundos: number }
   | { situacao: "desafio" };
@@ -44,6 +54,10 @@ export type Resultado =
  * sequencial.
  */
 const NAO_ENCONTRADO: Resultado = { situacao: "nao_encontrado" };
+
+function dataCurta(data: Date): string {
+  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeZone: FUSO }).format(data);
+}
 
 export async function verificarCodigo(entrada: string, chaveDoConsultante: string): Promise<Resultado> {
   const inicio = Date.now();
@@ -67,7 +81,13 @@ export async function verificarCodigo(entrada: string, chaveDoConsultante: strin
   const documento = formatoOk
     ? await db.documento.findUnique({
         where: { codigoVerificacao: codigo },
-        select: { tipo: true, codigoVerificacao: true, criadoEm: true, emitidoPelaCamara: true },
+        select: {
+          tipo: true,
+          codigoVerificacao: true,
+          criadoEm: true,
+          emitidoPelaCamara: true,
+          substituidoEm: true,
+        },
       })
     : null;
 
@@ -93,10 +113,8 @@ export async function verificarCodigo(entrada: string, chaveDoConsultante: strin
     situacao: "autentico",
     tipo: ROTULO_PUBLICO[documento.tipo] ?? "Documento",
     codigo: documento.codigoVerificacao!,
-    emitidoEm: new Intl.DateTimeFormat("pt-BR", {
-      dateStyle: "short",
-      timeZone: FUSO,
-    }).format(documento.criadoEm),
+    emitidoEm: dataCurta(documento.criadoEm),
+    substituidoEm: documento.substituidoEm ? dataCurta(documento.substituidoEm) : null,
   };
 }
 

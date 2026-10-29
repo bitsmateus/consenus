@@ -107,6 +107,31 @@ function Resposta({ resultado }: { resultado: Resultado }) {
     );
   }
 
+  if (resultado.substituidoEm) {
+    return (
+      <div
+        role="status"
+        className="mt-6 rounded-lg border border-atencao/20 bg-atencao-bg px-5 py-4"
+      >
+        <p className="mb-3 text-sm font-semibold text-atencao">
+          Documento emitido pela câmara, mas substituído
+        </p>
+        <dl className="space-y-1.5 text-sm">
+          <Linha rotulo="Tipo" valor={resultado.tipo} />
+          <Linha rotulo="Código" valor={resultado.codigo} mono />
+          <Linha rotulo="Emitido em" valor={resultado.emitidoEm} mono />
+          <Linha
+            rotulo="Situação"
+            valor={`Substituído por retificação em ${resultado.substituidoEm}`}
+          />
+        </dl>
+        <p className="mt-3 text-xs leading-relaxed text-atencao">
+          Esta versão não é mais a válida. Solicite à câmara o documento vigente.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div
       role="status"

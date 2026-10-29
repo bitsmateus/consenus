@@ -102,6 +102,11 @@ export async function enviarParaAssinatura(
     if (!ASSINAVEIS.includes(documento.tipo)) {
       throw new FluxoInvalido("Só a Ata e o Termo de Acordo vão para assinatura eletrônica.");
     }
+    if (documento.substituidoPorId) {
+      throw new FluxoInvalido(
+        "Esta ata foi retificada e substituída por outra. Envie a ata nova para assinatura."
+      );
+    }
     if (documento.emAssinatura) {
       throw new FluxoInvalido(
         "Este documento já foi enviado para assinatura. Acompanhe o andamento na linha do tempo."
