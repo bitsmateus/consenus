@@ -101,8 +101,15 @@ export function explicarFalhaDaD4Sign(erro: unknown): string {
     const naEtapa = erro.etapa ? ` na etapa "${ETAPAS[erro.etapa] ?? erro.etapa}"` : "";
     const eDisse = motivo ? ` Resposta da D4Sign: ${motivo}` : "";
 
-    if (erro.status === 429) {
-      return "A D4Sign recusou por limite de requisições. Aguarde alguns minutos e tente de novo.";
+    // A D4Sign também responde 401 quando a chave estourou o limite de uso
+    // de um método ("Esta chave da API já atingiu o tempo limite para este
+    // método") — relato do cliente em 04/11. Não é credencial: é esperar.
+    if (erro.status === 429 || (motivo && /limite/i.test(motivo))) {
+      return (
+        `A D4Sign bloqueou temporariamente o uso da chave da câmara${naEtapa}, por limite de ` +
+        "requisições do plano. Aguarde cerca de 1 hora e tente uma única vez; cada nova " +
+        `tentativa conta no limite.${eDisse}`
+      );
     }
     if (erro.status === 401 || erro.status === 403) {
       return `A D4Sign negou permissão${naEtapa} (código ${erro.status}).${eDisse} Avise o suporte.`;

@@ -127,6 +127,13 @@ describe("explicação da falha para o operador", () => {
     const { ErroDaD4Sign, explicarFalhaDaD4Sign } = await import("@/lib/d4sign");
     expect(explicarFalhaDaD4Sign(new ErroDaD4Sign(401, "{}"))).toMatch(/negou permissão \(código 401\)/);
     expect(explicarFalhaDaD4Sign(new ErroDaD4Sign(429, ""))).toMatch(/limite de requisições/);
+    // 401 com o texto de limite que a D4Sign usa (visto em produção em 04/11)
+    const limite = new ErroDaD4Sign(
+      401,
+      JSON.stringify({ message: "Esta chave da API já atingiu o tempo limite para este método" })
+    );
+    limite.etapa = "upload";
+    expect(explicarFalhaDaD4Sign(limite)).toMatch(/bloqueou temporariamente.*envio do PDF.*1 hora/s);
     expect(explicarFalhaDaD4Sign(new ErroDaD4Sign(503, "x"))).toMatch(/instabilidade/);
     const tempo = new Error("tempo");
     tempo.name = "TimeoutError";
