@@ -125,12 +125,42 @@ describe("explicação da falha para o operador", () => {
 
   it("separa credencial, limite, instabilidade e tempo esgotado", async () => {
     const { ErroDaD4Sign, explicarFalhaDaD4Sign } = await import("@/lib/d4sign");
-    expect(explicarFalhaDaD4Sign(new ErroDaD4Sign(401, "{}"))).toMatch(/credencial/);
+    expect(explicarFalhaDaD4Sign(new ErroDaD4Sign(401, "{}"))).toMatch(/negou permissão \(código 401\)/);
     expect(explicarFalhaDaD4Sign(new ErroDaD4Sign(429, ""))).toMatch(/limite de requisições/);
     expect(explicarFalhaDaD4Sign(new ErroDaD4Sign(503, "x"))).toMatch(/instabilidade/);
     const tempo = new Error("tempo");
     tempo.name = "TimeoutError";
     expect(explicarFalhaDaD4Sign(tempo)).toMatch(/demorou demais/);
     expect(explicarFalhaDaD4Sign(new Error("ECONNRESET"))).toMatch(/Não foi possível falar/);
+  });
+});
+
+describe("etapa e resposta da D4Sign na mensagem de permissão negada", () => {
+  it("diz qual chamada foi recusada e o que a D4Sign respondeu", async () => {
+    const { ErroDaD4Sign, explicarFalhaDaD4Sign } = await import("@/lib/d4sign");
+    const erro = new ErroDaD4Sign(403, JSON.stringify({ message: "Usuário sem permissão no cofre" }));
+    erro.etapa = "createlist";
+    const texto = explicarFalhaDaD4Sign(erro);
+    expect(texto).toContain('etapa "cadastro dos signatários"');
+    expect(texto).toContain("código 403");
+    expect(texto).toContain("Usuário sem permissão no cofre");
+  });
+
+  it("a chamada real marca a etapa no erro, sem levar a URL com o token", async () => {
+    vi.stubEnv("D4SIGN_TOKEN_API", "token-secreto");
+    vi.stubEnv("D4SIGN_CRYPT_KEY", "chave");
+    vi.stubEnv("D4SIGN_UUID_COFRE", "cofre");
+    const resposta = new Response(JSON.stringify({ message: "sem permissão" }), { status: 403 });
+    vi.stubGlobal("fetch", vi.fn(async () => resposta));
+    const { cadastrarSignatarios, ErroDaD4Sign } = await import("@/lib/d4sign");
+
+    const erro = await cadastrarSignatarios("uuid-1", [{ nome: "A", email: "a@x.test", papel: "x" }]).catch(
+      (e: unknown) => e
+    );
+    expect(erro).toBeInstanceOf(ErroDaD4Sign);
+    expect((erro as InstanceType<typeof ErroDaD4Sign>).etapa).toBe("createlist");
+    expect(JSON.stringify(erro) + String((erro as Error).message)).not.toContain("token-secreto");
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
   });
 });

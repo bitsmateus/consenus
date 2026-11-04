@@ -58,6 +58,9 @@ function cofre(): string {
  * adivinhação.
  */
 export class ErroDaD4Sign extends Error {
+  /** qual chamada falhou ("createlist", "sendtosigner"…) — nunca a URL, que leva o token */
+  etapa: string | null = null;
+
   constructor(
     readonly status: number,
     readonly corpo: string,
@@ -66,6 +69,21 @@ export class ErroDaD4Sign extends Error {
     super(mensagem);
     this.name = "ErroDaD4Sign";
   }
+}
+
+/** Nome legível de cada chamada, para a mensagem ao operador. */
+const ETAPAS: Record<string, string> = {
+  upload: "envio do PDF",
+  createlist: "cadastro dos signatários",
+  addinfo: "cadastro do nome dos signatários",
+  webhooks: "registro do aviso de retorno",
+  sendtosigner: "disparo dos convites",
+  download: "download do assinado",
+  cancel: "cancelamento",
+};
+
+function etapaDoCaminho(caminho: string): string {
+  return caminho.split("/").filter(Boolean).pop() ?? caminho;
 }
 
 /**
@@ -79,18 +97,21 @@ export class ErroDaD4Sign extends Error {
  */
 export function explicarFalhaDaD4Sign(erro: unknown): string {
   if (erro instanceof ErroDaD4Sign) {
+    const motivo = motivoNoCorpo(erro.corpo);
+    const naEtapa = erro.etapa ? ` na etapa "${ETAPAS[erro.etapa] ?? erro.etapa}"` : "";
+    const eDisse = motivo ? ` Resposta da D4Sign: ${motivo}` : "";
+
     if (erro.status === 429) {
       return "A D4Sign recusou por limite de requisições. Aguarde alguns minutos e tente de novo.";
     }
     if (erro.status === 401 || erro.status === 403) {
-      return "A D4Sign recusou o acesso da câmara (credencial inválida ou sem permissão). Avise o suporte.";
+      return `A D4Sign negou permissão${naEtapa} (código ${erro.status}).${eDisse} Avise o suporte.`;
     }
-    const motivo = motivoNoCorpo(erro.corpo);
     if (erro.status >= 400 && erro.status < 500 && motivo) {
-      return `A D4Sign recusou o envio: ${motivo}`;
+      return `A D4Sign recusou o envio${naEtapa}: ${motivo}`;
     }
     if (erro.status >= 500) {
-      return "A D4Sign está com instabilidade agora. Tente de novo em alguns minutos.";
+      return `A D4Sign está com instabilidade agora${naEtapa}. Tente de novo em alguns minutos.`;
     }
   }
   if (erro instanceof Error && (erro.name === "TimeoutError" || erro.name === "AbortError")) {
@@ -133,6 +154,18 @@ function montarUrl(caminho: string): string {
 async function chamar(
   caminho: string,
   opcoes: { body?: BodyInit; json?: unknown; metodo?: string } = {}
+): Promise<unknown> {
+  try {
+    return await chamarSemEtapa(caminho, opcoes);
+  } catch (erro) {
+    if (erro instanceof ErroDaD4Sign) erro.etapa = etapaDoCaminho(caminho);
+    throw erro;
+  }
+}
+
+async function chamarSemEtapa(
+  caminho: string,
+  opcoes: { body?: BodyInit; json?: unknown; metodo?: string }
 ): Promise<unknown> {
   const cabecalhos: Record<string, string> = { Accept: "application/json" };
   let corpo = opcoes.body;
