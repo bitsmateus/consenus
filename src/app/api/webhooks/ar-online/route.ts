@@ -18,7 +18,7 @@
  */
 import { NextResponse } from "next/server";
 import { StatusEnvio, TipoDocumento, TipoEvento } from "@prisma/client";
-import { avisoAutentico, baixarLaudo, statusIndicaEntrega } from "@/lib/ar-online";
+import { baixarLaudo, motivoRecusaDoAviso, statusIndicaEntrega } from "@/lib/ar-online";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { db } from "@/lib/db";
 import { calcularHash, enviarArquivo, montarChave } from "@/lib/storage";
@@ -33,9 +33,13 @@ type Aviso = {
 };
 
 export async function POST(requisicao: Request) {
-  if (!avisoAutentico(requisicao.headers.get("authorization"))) {
-    console.warn("[ar-online] webhook recusado: Authorization não confere");
-    return NextResponse.json({ erro: "não autorizado" }, { status: 404 });
+  // 401, e não 404: com 404 o suporte da AR Online leu a recusa como "rota
+  // inexistente" e foi procurar mudança de URL. A rota é pública de qualquer
+  // jeito (ver middleware), então esconder a existência dela não protege nada.
+  const motivo = motivoRecusaDoAviso(requisicao.headers.get("authorization"));
+  if (motivo) {
+    console.warn(`[ar-online] webhook recusado: ${motivo}`);
+    return NextResponse.json({ erro: "não autorizado" }, { status: 401 });
   }
 
   let aviso: Aviso;

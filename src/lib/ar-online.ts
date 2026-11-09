@@ -253,18 +253,40 @@ export function statusIndicaEntrega(status: string | null | undefined): boolean 
   return ENTREGUES.some((termo) => limpo.startsWith(termo));
 }
 
+/** Por que um aviso foi recusado. Vai só para o log, nunca para a resposta. */
+export type MotivoRecusaDoAviso =
+  | "token não configurado no servidor (AR_ONLINE_WEBHOOK_TOKEN vazio)"
+  | "aviso sem header Authorization"
+  | "Authorization não confere com AR_ONLINE_WEBHOOK_TOKEN";
+
 /**
- * Confere o header fixo que a AR Online envia nos avisos.
+ * Confere o header fixo que a AR Online envia nos avisos e, se recusar, diz
+ * por quê — para o log. Sem isso, "token não configurado" e "token errado"
+ * ficam indistinguíveis, e foi exatamente o que travou o diagnóstico com o
+ * suporte deles em 11/2026.
+ *
+ * Aceita o valor com ou sem o prefixo "Bearer": a AR Online não usa prefixo
+ * nas chamadas à API, mas o cadastro do webhook é feito à mão pelo suporte.
  *
  * Comparação em tempo constante: igualdade com `===` vaza, pelo tempo de
  * resposta, quantos caracteres do começo o atacante já acertou.
  */
-export function avisoAutentico(cabecalho: string | null): boolean {
-  const esperado = process.env.AR_ONLINE_WEBHOOK_TOKEN;
-  if (!esperado || !cabecalho) return false;
+export function motivoRecusaDoAviso(cabecalho: string | null): MotivoRecusaDoAviso | null {
+  const esperado = process.env.AR_ONLINE_WEBHOOK_TOKEN?.trim();
+  if (!esperado) return "token não configurado no servidor (AR_ONLINE_WEBHOOK_TOKEN vazio)";
 
-  const a = Buffer.from(cabecalho);
+  const recebido = cabecalho?.trim().replace(/^Bearer(\s+|$)/i, "");
+  if (!recebido) return "aviso sem header Authorization";
+
+  const a = Buffer.from(recebido);
   const b = Buffer.from(esperado);
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(a, b);
+  if (a.length !== b.length || !timingSafeEqual(a, b)) {
+    return "Authorization não confere com AR_ONLINE_WEBHOOK_TOKEN";
+  }
+  return null;
+}
+
+/** Atalho booleano de `motivoRecusaDoAviso`. */
+export function avisoAutentico(cabecalho: string | null): boolean {
+  return motivoRecusaDoAviso(cabecalho) === null;
 }

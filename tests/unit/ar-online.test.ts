@@ -4,6 +4,7 @@ import {
   montarCorpo,
   ORIENTACAO_PRESENCIAL,
   montarVariaveisDoConvite,
+  motivoRecusaDoAviso,
   normalizarTelefone,
   statusIndicaEntrega,
 } from "@/lib/ar-online";
@@ -174,5 +175,34 @@ describe("variáveis do template de WhatsApp da carta-convite", () => {
       linkDaReuniao: "https://zoom.us/j/123",
     });
     expect(variaveis.LINK_REUNIAO).toBe("https://zoom.us/j/123");
+  });
+});
+
+describe("autenticação do aviso de status", () => {
+  beforeEach(() => {
+    process.env.AR_ONLINE_WEBHOOK_TOKEN = "segredo-combinado";
+  });
+
+  it("aceita o valor exato, com ou sem Bearer", () => {
+    expect(motivoRecusaDoAviso("segredo-combinado")).toBeNull();
+    expect(motivoRecusaDoAviso("Bearer segredo-combinado")).toBeNull();
+    expect(motivoRecusaDoAviso("  segredo-combinado  ")).toBeNull();
+  });
+
+  it("recusa valor diferente", () => {
+    expect(motivoRecusaDoAviso("outro")).toMatch(/não confere/);
+    expect(motivoRecusaDoAviso("segredo-combinadx")).toMatch(/não confere/);
+  });
+
+  it("recusa aviso sem header", () => {
+    expect(motivoRecusaDoAviso(null)).toMatch(/sem header/);
+    expect(motivoRecusaDoAviso("Bearer ")).toMatch(/sem header/);
+  });
+
+  it("recusa tudo quando o token não está configurado, e diz isso", () => {
+    process.env.AR_ONLINE_WEBHOOK_TOKEN = "";
+    expect(motivoRecusaDoAviso("segredo-combinado")).toMatch(/não configurado/);
+    delete process.env.AR_ONLINE_WEBHOOK_TOKEN;
+    expect(motivoRecusaDoAviso("qualquer")).toMatch(/não configurado/);
   });
 });
