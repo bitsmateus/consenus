@@ -33,6 +33,13 @@ import { cartaAoConvidado } from "@/documentos/carta-convite";
 import { ataDaSessao, type Desfecho } from "@/documentos/ata";
 import { termoDeAcordo } from "@/documentos/termo-acordo";
 import { formatarRepresentantes, ROTULO_MODALIDADE } from "@/lib/formato";
+import { envioAutomaticoAtivo, enviarNotificacao } from "@/lib/ar-online";
+import { emailAtivo, enviarEmail } from "@/lib/email";
+import {
+  destinatariosDoAviso,
+  mensagemDeCancelamento,
+  variaveisDoCancelamento,
+} from "@/lib/aviso-de-cancelamento";
 
 export type EstadoDeFormulario = { erro?: string; aviso?: string };
 
@@ -930,5 +937,114 @@ export async function cancelarAto(entrada: FormData): Promise<void> {
     }
   }
 
+  await avisarCancelamento(atoId);
+
   revalidatePath(`/atos/${atoId}`);
+}
+
+/**
+ * Avisa do cancelamento cada pessoa que recebeu Carta-Convite do procedimento.
+ *
+ * Sai pela AR Online quando ela está ligada (fica o comprovante, como na
+ * carta) e, sem ela, pelo SMTP da câmara. O resultado de cada aviso entra no
+ * histórico do procedimento, para o operador saber quem foi e quem não foi
+ * avisado. Nunca lança: o encerramento já está gravado e não pode ser
+ * desfeito por falha de terceiro.
+ */
+async function avisarCancelamento(atoId: string): Promise<void> {
+  try {
+    const [ato, envios, config] = await Promise.all([
+      db.ato.findUnique({
+        where: { id: atoId },
+        select: {
+          numero: true,
+          dataReservada: true,
+          dataConfirmada: true,
+          partes: {
+            where: { papel: { in: [PapelNoAto.SOLICITANTE, PapelNoAto.CONVIDADO] } },
+            select: { papel: true, pessoa: { select: { nome: true } } },
+          },
+        },
+      }),
+      db.envio.findMany({
+        where: { atoId },
+        orderBy: { criadoEm: "asc" },
+        select: {
+          destinatario: { select: { id: true, nome: true, email: true, telefone: true } },
+        },
+      }),
+      configuracaoDoSistema(),
+    ]);
+    if (!ato) return;
+
+    const destinatarios = destinatariosDoAviso(envios);
+    if (destinatarios.length === 0) return;
+
+    const pelaArOnline = envioAutomaticoAtivo();
+    const peloEmail = !pelaArOnline && emailAtivo();
+    if (!pelaArOnline && !peloEmail) {
+      await anotar(
+        atoId,
+        "Nenhum canal automático configurado: avise do cancelamento, por fora, quem recebeu Carta-Convite."
+      );
+      return;
+    }
+
+    const dataDaSessao = ato.dataConfirmada ?? ato.dataReservada;
+    const nomeDaParte = (papel: PapelNoAto) =>
+      ato.partes.find((p) => p.papel === papel)?.pessoa.nome ?? "—";
+
+    for (const pessoa of destinatarios) {
+      const mensagem = mensagemDeCancelamento({
+        nomeDestinatario: pessoa.nome,
+        numeroDoAto: ato.numero,
+        nomeCamara: config.nomeCamara,
+        dataDaSessao,
+      });
+
+      try {
+        if (pelaArOnline) {
+          if (!pessoa.email && !process.env.AR_ONLINE_TEMPLATE_WHATSAPP_CANCELAMENTO) {
+            await anotar(atoId, `${pessoa.nome} não tem e-mail cadastrado: avise do cancelamento por fora.`);
+            continue;
+          }
+          const { protocolo, canais } = await enviarNotificacao({
+            destinatario: pessoa,
+            assunto: mensagem.assunto,
+            conteudoHtml: mensagem.html,
+            referencia: `cancelamento-${atoId}-${pessoa.id}`,
+            templateWhatsapp: process.env.AR_ONLINE_TEMPLATE_WHATSAPP_CANCELAMENTO ?? "",
+            variaveisDoTemplate: variaveisDoCancelamento({
+              solicitante: nomeDaParte(PapelNoAto.SOLICITANTE),
+              convidado: nomeDaParte(PapelNoAto.CONVIDADO),
+              dataDaSessao,
+            }),
+          });
+          await anotar(
+            atoId,
+            `Aviso de cancelamento enviado a ${pessoa.nome} pela AR Online (${canais.join(" e ")}), protocolo ${protocolo}.`
+          );
+        } else {
+          if (!pessoa.email) {
+            await anotar(atoId, `${pessoa.nome} não tem e-mail cadastrado: avise do cancelamento por fora.`);
+            continue;
+          }
+          await enviarEmail({ para: pessoa.email, ...mensagem });
+          await anotar(atoId, `Aviso de cancelamento enviado a ${pessoa.nome} por e-mail.`);
+        }
+      } catch (erro) {
+        console.error("[cancelamento] falha ao avisar", atoId, pessoa.id, erro);
+        await anotar(
+          atoId,
+          `Não foi possível enviar o aviso de cancelamento a ${pessoa.nome}. Avise por fora.`
+        );
+      }
+    }
+  } catch (erro) {
+    console.error("[cancelamento] falha ao preparar os avisos", atoId, erro);
+  }
+}
+
+async function anotar(atoId: string, descricao: string): Promise<void> {
+  await db.eventoAto.create({ data: { atoId, tipo: TipoEvento.OBSERVACAO, descricao } });
 }

@@ -362,6 +362,11 @@ export function SecaoDeFluxo({
               no prazo, a sessão não é confirmada e o cadastro pode ser encerrado,
               sem prejuízo de nova solicitação.
             </p>
+            <p className="mb-3 text-xs leading-relaxed text-carvao-500">
+              Ao encerrar, a sala do Zoom é cancelada e quem recebeu Carta-Convite
+              recebe automaticamente o aviso de cancelamento da sessão. O motivo
+              fica só no histórico interno.
+            </p>
             <input
               name="motivo"
               required

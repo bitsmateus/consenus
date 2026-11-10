@@ -83,10 +83,13 @@ export function normalizarTelefone(telefone: string | null | undefined): string 
  * WhatsApp só entra se houver template configurado: a AR Online exige um
  * template aprovado, e o identificador dele é da conta do cliente.
  */
-export function canaisPossiveis(destinatario: Destinatario): CanalArOnline[] {
+export function canaisPossiveis(
+  destinatario: Destinatario,
+  templateWhatsapp: string | undefined = process.env.AR_ONLINE_TEMPLATE_WHATSAPP
+): CanalArOnline[] {
   const canais: CanalArOnline[] = [];
   if (destinatario.email) canais.push("email");
-  if (normalizarTelefone(destinatario.telefone) && process.env.AR_ONLINE_TEMPLATE_WHATSAPP) {
+  if (normalizarTelefone(destinatario.telefone) && templateWhatsapp) {
     canais.push("whatsapp");
   }
   return canais;
@@ -102,7 +105,17 @@ export type PedidoDeEnvio = {
   anexo?: Anexo;
   /** Variáveis do template de WhatsApp, combinadas com o cliente. */
   variaveisDoTemplate?: Record<string, string>;
+  /**
+   * Template de WhatsApp deste envio. Ausente = o da carta-convite
+   * (AR_ONLINE_TEMPLATE_WHATSAPP). Vazio = envio só por e-mail.
+   */
+  templateWhatsapp?: string;
 };
+
+/** "" = sem WhatsApp. Não devolve undefined, que cairia no padrão de canaisPossiveis. */
+function templateDoPedido(pedido: PedidoDeEnvio): string {
+  return pedido.templateWhatsapp ?? process.env.AR_ONLINE_TEMPLATE_WHATSAPP ?? "";
+}
 
 /**
  * Variáveis do template de WhatsApp da carta-convite, com os nomes exatos que
@@ -146,7 +159,8 @@ export function montarVariaveisDoConvite(dados: {
  * sem tocar na API — é aqui que mora a chance de errar campo.
  */
 export function montarCorpo(pedido: PedidoDeEnvio): Record<string, unknown> {
-  const canais = canaisPossiveis(pedido.destinatario);
+  const template = templateDoPedido(pedido);
+  const canais = canaisPossiveis(pedido.destinatario, template);
   if (canais.length === 0) {
     throw new ErroDeNegocio(
       "O destinatário não tem e-mail nem telefone cadastrado para o envio por AR digital."
@@ -172,7 +186,7 @@ export function montarCorpo(pedido: PedidoDeEnvio): Record<string, unknown> {
     corpo.whatsapp = {
       number: normalizarTelefone(pedido.destinatario.telefone),
       variables: {
-        template: process.env.AR_ONLINE_TEMPLATE_WHATSAPP,
+        template,
         ...(pedido.variaveisDoTemplate ?? {}),
       },
     };
@@ -202,7 +216,7 @@ export async function enviarNotificacao(pedido: PedidoDeEnvio): Promise<{
   protocolo: string;
   canais: CanalArOnline[];
 }> {
-  const canais = canaisPossiveis(pedido.destinatario);
+  const canais = canaisPossiveis(pedido.destinatario, templateDoPedido(pedido));
   const resposta = await chamar("/gw/email", "POST", montarCorpo(pedido));
   const texto = await resposta.text();
 
