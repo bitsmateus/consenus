@@ -3,7 +3,7 @@ import { Papel, PapelNoAto, StatusAto } from "@prisma/client";
 import { CabecalhoDePagina } from "@/components/ui/cabecalho-de-pagina";
 import { cn } from "@/lib/cn";
 import { Etiqueta } from "@/components/ui/etiqueta";
-import { listarAtos } from "@/lib/consultas";
+import { contarConfirmados, listarAtos } from "@/lib/consultas";
 import type { FiltrosDeAtos } from "@/lib/consultas-de-atos";
 import { db } from "@/lib/db";
 import { ROTULO_STATUS, TOM_DO_STATUS, formatarData } from "@/lib/formato";
@@ -52,7 +52,9 @@ export default async function Painel({
 
   // veio da URL: só entra se for um dos recortes que os cartões oferecem
   const situacao: FiltrosDeAtos["situacao"] =
-    filtrosDaUrl.situacao === "em_andamento" || filtrosDaUrl.situacao === "prazo_vencido"
+    filtrosDaUrl.situacao === "em_andamento" ||
+    filtrosDaUrl.situacao === "prazo_vencido" ||
+    filtrosDaUrl.situacao === "confirmados"
       ? filtrosDaUrl.situacao
       : undefined;
   const status =
@@ -68,9 +70,12 @@ export default async function Painel({
   };
   const filtroAtivo = Boolean(situacao || status || filtrosDaUrl.dataDe || filtrosDaUrl.dataAte);
 
-  const [emAndamento, aguardando, total, recentes, listaFiltrada] = await Promise.all([
+  const [emAndamento, aguardando, confirmados, total, recentes, listaFiltrada] = await Promise.all([
     db.ato.count({ where: { AND: [filtro, { status: { notIn: ESTADOS_FINAIS } }] } }),
     db.ato.count({ where: { AND: [filtro, { status: StatusAto.AGUARDANDO_DOCUMENTACAO }] } }),
+    // respeita o intervalo de datas: para o controle financeiro, o número que
+    // importa é "quantos confirmados no período", não no acervo inteiro
+    contarConfirmados({ dataDe: filtrosDaUrl.dataDe, dataAte: filtrosDaUrl.dataAte }),
     db.ato.count({ where: filtro }),
     // não filtrado: alimenta "Próxima ação" e "Prazo vencido", que precisam
     // continuar valendo para todo o acervo, mesmo com um filtro aplicado na
@@ -150,7 +155,12 @@ export default async function Painel({
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div
+          className={cn(
+            "grid grid-cols-2 gap-3",
+            equipe ? "md:grid-cols-3 xl:grid-cols-5" : "md:grid-cols-4"
+          )}
+        >
           <Cartao
             numero={emAndamento}
             rotulo="Em andamento"
@@ -166,6 +176,16 @@ export default async function Painel({
               situacao: undefined,
             })}
             ativo={status === StatusAto.AGUARDANDO_DOCUMENTACAO}
+          />
+          <Cartao
+            numero={confirmados}
+            rotulo={
+              filtrosDaUrl.dataDe || filtrosDaUrl.dataAte
+                ? "Confirmados no período"
+                : "Procedimentos confirmados"
+            }
+            href={comFiltro(filtrosDaUrl, { situacao: "confirmados", status: undefined })}
+            ativo={situacao === "confirmados"}
           />
           <Cartao
             numero={total}

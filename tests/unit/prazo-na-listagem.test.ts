@@ -63,3 +63,30 @@ describe("rótulo do prazo na listagem", () => {
     expect(rotuloDoPrazo(prazo("2026-10-03"), AGORA)).toEqual({ texto: "Vencido há 5 dias", tom: "encerrado" });
   });
 });
+
+describe("filtro de procedimentos confirmados", () => {
+  const visivel: Prisma.AtoWhereInput = { id: "qualquer" };
+  const condicoes = (w: Prisma.AtoWhereInput) => w.AND as Prisma.AtoWhereInput[];
+
+  it("pega quem teve a data efetivada, em qualquer etapa, menos o cancelado", () => {
+    const where = comFiltros(visivel, { situacao: "confirmados" });
+    expect(condicoes(where)).toContainEqual({
+      dataConfirmada: { not: null },
+      status: { not: StatusAto.CANCELADO },
+    });
+  });
+
+  it("mantém a visibilidade do usuário como primeira condição", () => {
+    const where = comFiltros(visivel, { situacao: "confirmados" });
+    expect(condicoes(where)[0]).toBe(visivel);
+  });
+
+  it("combina com o intervalo de datas da sessão", () => {
+    const where = comFiltros(visivel, {
+      situacao: "confirmados",
+      dataDe: "2026-11-01",
+      dataAte: "2026-11-30",
+    });
+    expect(condicoes(where)).toHaveLength(3);
+  });
+});

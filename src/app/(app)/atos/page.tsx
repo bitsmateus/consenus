@@ -4,6 +4,7 @@ import { CabecalhoDePagina } from "@/components/ui/cabecalho-de-pagina";
 import { EstadoVazio } from "@/components/ui/estado-vazio";
 import { Etiqueta } from "@/components/ui/etiqueta";
 import {
+  contarConfirmados,
   contarPorConciliador,
   contarPorInteressado,
   contarPorModalidade,
@@ -94,7 +95,9 @@ export default async function PaginaDeAtos({
 
   // veio da URL: só entra se for um dos recortes que o painel usa
   const situacao: FiltrosDeAtos["situacao"] =
-    filtrosDaUrl.situacao === "em_andamento" || filtrosDaUrl.situacao === "prazo_vencido"
+    filtrosDaUrl.situacao === "em_andamento" ||
+    filtrosDaUrl.situacao === "prazo_vencido" ||
+    filtrosDaUrl.situacao === "confirmados"
       ? filtrosDaUrl.situacao
       : undefined;
 
@@ -113,16 +116,25 @@ export default async function PaginaDeAtos({
     prazoAte: filtrosDaUrl.prazoAte,
   };
 
-  const [atos, porStatus, procuradores, interessados, conciliadores, porModalidade, porProcuracao] =
-    await Promise.all([
-      listarAtos(filtros),
-      contarPorStatus(filtros),
-      contarPorProcurador(filtros),
-      contarPorInteressado(filtros),
-      contarPorConciliador(filtros),
-      contarPorModalidade(filtros),
-      contarPorProcuracao(filtros),
-    ]);
+  const [
+    atos,
+    porStatus,
+    procuradores,
+    interessados,
+    conciliadores,
+    porModalidade,
+    porProcuracao,
+    confirmados,
+  ] = await Promise.all([
+    listarAtos(filtros),
+    contarPorStatus(filtros),
+    contarPorProcurador(filtros),
+    contarPorInteressado(filtros),
+    contarPorConciliador(filtros),
+    contarPorModalidade(filtros),
+    contarPorProcuracao(filtros),
+    contarConfirmados(filtros),
+  ]);
 
   const equipe = usuario.papel === Papel.ADMIN || usuario.papel === Papel.OPERADOR;
 
@@ -225,6 +237,16 @@ export default async function PaginaDeAtos({
               {ROTULO_STATUS[chave as StatusAto]} · {total}
             </Chip>
           ))}
+          {/* recorte transversal: data efetivada no passo 3, em qualquer etapa
+              posterior — pedido de 10/11/2026 para o controle financeiro */}
+          <Chip
+            href={comFiltro(filtrosDaUrl, {
+              situacao: situacao === "confirmados" ? undefined : "confirmados",
+            })}
+            ativo={situacao === "confirmados"}
+          >
+            Confirmados · {confirmados}
+          </Chip>
         </div>
 
         {/* filtro por procurador, com contagem por representante (docs/10) */}

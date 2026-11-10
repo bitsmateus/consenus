@@ -29,7 +29,7 @@ export type FiltrosDeAtos = {
    * Recortes que o painel usa nos cartões, para o clique cair na lista já
    * filtrada em vez de despejar tudo.
    */
-  situacao?: "em_andamento" | "prazo_vencido";
+  situacao?: "em_andamento" | "prazo_vencido" | "confirmados";
   /**
    * Intervalo pela data da sessão — a confirmada quando existe, senão a
    * reservada, a mesma que aparece na lista. "AAAA-MM-DD", de um
@@ -83,6 +83,17 @@ export function filtroDeBusca(busca: string): Prisma.AtoWhereInput {
   return { OR: condicoes };
 }
 
+/**
+ * Procedimento confirmado: o operador conferiu a documentação e efetivou a
+ * data (passo 3), esteja ele em qualquer etapa depois disso — convocado,
+ * sessão realizada, com ou sem acordo. Pedido do cliente em 10/11/2026, para
+ * o controle financeiro. Fica de fora só o cancelado.
+ */
+export const FILTRO_CONFIRMADOS: Prisma.AtoWhereInput = {
+  dataConfirmada: { not: null },
+  status: { not: StatusAto.CANCELADO },
+};
+
 /** Compõe a visibilidade com os filtros da tela. */
 export function comFiltros(
   visibilidade: Prisma.AtoWhereInput,
@@ -129,6 +140,8 @@ export function comFiltros(
   if (filtros.situacao === "em_andamento") {
     condicoes.push({ status: { notIn: ESTADOS_FINAIS } });
   }
+
+  if (filtros.situacao === "confirmados") condicoes.push(FILTRO_CONFIRMADOS);
 
   // Prazo vencido só faz sentido em procedimento vivo: encerrado não tem mais
   // prazo a perder.

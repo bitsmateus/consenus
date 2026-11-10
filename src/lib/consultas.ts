@@ -19,6 +19,7 @@ import {
   listarAtosEm,
   type FiltrosDeAtos,
 } from "./consultas-de-atos";
+import { db } from "./db";
 import { filtroDeAtosVisiveis } from "./sessao";
 
 export type { FiltrosDeAtos } from "./consultas-de-atos";
@@ -35,6 +36,13 @@ export async function listarAtos(filtros: FiltrosDeAtos) {
 /** Contagem por status, respeitando busca e filtro de procurador já aplicados. */
 export async function contarPorStatus(filtros: FiltrosDeAtos) {
   return contarPorStatusEm(await montarWhereDeAtos({ ...filtros, status: undefined }));
+}
+
+/** Quantos confirmados (passo 3 efetivado) dentro dos demais filtros da tela. */
+export async function contarConfirmados(filtros: FiltrosDeAtos): Promise<number> {
+  return db.ato.count({
+    where: await montarWhereDeAtos({ ...filtros, situacao: "confirmados" }),
+  });
 }
 
 export async function contarPorProcurador(filtros: FiltrosDeAtos) {
