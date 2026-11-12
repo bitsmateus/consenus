@@ -17,6 +17,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import type { Identificacao, IdentificacaoDosLados } from "@/lib/identificacao-das-partes";
+import { marcaDaAncora, type LugarDaAssinatura } from "@/lib/ancoras-de-assinatura";
 
 const PRETO = "#0A0A0A";
 const DOURADO = "#946810";
@@ -201,6 +202,18 @@ export const ESTILO_DO_CORPO = `
   table tr { break-inside: avoid; page-break-inside: avoid; }
   /* Repetida em toda página impressa: é o que faz a marca d'água aparecer em
      cada folha, e não só na primeira. */
+  /* Âncora da assinatura eletrônica: a ZapSign procura este texto e desenha a
+     assinatura ali. Branca e sem altura — não aparece nem desloca o modelo.
+     Ver src/lib/ancoras-de-assinatura.ts. */
+  .ancora-assinatura {
+    height: 0;
+    overflow: visible;
+    color: #ffffff;
+    font-size: 6pt;
+    line-height: 1;
+    position: relative;
+    top: -6mm;
+  }
   .marca-dagua {
     position: fixed;
     left: 50%;
@@ -226,6 +239,7 @@ export function cabecalhoDoDocumento(titulo: string, codigo: string): string {
 export function assinaturaDoConciliador(conciliador: string | null): string {
   return `
   <div class="assinatura">
+    ${marcaDaAncora("conciliador")}
     <div class="linha"></div>
     <div class="cargo">${escapar(conciliador) || "Nome:"}</div>
     <div class="cargo" style="font-weight:bold;">Conciliador</div>
@@ -246,8 +260,9 @@ export function assinaturasDasPartes(
 ): string {
   // nome e documento vêm do cadastro quando existem; sem eles, a linha fica em
   // branco para preencher na hora, como no modelo oficial
-  const bloco = (rotulo: string, quem: Identificacao | null | undefined) => `
+  const bloco = (rotulo: string, quem: Identificacao | null | undefined, lugar: LugarDaAssinatura) => `
       <td style="width:50%;text-align:center;padding:0 4mm 8mm;">
+        ${marcaDaAncora(lugar)}
         <div class="linha"></div>
         <div class="cargo">Nome:${quem ? ` ${escapar(quem.nome)}` : ""}</div>
         <div class="cargo">Documento:${quem?.documento ? ` ${escapar(quem.documento)}` : ""}</div>
@@ -256,8 +271,8 @@ export function assinaturasDasPartes(
 
   return `
   <table style="width:100%;margin-top:12mm;border-collapse:collapse;">
-    <tr>${bloco(rotulos.ladoA.titular, identificacao?.ladoA.titular)}${bloco(rotulos.ladoA.procurador, identificacao?.ladoA.procurador)}</tr>
-    <tr>${bloco(rotulos.ladoB.titular, identificacao?.ladoB.titular)}${bloco(rotulos.ladoB.procurador, identificacao?.ladoB.procurador)}</tr>
+    <tr>${bloco(rotulos.ladoA.titular, identificacao?.ladoA.titular, "solicitante")}${bloco(rotulos.ladoA.procurador, identificacao?.ladoA.procurador, "procuradorSolicitante")}</tr>
+    <tr>${bloco(rotulos.ladoB.titular, identificacao?.ladoB.titular, "convidado")}${bloco(rotulos.ladoB.procurador, identificacao?.ladoB.procurador, "procuradorConvidado")}</tr>
   </table>`;
 }
 

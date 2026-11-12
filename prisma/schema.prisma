@@ -431,7 +431,16 @@ model Envio {
 
 // ------------------------------------------------------------ assinatura digital
 
-/// Estado da operação de assinatura na D4Sign (Etapa 2).
+/// Plataforma de assinatura eletrônica que recebeu o envio. A câmara trocou a
+/// D4Sign pela ZapSign em 11/2026; os envios antigos continuam terminando na
+/// D4Sign, e é por esta coluna que o webhook, o download e o cancelamento
+/// sabem com quem falar.
+enum ProvedorAssinatura {
+  D4SIGN
+  ZAPSIGN
+}
+
+/// Estado da operação de assinatura eletrônica (Etapa 2).
 /// ARQUIVADA é estado NOSSO, não deles: significa que o PDF assinado já foi
 /// baixado e guardado aqui. Enquanto não estiver arquivada, o documento
 /// assinado só existe na D4Sign — e depender disso seria depender de terceiro.
@@ -445,7 +454,7 @@ enum StatusAssinatura {
 }
 
 /// Uma operação de assinatura = um documento emitido (Ata ou Termo de Acordo)
-/// enviado à D4Sign. O documento assinado que volta vira outro Documento,
+/// enviado à plataforma de assinatura. O documento assinado que volta vira outro Documento,
 /// do tipo DOCUMENTO_ASSINADO, ligado aqui por `assinadoId`.
 model OperacaoAssinatura {
   id          String    @id @default(cuid())
@@ -454,8 +463,12 @@ model OperacaoAssinatura {
   documentoId String    @unique // um documento vai para assinatura uma vez só
   documento   Documento @relation("DocumentoEmAssinatura", fields: [documentoId], references: [id])
 
-  /// UUID do documento na D4Sign. É por ele que o webhook nos encontra e é com
-  /// ele que se baixa o PDF assinado.
+  /// Plataforma que recebeu o envio. Linhas anteriores à ZapSign são D4SIGN.
+  provedor ProvedorAssinatura @default(D4SIGN)
+
+  /// Identificador do documento na plataforma: o UUID na D4Sign, o token na
+  /// ZapSign. É por ele que o webhook nos encontra e é com ele que se baixa o
+  /// PDF assinado.
   identificadorExterno String @unique
 
   status StatusAssinatura @default(AGUARDANDO)

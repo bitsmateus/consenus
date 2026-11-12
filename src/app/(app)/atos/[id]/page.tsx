@@ -25,7 +25,7 @@ import { FormularioDeObservacao } from "./observacao";
 import { ObservacoesDoProcedimento } from "./observacoes-do-procedimento";
 import { FormularioDeVinculo } from "./vinculos";
 import { SecaoDeDocumentos } from "./secao-documentos";
-import { assinaturaDigitalAtiva } from "@/lib/d4sign";
+import { assinaturaEletronicaAtiva } from "@/lib/provedor-de-assinatura";
 import { SecaoDeFluxo } from "./secao-fluxo";
 import { AgendaDoProcedimento } from "./agenda";
 import { SalaDaVideoconferencia } from "./sala";
@@ -242,7 +242,7 @@ export default async function PaginaDoAto({ params }: { params: Promise<{ id: st
               envios={ato.envios}
               interessados={interessados.map((p) => ({ id: p.pessoa.id, nome: p.pessoa.nome }))}
               equipe={equipe}
-              assinaturaAtiva={assinaturaDigitalAtiva()}
+              assinaturaAtiva={assinaturaEletronicaAtiva()}
             />
 
             {/* ---------------------------------------------- linha do tempo */}

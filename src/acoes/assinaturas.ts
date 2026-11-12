@@ -1,10 +1,10 @@
 "use server";
 import { revalidatePath } from "next/cache";
-import { StatusAssinatura, TipoDocumento, TipoEvento } from "@prisma/client";
+import { ProvedorAssinatura, StatusAssinatura, TipoDocumento, TipoEvento } from "@prisma/client";
 import { z } from "zod";
 import { registrarAuditoria } from "@/lib/auditoria";
+import { ANCORA } from "@/lib/ancoras-de-assinatura";
 import {
-  assinaturaDigitalAtiva,
   cadastrarNomes,
   cadastrarSignatarios,
   enviarParaAssinatura as dispararConvites,
@@ -13,6 +13,12 @@ import {
   registrarWebhook,
   urlDoWebhook,
 } from "@/lib/d4sign";
+import {
+  NOME_DO_PROVEDOR,
+  provedorConfigurado,
+  provedorEscolhido,
+} from "@/lib/provedor-de-assinatura";
+import * as zapsign from "@/lib/zapsign";
 import { db } from "@/lib/db";
 import { ErroDeNegocio, FluxoInvalido } from "@/lib/erros";
 import { exigirAcessoAoAto, exigirEquipe } from "@/lib/sessao";
@@ -34,7 +40,13 @@ const NOME_DO_TIPO: Partial<Record<TipoDocumento, string>> = {
 /**
  * Envia a Ata ou o Termo de Acordo para assinatura eletrônica — Etapa 2.
  *
- * São cinco chamadas à D4Sign, nesta ordem, e a ordem importa: o webhook
+ * A plataforma é a de ASSINATURA_PROVEDOR (ver provedor-de-assinatura.ts).
+ *
+ * ZapSign: uma chamada só. O documento nasce com os signatários, cada um com
+ * a âncora da sua linha (a assinatura sai no lugar certo), e os convites
+ * partem junto. O retorno vem pelo webhook cadastrado no painel deles.
+ *
+ * D4Sign: são cinco chamadas, nesta ordem, e a ordem importa: o webhook
  * precisa estar registrado ANTES de o convite sair, senão a primeira
  * assinatura acontece antes de existir para onde avisar.
  *
@@ -58,18 +70,22 @@ export async function enviarParaAssinatura(
     return { erro: analise.error.issues[0]?.message ?? "Dados inválidos." };
   }
 
-  /** guardado fora do try para o catch conseguir registrar o que ficou na D4Sign */
-  let uuidNaD4Sign: string | null = null;
+  const provedor = provedorEscolhido();
+  const nomeDoProvedor = NOME_DO_PROVEDOR[provedor];
+
+  /** guardado fora do try para o catch conseguir registrar o que ficou na plataforma */
+  let identificadorCriado: string | null = null;
   let atoId: string | null = null;
 
   try {
-    if (!assinaturaDigitalAtiva()) {
+    if (!provedorConfigurado(provedor)) {
       throw new ErroDeNegocio(
         "A assinatura eletrônica não está configurada. Baixe o documento e colete as assinaturas pelo caminho de sempre."
       );
     }
 
-    const enderecoDoWebhook = urlDoWebhook();
+    const enderecoDoWebhook =
+      provedor === ProvedorAssinatura.ZAPSIGN ? zapsign.urlDoWebhook() : urlDoWebhook();
     if (!enderecoDoWebhook) {
       // enviar sem webhook funcionaria, e é justamente o problema: as
       // assinaturas aconteceriam sem ninguém aqui ficar sabendo
@@ -123,8 +139,8 @@ export async function enviarParaAssinatura(
     const { signatarios, semEmail } = montarSignatarios(partes);
 
     // Antes de qualquer chamada externa: falhar aqui não deixa documento órfão
-    // na D4Sign, não gasta requisição do limite, e a mensagem diz exatamente
-    // quem precisa de cadastro.
+    // na plataforma, não gasta documento do plano (a ZapSign cobra todo
+    // documento criado), e a mensagem diz exatamente quem precisa de cadastro.
     if (semEmail.length > 0) {
       throw new ErroDeNegocio(
         `Falta e-mail no cadastro de: ${semEmail.join("; ")}. Sem e-mail não há como enviar para assinatura.`
@@ -137,23 +153,39 @@ export async function enviarParaAssinatura(
     }
 
     const rotulo = NOME_DO_TIPO[documento.tipo] ?? "Documento";
+    const mensagem = `${rotulo} do Procedimento ${documento.ato.numero} — Consensus One.`;
     const conteudo = await baixarArquivo(documento.chaveStorage);
 
-    uuidNaD4Sign = await enviarPdf(conteudo, documento.nomeArquivo);
-    await cadastrarSignatarios(uuidNaD4Sign, signatarios);
-    await cadastrarNomes(uuidNaD4Sign, signatarios);
-    await registrarWebhook(uuidNaD4Sign, enderecoDoWebhook);
-    await dispararConvites(
-      uuidNaD4Sign,
-      `${rotulo} do Procedimento ${documento.ato.numero} — Consensus One.`
-    );
+    if (provedor === ProvedorAssinatura.ZAPSIGN) {
+      const criado = await zapsign.criarDocumento({
+        nome: `${rotulo} — Procedimento ${documento.ato.numero}`,
+        pdf: conteudo,
+        idExterno: documento.id,
+        mensagem,
+        signatarios: signatarios.map((s) => ({
+          nome: s.nome,
+          email: s.email,
+          papel: s.papel,
+          ancora: s.lugar ? ANCORA[s.lugar] : null,
+        })),
+      });
+      identificadorCriado = criado.token;
+    } else {
+      identificadorCriado = await enviarPdf(conteudo, documento.nomeArquivo);
+      await cadastrarSignatarios(identificadorCriado, signatarios);
+      await cadastrarNomes(identificadorCriado, signatarios);
+      await registrarWebhook(identificadorCriado, enderecoDoWebhook);
+      await dispararConvites(identificadorCriado, mensagem);
+    }
+    const identificador = identificadorCriado;
 
     await db.$transaction(async (tx) => {
       await tx.operacaoAssinatura.create({
         data: {
           atoId: documento.atoId,
           documentoId: documento.id,
-          identificadorExterno: uuidNaD4Sign!,
+          provedor,
+          identificadorExterno: identificador,
           status: StatusAssinatura.AGUARDANDO,
           totalSignatarios: signatarios.length,
           solicitadaPorId: usuario.id,
@@ -163,7 +195,7 @@ export async function enviarParaAssinatura(
         data: {
           atoId: documento.atoId,
           tipo: TipoEvento.ASSINATURA_SOLICITADA,
-          descricao: `${rotulo} enviada para assinatura eletrônica de ${signatarios.length} ${
+          descricao: `${rotulo} enviada para assinatura eletrônica (${nomeDoProvedor}) de ${signatarios.length} ${
             signatarios.length === 1 ? "signatário" : "signatários"
           }: ${signatarios.map((s) => s.nome).join(", ")}.`,
           usuarioId: usuario.id,
@@ -177,22 +209,25 @@ export async function enviarParaAssinatura(
       acao: "SOLICITOU_ASSINATURA",
       entidade: "Documento",
       entidadeId: documento.id,
-      metadados: { atoId: documento.atoId, signatarios: signatarios.length },
+      metadados: { atoId: documento.atoId, signatarios: signatarios.length, provedor },
     });
 
     revalidatePath(`/atos/${documento.atoId}`);
     return { aviso: "Enviado para assinatura. Os signatários receberam o convite por e-mail." };
   } catch (erro) {
-    // O documento já subiu para a D4Sign e algo depois falhou: registrar o
-    // ocorrido na linha do tempo é o que evita um documento existir lá sem
-    // ninguém aqui saber. O operador termina o envio pelo painel da D4Sign.
-    if (uuidNaD4Sign && atoId) {
+    // O documento já foi criado na plataforma e algo depois falhou: registrar
+    // o ocorrido na linha do tempo é o que evita um documento existir lá sem
+    // ninguém aqui saber. O operador resolve pelo painel da plataforma.
+    if (identificadorCriado && atoId) {
       await db.eventoAto
         .create({
           data: {
             atoId,
             tipo: TipoEvento.OBSERVACAO,
-            descricao: `Falha ao enviar para assinatura eletrônica. O documento ficou criado na D4Sign sob o identificador ${uuidNaD4Sign} e o envio precisa ser concluído pelo painel deles.`,
+            descricao:
+              provedor === ProvedorAssinatura.ZAPSIGN
+                ? `Falha ao registrar o envio para assinatura eletrônica. O documento foi criado na ZapSign sob o identificador ${identificadorCriado} e os convites podem ter saído; confira pelo painel deles antes de reenviar.`
+                : `Falha ao enviar para assinatura eletrônica. O documento ficou criado na D4Sign sob o identificador ${identificadorCriado} e o envio precisa ser concluído pelo painel deles.`,
             usuarioId: usuario.id,
           },
         })
@@ -201,13 +236,16 @@ export async function enviarParaAssinatura(
 
     if (erro instanceof ErroDeNegocio) return { erro: erro.message };
 
-    console.error("[assinatura] falha ao enviar para a D4Sign", erro);
-    const motivo = explicarFalhaDaD4Sign(erro);
-    // ficou documento criado lá: reenviar daqui cria um segundo, e o primeiro
-    // fica pendente com convite meio configurado
+    console.error(`[assinatura] falha ao enviar para a ${nomeDoProvedor}`, erro);
+    const motivo =
+      provedor === ProvedorAssinatura.ZAPSIGN
+        ? zapsign.explicarFalhaDaZapSign(erro)
+        : explicarFalhaDaD4Sign(erro);
+    // ficou documento criado lá: reenviar daqui cria um segundo (e, na
+    // ZapSign, cobra outro documento)
     return {
-      erro: uuidNaD4Sign
-        ? `${motivo} O documento chegou a ser criado na D4Sign (veja a linha do tempo); conclua o envio pelo painel deles, ou cancele o documento lá antes de reenviar daqui.`
+      erro: identificadorCriado
+        ? `${motivo} O documento chegou a ser criado na ${nomeDoProvedor} (veja a linha do tempo); confira pelo painel deles, ou cancele o documento lá antes de reenviar daqui.`
         : motivo,
     };
   }

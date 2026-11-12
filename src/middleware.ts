@@ -23,6 +23,10 @@ function ehPublica(pathname: string): boolean {
     // sessão. A defesa não é a sessão — é o token secreto no caminho e o
     // Content-Hmac, conferidos dentro da rota.
     pathname.startsWith("/api/webhooks/d4sign") ||
+    // Webhook da ZapSign, mesma razão. O aviso dela não é assinado: a defesa
+    // é o token secreto no caminho e, sobretudo, reconsultar o documento na
+    // API antes de agir. Ver src/lib/retorno-da-zapsign.ts.
+    pathname.startsWith("/api/webhooks/zapsign") ||
     // Webhook da AR Online, mesma razão. A defesa é o valor fixo do header
     // Authorization e, sobretudo, o fato de o aviso não virar conteúdo:
     // o laudo é buscado na API deles pelo protocolo já gravado aqui.

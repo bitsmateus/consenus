@@ -103,3 +103,28 @@ describe("Termo de Acordo — forma do modelo", () => {
     expect(html).toContain("<p><strong>c)</strong> atualização monetária");
   });
 });
+
+describe("âncoras da assinatura eletrônica (ZapSign)", () => {
+  const LUGARES = [
+    "&lt;&lt;assina-conciliador&gt;&gt;",
+    "&lt;&lt;assina-solicitante&gt;&gt;",
+    "&lt;&lt;assina-procurador-solicitante&gt;&gt;",
+    "&lt;&lt;assina-convidado&gt;&gt;",
+    "&lt;&lt;assina-procurador-convidado&gt;&gt;",
+  ];
+
+  it("a ata tem uma âncora em cada uma das cinco linhas, uma vez só", () => {
+    const html = ataDaSessao(ATA);
+    for (const ancora of LUGARES) expect(html.split(ancora)).toHaveLength(2);
+  });
+
+  it("o termo de acordo também", () => {
+    const html = termoDeAcordo(TERMO);
+    for (const ancora of LUGARES) expect(html.split(ancora)).toHaveLength(2);
+  });
+
+  it("a âncora é invisível e não ocupa espaço no layout", () => {
+    const html = ataDaSessao(ATA);
+    expect(html).toMatch(/\.ancora-assinatura\s*\{[^}]*height:\s*0;[^}]*color:\s*#ffffff;/);
+  });
+});
