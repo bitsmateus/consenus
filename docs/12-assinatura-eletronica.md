@@ -1,5 +1,90 @@
 # Assinatura eletrônica — integração com a D4Sign
 
+> **Troca para a ZapSign (11/2026).** O pacote da D4Sign esgotou, o limite de
+> 10 chamadas por hora travava o envio e as assinaturas saíam numa página à
+> parte. A câmara passou para a ZapSign. A seção abaixo descreve a ZapSign; o
+> restante deste documento continua valendo para os envios **antigos**, que
+> terminam na D4Sign.
+
+## ZapSign
+
+### Como a troca funciona
+
+- `ASSINATURA_PROVEDOR` decide para onde vão os envios **novos**: `zapsign` ou
+  `d4sign` (padrão). Virar a chave é mudar a variável no EasyPanel; voltar
+  atrás também.
+- Cada envio grava `OperacaoAssinatura.provedor` (`D4SIGN` | `ZAPSIGN`, migração
+  `20261112120000_provedor_da_assinatura`; linhas antigas ficaram `D4SIGN`).
+  Webhook, download e cancelamento olham essa coluna — um envio termina na
+  plataforma em que começou.
+- **Mantenha as variáveis `D4SIGN_*` configuradas** enquanto houver envio
+  pendente na D4Sign: sem elas, o webhook da D4Sign não consegue baixar o
+  assinado e a retificação não consegue cancelar lá (a linha do tempo pede para
+  cancelar pelo painel).
+
+### Envio
+
+Uma chamada só (`POST /docs/`): o PDF vai em base64, com os signatários, e os
+convites partem junto. Não existe envio pela metade. **Todo documento criado é
+cobrado**, mesmo cancelado — por isso todas as recusas (sem e-mail, já enviado,
+ata substituída) acontecem antes da chamada.
+
+Quem assina é a mesma regra de sempre (`montarSignatarios`). Cada signatário
+vai com `auth_mode` de `ZAPSIGN_AUTENTICACAO` (padrão
+`assinaturaTela-tokenEmail`, sem custo extra), e-mail automático, nome e
+e-mail travados e o papel em `qualification` ("Conciliador", "Interessado
+Solicitante"…), que aparece no relatório de assinaturas.
+
+### Posição das assinaturas
+
+A Ata e o Termo têm cinco linhas fixas. Cada uma leva um texto âncora
+invisível (branco, altura zero), logo acima do traço — `<<assina-conciliador>>`,
+`<<assina-solicitante>>`, `<<assina-procurador-solicitante>>`,
+`<<assina-convidado>>`, `<<assina-procurador-convidado>>`. A ZapSign procura o
+texto e desenha a assinatura ali (`signature_placement`). Lista única em
+`src/lib/ancoras-de-assinatura.ts`, usada pelo documento e pelo envio.
+
+- Dois signatários na mesma linha (dois procuradores do mesmo lado): só o
+  primeiro recebe a âncora, para as assinaturas não se sobreporem; o outro
+  assina e aparece no relatório de assinaturas.
+- **A posição exata (quanto acima do traço) não foi conferida com documento
+  real** — a câmara não tem conta de testes. Conferir no primeiro envio; o
+  ajuste é o `top` de `.ancora-assinatura` em `src/documentos/timbrado.ts`.
+- Atas emitidas antes desta versão não têm âncora: na ZapSign elas assinam sem
+  posição definida. Retifique, se precisar.
+
+### Retorno
+
+O aviso da ZapSign **não é assinado** (não há HMAC). A rota
+`/api/webhooks/zapsign/<ZAPSIGN_WEBHOOK_TOKEN>` confere o token do caminho e,
+do corpo, lê só o `token` do documento. O estado vem sempre de
+`GET /docs/{token}/`, autenticado (`src/lib/retorno-da-zapsign.ts`):
+
+| A consulta diz | O sistema faz |
+|---|---|
+| mais gente assinou | sobe o contador (UPDATE condicional) e registra na linha do tempo |
+| `signed` | baixa o PDF na hora (o link vale 60 min) e arquiva como `DOCUMENTO_ASSINADO` |
+| `refused` / `recusado` / excluído | marca `CANCELADA` |
+
+`doc_signed` chega uma vez por signatário, e a ZapSign reenvia o que não
+recebeu 200: avisos repetidos não duplicam evento nem documento. Falha técnica
+responde 500, de propósito, para ela reenviar.
+
+### Configuração (EasyPanel)
+
+| Variável | O quê |
+|---|---|
+| `ASSINATURA_PROVEDOR` | `zapsign` para virar a chave |
+| `ZAPSIGN_API_TOKEN` | token da conta (Configurações › Integrações › API ZapSign) |
+| `ZAPSIGN_WEBHOOK_TOKEN` | segredo do caminho do webhook (`openssl rand -hex 32`) |
+| `ZAPSIGN_AUTENTICACAO` | forma de identificação do signatário (vazio = padrão) |
+| `ZAPSIGN_BASE_URL` | vazio = produção |
+
+No painel da ZapSign, cadastrar o webhook (todos os eventos) em
+`<AUTH_URL>/api/webhooks/zapsign/<ZAPSIGN_WEBHOOK_TOKEN>`. Para conferir a
+chave e o plano sem criar documento: `npm run zapsign:conta`.
+
+
 Primeira integração da Etapa 2. Substitui, para a Ata e o Termo de Acordo, o
 vaivém manual entre o sistema e o painel do fornecedor.
 

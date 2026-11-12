@@ -16,7 +16,7 @@ import { registrarAuditoria } from "@/lib/auditoria";
 import { configuracaoDoSistema } from "@/lib/configuracao";
 import { db } from "@/lib/db";
 import { emitirDocumento } from "@/lib/emissao";
-import { assinaturaDigitalAtiva, cancelarDocumento } from "@/lib/d4sign";
+import { cancelarNoProvedor, NOME_DO_PROVEDOR } from "@/lib/provedor-de-assinatura";
 import { fromZonedTime } from "date-fns-tz";
 import { ErroDeNegocio, FluxoInvalido } from "@/lib/erros";
 import { DESFECHOS_COM_ACORDO } from "@/lib/desfechos";
@@ -485,7 +485,11 @@ async function carregarParaAta(atoId: string) {
       documentos: {
         where: { tipo: TipoDocumento.ATA },
         orderBy: { criadoEm: "desc" },
-        include: { emAssinatura: { select: { status: true, jaAssinaram: true, identificadorExterno: true } } },
+        include: {
+          emAssinatura: {
+            select: { status: true, jaAssinaram: true, identificadorExterno: true, provedor: true },
+          },
+        },
       },
     },
   });
@@ -733,19 +737,23 @@ export async function retificarAta(
 
     // fora da transação: é chamada externa. Se falhar, o envio antigo segue
     // aberto lá, e a linha do tempo diz o que fazer
-    if (assinaturaPendente && assinaturaDigitalAtiva()) {
+    if (assinaturaPendente) {
+      const plataforma = NOME_DO_PROVEDOR[assinaturaPendente.provedor];
+      let cancelado = false;
       try {
-        await cancelarDocumento(
-          assinaturaPendente.identificadorExterno,
+        cancelado = await cancelarNoProvedor(
+          assinaturaPendente,
           `Ata retificada: substituída pela ${codigo}.`
         );
       } catch (erro) {
-        console.error("[assinatura] falha ao cancelar a ata retificada na D4Sign", erro);
+        console.error(`[assinatura] falha ao cancelar a ata retificada na ${plataforma}`, erro);
+      }
+      if (!cancelado) {
         await db.eventoAto.create({
           data: {
             atoId,
             tipo: TipoEvento.OBSERVACAO,
-            descricao: `Não foi possível cancelar na D4Sign o envio da ata ${vigente.codigoVerificacao}. Cancele pelo painel deles, para ninguém assinar a versão substituída.`,
+            descricao: `Não foi possível cancelar na ${plataforma} o envio da ata ${vigente.codigoVerificacao}. Cancele pelo painel deles, para ninguém assinar a versão substituída.`,
             usuarioId: usuario.id,
           },
         });

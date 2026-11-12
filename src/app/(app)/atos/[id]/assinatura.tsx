@@ -63,8 +63,8 @@ export function Assinatura({
         </div>
         {assinatura.status === "FALHOU" && (
           <p className="mt-1.5 text-[11px] text-erro">
-            O documento foi assinado, mas não conseguimos trazer o arquivo. A D4Sign tenta de
-            novo sozinha; se não resolver, baixe pelo painel da D4Sign e anexe aqui.
+            Não conseguimos trazer o arquivo assinado. A plataforma de assinatura avisa de novo
+            sozinha; se não resolver, baixe pelo painel dela e anexe aqui.
           </p>
         )}
         {assinatura.status === "ARQUIVADA" && !assinatura.temAssinado && (

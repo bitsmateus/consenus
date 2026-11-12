@@ -7,7 +7,14 @@
  * assinado — e assinatura não se desfaz.
  */
 import type { PapelNoAto } from "@prisma/client";
+import { lugarDaAssinatura, type LugarDaAssinatura } from "./ancoras-de-assinatura";
 import type { SignatarioDaD4Sign } from "./d4sign";
+
+/** Signatário para qualquer plataforma: a D4Sign usa nome e e-mail; a ZapSign, também o lugar. */
+export type Signatario = SignatarioDaD4Sign & {
+  /** linha do documento onde a pessoa assina; null = sem posição definida */
+  lugar: LugarDaAssinatura | null;
+};
 
 export type ParteParaAssinatura = {
   papel: PapelNoAto;
@@ -26,7 +33,7 @@ const ROTULO: Record<PapelNoAto, string> = {
 };
 
 export type MontagemDeSignatarios = {
-  signatarios: SignatarioDaD4Sign[];
+  signatarios: Signatario[];
   /** nomes de quem entraria na lista mas está sem e-mail cadastrado */
   semEmail: string[];
 };
@@ -49,7 +56,7 @@ export function montarSignatarios(partes: ParteParaAssinatura[]): MontagemDeSign
   const participantes = partes.filter((p) => p.papel === "CONCILIADOR" || p.compareceu === true);
 
   const emailsUsados = new Set<string>();
-  const signatarios: SignatarioDaD4Sign[] = [];
+  const signatarios: Signatario[] = [];
   const semEmail: string[] = [];
 
   for (const parte of participantes) {
@@ -65,6 +72,7 @@ export function montarSignatarios(partes: ParteParaAssinatura[]): MontagemDeSign
       nome: parte.pessoa.nome,
       email,
       papel: rotuloDoSignatario(parte),
+      lugar: lugarDaAssinatura(parte.papel, parte.representaPapel),
     });
   }
 

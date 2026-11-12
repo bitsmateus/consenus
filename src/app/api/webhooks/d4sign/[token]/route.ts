@@ -24,11 +24,10 @@
  * escondendo o erro perderia o aviso para sempre.
  */
 import { NextResponse } from "next/server";
-import { StatusAssinatura, TipoDocumento, TipoEvento } from "@prisma/client";
-import { registrarAuditoria } from "@/lib/auditoria";
+import { ProvedorAssinatura, StatusAssinatura, TipoEvento } from "@prisma/client";
+import { arquivarAssinado as arquivarNoRepositorio } from "@/lib/arquivar-assinado";
 import { db } from "@/lib/db";
 import { AVISO, avisoAutentico, baixarAssinado, tokenDoWebhookConfere } from "@/lib/d4sign";
-import { enviarArquivo, montarChave } from "@/lib/storage";
 
 export async function POST(
   requisicao: Request,
@@ -66,8 +65,9 @@ export async function POST(
     where: { identificadorExterno: uuid },
   });
 
-  // documento que não é nosso: aceita e ignora, para a D4Sign parar de reenviar
-  if (!operacao) {
+  // documento que não é nosso (ou que é de outra plataforma): aceita e
+  // ignora, para a D4Sign parar de reenviar
+  if (!operacao || operacao.provedor !== ProvedorAssinatura.D4SIGN) {
     await registrarAviso(chave, uuid, tipoDoAviso);
     return NextResponse.json({ ok: true, desconhecido: true });
   }
@@ -76,7 +76,7 @@ export async function POST(
     if (tipoDoAviso === AVISO.ASSINADO) {
       await registrarUmaAssinatura(operacao.id, operacao.atoId, operacao.jaAssinaram, emailDoSignatario);
     } else if (tipoDoAviso === AVISO.FINALIZADO) {
-      await arquivarAssinado(operacao.id);
+      await arquivarNoRepositorio(operacao.id, baixarAssinado, "webhook D4Sign");
     } else if (tipoDoAviso === AVISO.CANCELADO) {
       await registrarCancelamento(operacao.id, operacao.atoId);
     } else if (tipoDoAviso === AVISO.EMAIL_NAO_ENVIADO) {
@@ -196,86 +196,6 @@ async function registrarEmailNaoEntregue(atoId: string, email: string | null) {
       descricao: email
         ? `O convite de assinatura não chegou a ${email}. Confira o endereço no cadastro.`
         : "Um convite de assinatura não pôde ser entregue. Confira os e-mails no cadastro.",
-    },
-  });
-}
-
-/**
- * Baixa o PDF assinado e o guarda no nosso repositório.
- *
- * Enquanto isso não acontece, o documento assinado só existe na D4Sign — e o
- * acervo da câmara não pode depender de terceiro. O assinado entra como
- * documento novo, do tipo DOCUMENTO_ASSINADO: o original emitido continua
- * intacto, com seu código de verificação.
- */
-async function arquivarAssinado(operacaoId: string) {
-  const operacao = await db.operacaoAssinatura.findUniqueOrThrow({
-    where: { id: operacaoId },
-    include: { documento: { select: { tipo: true, nomeArquivo: true } } },
-  });
-
-  // já arquivado: reenvio da D4Sign não duplica documento
-  if (operacao.assinadoId) return;
-
-  const { conteudo } = await baixarAssinado(operacao.identificadorExterno);
-
-  const nomeArquivo = operacao.documento.nomeArquivo.replace(/\.pdf$/i, "") + "-assinado.pdf";
-  const chaveStorage = montarChave(
-    operacao.atoId,
-    TipoDocumento.DOCUMENTO_ASSINADO.toLowerCase(),
-    nomeArquivo
-  );
-  const guardado = await enviarArquivo({ chave: chaveStorage, conteudo, mimeType: "application/pdf" });
-
-  const frase =
-    operacao.documento.tipo === TipoDocumento.ATA
-      ? "Ata assinada eletronicamente"
-      : "Termo de Acordo assinado eletronicamente";
-
-  const assinado = await db.$transaction(async (tx) => {
-    const criado = await tx.documento.create({
-      data: {
-        atoId: operacao.atoId,
-        tipo: TipoDocumento.DOCUMENTO_ASSINADO,
-        // anexo não recebe código: o código é do documento emitido pela esteira
-        codigoVerificacao: null,
-        emitidoPelaCamara: false,
-        nomeArquivo,
-        chaveStorage: guardado.chave,
-        mimeType: "application/pdf",
-        tamanhoBytes: guardado.tamanhoBytes,
-        hashSha256: guardado.hashSha256,
-      },
-    });
-    await tx.operacaoAssinatura.update({
-      where: { id: operacao.id },
-      data: {
-        status: StatusAssinatura.ARQUIVADA,
-        assinadoId: criado.id,
-        concluidaEm: new Date(),
-        ultimoErro: null,
-      },
-    });
-    await tx.eventoAto.create({
-      data: {
-        atoId: operacao.atoId,
-        tipo: TipoEvento.DOCUMENTO_ASSINADO_ANEXADO,
-        descricao: `${frase} e arquivado automaticamente no repositório da câmara.`,
-        metadados: { hash: guardado.hashSha256 },
-      },
-    });
-    return criado;
-  });
-
-  await registrarAuditoria({
-    usuarioId: null,
-    acao: "ARQUIVOU_ASSINADO",
-    entidade: "Documento",
-    entidadeId: assinado.id,
-    metadados: {
-      atoId: operacao.atoId,
-      origem: "webhook D4Sign",
-      hash: guardado.hashSha256,
     },
   });
 }

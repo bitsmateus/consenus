@@ -26,7 +26,7 @@ export function RetificarAta({
 }: {
   atoId: string;
   codigoVigente: string;
-  /** está na D4Sign esperando assinatura, sem ninguém ter assinado */
+  /** está na plataforma de assinatura esperando, sem ninguém ter assinado */
   enviadaParaAssinatura: boolean;
   partes: { id: string; nome: string; papel: string; compareceu: boolean }[];
   horaInicio: string;
@@ -75,7 +75,7 @@ export function RetificarAta({
         Sai uma ata nova, com código novo. A {codigoVigente} continua no repositório,
         marcada como substituída, e a página de verificação passa a informar isso.
         {enviadaParaAssinatura &&
-          " O envio dela para assinatura na D4Sign será cancelado; envie a ata nova em seguida."}{" "}
+          " O envio dela para assinatura eletrônica será cancelado; envie a ata nova em seguida."}{" "}
         O desfecho da sessão não muda.
       </p>
 
