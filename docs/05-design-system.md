@@ -89,7 +89,7 @@ O sistema não está inventando nada — está automatizando o que o timbrado j�
 ```
 Rua Olegário Paiva, nº 180, 4º andar, Sala 411
 Centro — Mogi das Cruzes/SP — CEP 08.780-040
-Telefone: (11) 2668-8788
+Telefone: (11) 2758-8085 (até 17/11/2026: (11) 2668-8788)
 E-mail:   contato@consensusone.com.br
 Site:     consensusone.com.br
 Instagram: @one.consensus
