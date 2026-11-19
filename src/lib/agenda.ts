@@ -5,7 +5,8 @@
  *
  *   - só em dia útil: nada de sábado, domingo, feriado nem ponto facultativo;
  *   - só das 09:00 às 17:00, com 12:00 às 13:00 fechado;
- *   - cada sessão ocupa 20 minutos, e duas não podem se sobrepor;
+ *   - cada sessão ocupa a duração configurada (10 minutos desde 19/11/2026;
+ *     antes, 20), e duas não podem se sobrepor;
  *   - no máximo 15 sessões por dia, mesmo havendo vaga de horário sobrando.
  *
  * Módulo puro, sem banco, na mesma linha de `prazos.ts`: o horário e a duração
@@ -223,7 +224,7 @@ export function validarHorario(
 /**
  * A primeira vaga livre a partir de `desde`.
  *
- * Anda de 20 em 20 minutos a partir da abertura do dia, pulando o que
+ * Anda de duração em duração (10 em 10 minutos) a partir da abertura do dia, pulando o que
  * `validarHorario` recusa — dia bloqueado, almoço, sessão já marcada. A
  * sessão que nasce na abertura do procedimento cai aqui: D+30 às 14:00 é o
  * alvo, e se estiver ocupado ou for feriado ela vai para a próxima vaga.

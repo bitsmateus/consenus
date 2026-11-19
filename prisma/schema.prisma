@@ -569,9 +569,9 @@ model ConfiguracaoSistema {
   /// horário padrão da sessão, usado na Carta-Convite e no agendamento do Zoom
   horaDaSessao          String   @default("14:00")
   /// Quanto cada sessão ocupa na agenda — e a duração prevista da reunião do
-  /// Zoom. Duas sessões não podem se sobrepor: 20 minutos, pedido do cliente
-  /// em 25/09.
-  duracaoSessaoMinutos  Int      @default(20)
+  /// Zoom. Duas sessões não podem se sobrepor: 10 minutos, pedido do cliente
+  /// em 19/11/2026 (antes, 20 minutos, desde 25/09).
+  duracaoSessaoMinutos  Int      @default(10)
   /// Janela em que a câmara marca sessão, em dias úteis. Só entra sessão que
   /// termina até `agendaFim` e que não encosta no almoço.
   agendaInicio          String   @default("09:00")

@@ -12,7 +12,7 @@ const PADRAO = {
   horasAvisoModalidade: 48,
   diasAteSessao: 30,
   horaDaSessao: "14:00",
-  duracaoSessaoMinutos: 20,
+  duracaoSessaoMinutos: 10,
   agendaInicio: "09:00",
   agendaFim: "17:00",
   almocoInicio: "12:00",

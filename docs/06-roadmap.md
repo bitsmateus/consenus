@@ -146,7 +146,7 @@ Ajustes feitos depois de o sistema subir, fora do escopo das sprints:
   junto à borda. O Dockerfile instala `font-carlito` (equivalente livre do
   Calibri): sem ela o PDF de produção sai em outra fonte e quebra diferente.
 - **Agenda de sessões e Calendário (25/09/2026).** Sessão só em dia útil, das
-  09:00 às 17:00 com o almoço (12:00–13:00) fechado, 20 minutos por sessão e
+  09:00 às 17:00 com o almoço (12:00–13:00) fechado, 20 minutos por sessão (10 minutos desde 19/11/2026, migração `sessao_de_10_minutos`) e
   nunca duas ao mesmo tempo. Feriados e pontos facultativos nacionais (mais o 9 de
   julho, de SP) são calculados em `src/lib/agenda.ts`, inclusive os que dependem
   da Páscoa; feriado municipal e recesso o administrador cadastra na tela

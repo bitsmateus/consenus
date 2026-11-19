@@ -1,6 +1,6 @@
 /**
  * Agenda de sessões contra o banco — pedido do cliente em 25/09: só dia útil,
- * 09:00 às 17:00 sem o almoço, 20 minutos por sessão, nunca duas ao mesmo tempo.
+ * 09:00 às 17:00 sem o almoço, 10 minutos por sessão (20 até 19/11/2026), nunca duas ao mesmo tempo.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { Papel, ModalidadeSessao, SubPapelOperador, TipoPessoa } from "@prisma/client";
@@ -197,8 +197,8 @@ describe("confirmação da data: é aqui que a agenda entra", () => {
     const ato = await atoProntoParaConfirmar("2026-10-06T10:00");
     const depois = await confirmar(ato.id);
 
-    expect(depois.dataConfirmada!.getTime()).toBe(sp("2026-10-06T10:20").getTime());
-    expect(depois.dataReservada!.getTime()).toBe(sp("2026-10-06T10:20").getTime());
+    expect(depois.dataConfirmada!.getTime()).toBe(sp("2026-10-06T10:10").getTime());
+    expect(depois.dataReservada!.getTime()).toBe(sp("2026-10-06T10:10").getTime());
     const evento = await db.eventoAto.findFirstOrThrow({ where: { atoId: ato.id, tipo: "DATA_CONFIRMADA" } });
     expect(evento.descricao).toMatch(/não estava livre/);
   });
@@ -267,15 +267,16 @@ describe("alterar a agenda", () => {
     await atoMarcadoPara("2026-10-06T14:00");
     const id = await novoAto();
 
-    const resposta = await alterar(id, "2026-10-06T14:10");
+    // 14:05 encosta na sessão das 14:00, que ocupa até 14:10
+    const resposta = await alterar(id, "2026-10-06T14:05");
     expect(resposta.erro).toMatch(/Já existe sessão neste horário/);
-    expect(resposta.erro).toMatch(/Próxima vaga livre: 06\/10\/2026 às 14:20/);
+    expect(resposta.erro).toMatch(/Próxima vaga livre: 06\/10\/2026 às 14:10/);
   });
 
-  it("aceita a vaga colada, 20 minutos depois", async () => {
+  it("aceita a vaga colada, 10 minutos depois", async () => {
     await atoMarcadoPara("2026-10-06T14:00");
     const id = await novoAto();
-    expect((await alterar(id, "2026-10-06T14:20")).erro).toBeUndefined();
+    expect((await alterar(id, "2026-10-06T14:10")).erro).toBeUndefined();
   });
 
   it("procedimento cancelado não ocupa mais a vaga", async () => {
