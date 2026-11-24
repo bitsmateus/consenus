@@ -18,8 +18,8 @@
     "test:e2e": "playwright test",
     "criar-admin": "node scripts/criar-admin.cjs",
     "recuperar-admin": "node scripts/recuperar-admin.cjs",
-    "zapsign:conta": "tsx --env-file-if-exists=.env scripts/zapsign-conta.ts",
-    "assinatura:pendentes-d4sign": "tsx --env-file-if-exists=.env scripts/pendentes-na-d4sign.ts"
+    "zapsign:conta": "node --env-file-if-exists=.env scripts/zapsign-conta.cjs",
+    "assinatura:pendentes-d4sign": "node --env-file-if-exists=.env scripts/pendentes-na-d4sign.cjs"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

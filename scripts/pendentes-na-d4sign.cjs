@@ -3,24 +3,22 @@
  * reenviados pela ZapSign (decisão do escritório em 24/11/2026). Só leitura:
  * não fala com a D4Sign nem com a ZapSign e não muda nada no banco.
  *
- *   npm run assinatura:pendentes-d4sign
+ * Uso (no console do container, no EasyPanel):
+ *
+ *   node scripts/pendentes-na-d4sign.cjs
  *
  * O reenvio em si é pelo botão "Reenviar pela ZapSign", na página de cada
  * procedimento, e só aparece com a ZapSign ligada.
  */
-import { PrismaClient, ProvedorAssinatura, StatusAssinatura } from "@prisma/client";
+const { PrismaClient } = require("@prisma/client");
 
 const db = new PrismaClient();
 
 async function principal() {
   const pendentes = await db.operacaoAssinatura.findMany({
-    where: {
-      provedor: ProvedorAssinatura.D4SIGN,
-      status: { in: [StatusAssinatura.AGUARDANDO, StatusAssinatura.PARCIAL] },
-    },
+    where: { provedor: "D4SIGN", status: { in: ["AGUARDANDO", "PARCIAL"] } },
     orderBy: { criadoEm: "asc" },
     select: {
-      status: true,
       jaAssinaram: true,
       totalSignatarios: true,
       criadoEm: true,
@@ -38,7 +36,7 @@ async function principal() {
   for (const p of pendentes) {
     const enviado = p.criadoEm.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
     console.log(
-      `Procedimento ${p.ato.numero} · ${p.documento.tipo} ${p.documento.codigoVerificacao ?? ""} · ` +
+      `Procedimento ${p.ato.numero} · ${p.documento.tipo} ${p.documento.codigoVerificacao || ""} · ` +
         `${p.jaAssinaram} de ${p.totalSignatarios} assinaram · enviado em ${enviado}`
     );
   }

@@ -77,7 +77,7 @@ responde 500, de propósito, para ela reenviar.
 Decisão do escritório (24/11/2026): tudo o que estiver pendente na D4Sign é
 reenviado pela ZapSign — **só depois de a ZapSign estar 100% pronta**.
 
-- `npm run assinatura:pendentes-d4sign` lista os procedimentos com envio
+- `node scripts/pendentes-na-d4sign.cjs` (console do container) lista os procedimentos com envio
   pendente na D4Sign (só leitura).
 - Na página do procedimento, o botão **Reenviar pela ZapSign** aparece no
   documento pendente **só com a ZapSign ligada** (`ASSINATURA_PROVEDOR=zapsign`,
@@ -105,7 +105,7 @@ reenviado pela ZapSign — **só depois de a ZapSign estar 100% pronta**.
 
 No painel da ZapSign, cadastrar o webhook (todos os eventos) em
 `<AUTH_URL>/api/webhooks/zapsign/<ZAPSIGN_WEBHOOK_TOKEN>`. Para conferir a
-chave e o plano sem criar documento: `npm run zapsign:conta`.
+chave e o plano sem criar documento: `node scripts/zapsign-conta.cjs` no console do container (EasyPanel) ou `npm run zapsign:conta` na máquina local.
 
 
 Primeira integração da Etapa 2. Substitui, para a Ata e o Termo de Acordo, o
