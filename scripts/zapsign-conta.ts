@@ -8,7 +8,14 @@
  * do pagamento. Mostra também o que falta configurar para o retorno das
  * assinaturas. Nunca imprime a chave nem o token do webhook.
  */
-import { consultarPlano, explicarFalhaDaZapSign, modoDeAutenticacao, urlDoWebhook, zapsignAtiva } from "../src/lib/zapsign";
+import {
+  consultarPlano,
+  exigirSelfie,
+  explicarFalhaDaZapSign,
+  modoDeAutenticacao,
+  urlDoWebhook,
+  zapsignAtiva,
+} from "../src/lib/zapsign";
 
 async function principal() {
   if (!zapsignAtiva()) {
@@ -19,7 +26,7 @@ async function principal() {
 
   console.log(`Endereço da API: ${process.env.ZAPSIGN_BASE_URL || "produção (padrão)"}`);
   console.log(`Provedor dos envios novos: ${process.env.ASSINATURA_PROVEDOR || "d4sign (padrão)"}`);
-  console.log(`Identificação do signatário: ${modoDeAutenticacao()}`);
+  console.log(`Identificação do signatário: ${modoDeAutenticacao()}${exigirSelfie() ? " + selfie (foto do rosto)" : ""}`);
   console.log(
     urlDoWebhook()
       ? "Webhook: configurado (cadastre <AUTH_URL>/api/webhooks/zapsign/<token> no painel da ZapSign)."

@@ -25,7 +25,8 @@ import { FormularioDeObservacao } from "./observacao";
 import { ObservacoesDoProcedimento } from "./observacoes-do-procedimento";
 import { FormularioDeVinculo } from "./vinculos";
 import { SecaoDeDocumentos } from "./secao-documentos";
-import { assinaturaEletronicaAtiva } from "@/lib/provedor-de-assinatura";
+import { assinaturaEletronicaAtiva, zapsignLigada } from "@/lib/provedor-de-assinatura";
+import { podeReenviarPelaZapSign } from "@/lib/reenvio-de-assinatura";
 import { SecaoDeFluxo } from "./secao-fluxo";
 import { AgendaDoProcedimento } from "./agenda";
 import { SalaDaVideoconferencia } from "./sala";
@@ -236,6 +237,7 @@ export default async function PaginaDoAto({ params }: { params: Promise<{ id: st
                       jaAssinaram: doc.emAssinatura.jaAssinaram,
                       temAssinado: Boolean(doc.emAssinatura.assinadoId),
                       ultimoErro: doc.emAssinatura.ultimoErro,
+                      podeReenviarPelaZapSign: podeReenviarPelaZapSign(doc.emAssinatura, zapsignLigada()),
                     }
                   : null,
               }))}

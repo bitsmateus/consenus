@@ -144,6 +144,19 @@ export function modoDeAutenticacao(
     : AUTENTICACAO_PADRAO;
 }
 
+/**
+ * Selfie na assinatura — decisão do Dr. Sergio (24/11/2026): "vamos confirmar
+ * por selfie". Por ora, só a foto do rosto (`require_selfie_photo`), que fica
+ * no relatório de assinaturas, como na procuração de exemplo que o escritório
+ * mandou. A validação biométrica (`selfie_validation_type`) tem custo extra
+ * por assinatura e não foi pedida.
+ *
+ * Ligada por padrão; ZAPSIGN_SELFIE=0 desliga sem nova versão.
+ */
+export function exigirSelfie(valor: string | undefined = process.env.ZAPSIGN_SELFIE): boolean {
+  return !/^(0|nao|não|false|off)$/i.test(valor?.trim() ?? "");
+}
+
 export type SignatarioParaZapSign = {
   nome: string;
   email: string;
@@ -174,7 +187,8 @@ export type PedidoDeDocumento = {
  */
 export function corpoDoDocumento(
   pedido: PedidoDeDocumento,
-  autenticacao: ModoDeAutenticacao = modoDeAutenticacao()
+  autenticacao: ModoDeAutenticacao = modoDeAutenticacao(),
+  selfie: boolean = exigirSelfie()
 ): Record<string, unknown> {
   const ancorasUsadas = new Set<string>();
 
@@ -192,6 +206,7 @@ export function corpoDoDocumento(
         name: s.nome,
         email: s.email,
         auth_mode: autenticacao,
+        require_selfie_photo: selfie,
         send_automatic_email: true,
         send_automatic_whatsapp: false,
         // o nome e o e-mail vêm do cadastro da câmara; o signatário não troca

@@ -2,11 +2,13 @@ import { afterEach, describe, expect, it } from "vitest";
 import { ProvedorAssinatura } from "@prisma/client";
 import { ANCORA, lugarDaAssinatura } from "@/lib/ancoras-de-assinatura";
 import { provedorEscolhido } from "@/lib/provedor-de-assinatura";
+import { podeReenviarPelaZapSign } from "@/lib/reenvio-de-assinatura";
 import { montarSignatarios } from "@/lib/signatarios";
 import {
   AUTENTICACAO_PADRAO,
   ErroDaZapSign,
   corpoDoDocumento,
+  exigirSelfie,
   explicarFalhaDaZapSign,
   interpretarDocumento,
   lerAviso,
@@ -195,5 +197,48 @@ describe("em que linha cada pessoa assina", () => {
       { papel: "PROCURADOR", compareceu: true, representaPapel: "CONVIDADO", pessoa: { nome: "P", email: "p@x.com" } },
     ]);
     expect(signatarios.map((s) => s.lugar)).toEqual(["conciliador", "procuradorConvidado"]);
+  });
+});
+
+describe("selfie na assinatura (decisão de 24/11/2026)", () => {
+  it("ligada por padrão: cada signatário tira a foto do rosto ao assinar", () => {
+    expect(exigirSelfie(undefined)).toBe(true);
+    const signers = corpoDoDocumento(PEDIDO).signers as Record<string, unknown>[];
+    for (const s of signers) expect(s.require_selfie_photo).toBe(true);
+  });
+
+  it("ZAPSIGN_SELFIE=0 desliga", () => {
+    expect(exigirSelfie("0")).toBe(false);
+    expect(exigirSelfie("nao")).toBe(false);
+    const signers = corpoDoDocumento(PEDIDO, AUTENTICACAO_PADRAO, false).signers as Record<string, unknown>[];
+    expect(signers[0]?.require_selfie_photo).toBe(false);
+  });
+
+  it("é só a foto: nenhuma validação biométrica (custo extra) é pedida", () => {
+    const signers = corpoDoDocumento(PEDIDO).signers as Record<string, unknown>[];
+    for (const s of signers) expect(s).not.toHaveProperty("selfie_validation_type");
+  });
+});
+
+describe("reenvio pela ZapSign do que ficou pendente na D4Sign", () => {
+  const pendente = { provedor: ProvedorAssinatura.D4SIGN, status: "AGUARDANDO" as const };
+
+  it("com a ZapSign desligada, nunca: nada na D4Sign é cancelado antes de tudo pronto", () => {
+    expect(podeReenviarPelaZapSign(pendente, false)).toBe(false);
+  });
+
+  it("com a ZapSign ligada: pendente (ninguém ou parte assinou) pode", () => {
+    expect(podeReenviarPelaZapSign(pendente, true)).toBe(true);
+    expect(podeReenviarPelaZapSign({ ...pendente, status: "PARCIAL" }, true)).toBe(true);
+  });
+
+  it("assinado, arquivado, cancelado ou com falha só no arquivo: não", () => {
+    for (const status of ["ARQUIVADA", "CONCLUIDA", "CANCELADA", "FALHOU"] as const) {
+      expect(podeReenviarPelaZapSign({ ...pendente, status }, true)).toBe(false);
+    }
+  });
+
+  it("envio que já é da ZapSign não se reenvia por aqui", () => {
+    expect(podeReenviarPelaZapSign({ provedor: ProvedorAssinatura.ZAPSIGN, status: "AGUARDANDO" }, true)).toBe(false);
   });
 });

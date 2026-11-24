@@ -16,7 +16,11 @@ import {
   assinaturaDigitalAtiva as d4signAtiva,
   cancelarDocumento as cancelarNaD4Sign,
 } from "./d4sign";
-import { cancelarDocumento as cancelarNaZapSign, zapsignAtiva } from "./zapsign";
+import {
+  cancelarDocumento as cancelarNaZapSign,
+  urlDoWebhook as urlDoWebhookDaZapSign,
+  zapsignAtiva,
+} from "./zapsign";
 
 export function provedorEscolhido(
   valor: string | undefined = process.env.ASSINATURA_PROVEDOR
@@ -57,4 +61,17 @@ export async function cancelarNoProvedor(
     await cancelarNaD4Sign(envio.identificadorExterno, motivo);
   }
   return true;
+}
+
+/**
+ * A ZapSign está 100% pronta para receber envios: escolhida, com chave e com o
+ * endereço de retorno. É a condição para oferecer o reenvio do que ficou
+ * pendente na D4Sign — antes disso, nada lá é cancelado.
+ */
+export function zapsignLigada(): boolean {
+  return (
+    provedorEscolhido() === ProvedorAssinatura.ZAPSIGN &&
+    zapsignAtiva() &&
+    urlDoWebhookDaZapSign() !== null
+  );
 }

@@ -14,7 +14,7 @@
   `d4sign` (padrão). Virar a chave é mudar a variável no EasyPanel; voltar
   atrás também.
 - Cada envio grava `OperacaoAssinatura.provedor` (`D4SIGN` | `ZAPSIGN`, migração
-  `20261112120000_provedor_da_assinatura`; linhas antigas ficaram `D4SIGN`).
+  `20261124120000_provedor_da_assinatura`; linhas antigas ficaram `D4SIGN`).
   Webhook, download e cancelamento olham essa coluna — um envio termina na
   plataforma em que começou.
 - **Mantenha as variáveis `D4SIGN_*` configuradas** enquanto houver envio
@@ -32,7 +32,9 @@ ata substituída) acontecem antes da chamada.
 Quem assina é a mesma regra de sempre (`montarSignatarios`). Cada signatário
 vai com `auth_mode` de `ZAPSIGN_AUTENTICACAO` (padrão
 `assinaturaTela-tokenEmail`, sem custo extra), e-mail automático, nome e
-e-mail travados e o papel em `qualification` ("Conciliador", "Interessado
+e-mail travados, **selfie (foto do rosto) pedida na hora de assinar**
+(`require_selfie_photo`, decisão de 24/11/2026; `ZAPSIGN_SELFIE=0` desliga) e o
+papel em `qualification` ("Conciliador", "Interessado
 Solicitante"…), que aparece no relatório de assinaturas.
 
 ### Posição das assinaturas
@@ -70,6 +72,26 @@ do corpo, lê só o `token` do documento. O estado vem sempre de
 recebeu 200: avisos repetidos não duplicam evento nem documento. Falha técnica
 responde 500, de propósito, para ela reenviar.
 
+### Reenvio do que ficou pendente na D4Sign
+
+Decisão do escritório (24/11/2026): tudo o que estiver pendente na D4Sign é
+reenviado pela ZapSign — **só depois de a ZapSign estar 100% pronta**.
+
+- `npm run assinatura:pendentes-d4sign` lista os procedimentos com envio
+  pendente na D4Sign (só leitura).
+- Na página do procedimento, o botão **Reenviar pela ZapSign** aparece no
+  documento pendente **só com a ZapSign ligada** (`ASSINATURA_PROVEDOR=zapsign`,
+  chave e webhook configurados — `zapsignLigada()`). Antes disso ele não
+  existe e nada na D4Sign é tocado.
+- O clique pede confirmação e então: cancela o envio na D4Sign; apaga a
+  operação antiga deixando o retrato dela na linha do tempo (UUID, quantos
+  tinham assinado) e na auditoria; e envia pela ZapSign pelo caminho normal,
+  com selfie e posição. Quem já tinha assinado na D4Sign assina de novo.
+- Se a D4Sign não deixar cancelar (o limite de 10 chamadas por hora), o
+  reenvio acontece assim mesmo e a linha do tempo pede para cancelar pelo
+  painel da D4Sign. Envio com status FALHOU (todos assinaram, só o arquivo não
+  voltou) não é reenviado. Regra em `src/lib/reenvio-de-assinatura.ts`.
+
 ### Configuração (EasyPanel)
 
 | Variável | O quê |
@@ -78,6 +100,7 @@ responde 500, de propósito, para ela reenviar.
 | `ZAPSIGN_API_TOKEN` | token da conta (Configurações › Integrações › API ZapSign) |
 | `ZAPSIGN_WEBHOOK_TOKEN` | segredo do caminho do webhook (`openssl rand -hex 32`) |
 | `ZAPSIGN_AUTENTICACAO` | forma de identificação do signatário (vazio = padrão) |
+| `ZAPSIGN_SELFIE` | `1` (padrão) pede a foto do rosto; `0` desliga |
 | `ZAPSIGN_BASE_URL` | vazio = produção |
 
 No painel da ZapSign, cadastrar o webhook (todos os eventos) em

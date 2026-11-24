@@ -5,6 +5,8 @@ import { z } from "zod";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { ANCORA } from "@/lib/ancoras-de-assinatura";
 import {
+  assinaturaDigitalAtiva as d4signConfigurada,
+  cancelarDocumento as cancelarNaD4Sign,
   cadastrarNomes,
   cadastrarSignatarios,
   enviarParaAssinatura as dispararConvites,
@@ -17,7 +19,9 @@ import {
   NOME_DO_PROVEDOR,
   provedorConfigurado,
   provedorEscolhido,
+  zapsignLigada,
 } from "@/lib/provedor-de-assinatura";
+import { podeReenviarPelaZapSign } from "@/lib/reenvio-de-assinatura";
 import * as zapsign from "@/lib/zapsign";
 import { db } from "@/lib/db";
 import { ErroDeNegocio, FluxoInvalido } from "@/lib/erros";
@@ -249,4 +253,133 @@ export async function enviarParaAssinatura(
         : motivo,
     };
   }
+}
+
+/**
+ * Reenvia pela ZapSign um documento cujo envio ficou pendente na D4Sign.
+ *
+ * Decisão do escritório (24/11/2026): reenviar tudo pela ZapSign, mas só com
+ * ela 100% pronta. Por isso a primeira coisa conferida é `zapsignLigada()`:
+ * sem isso nada é cancelado. Passos:
+ *
+ *   1. cancela o envio na D4Sign (se falhar — limite de 10 chamadas por hora,
+ *      por exemplo —, segue e registra na linha do tempo que é preciso
+ *      cancelar pelo painel deles);
+ *   2. apaga a operação antiga, deixando o retrato dela na linha do tempo e na
+ *      auditoria (a ligação documento↔envio é única; sem apagar, o documento
+ *      não pode ser enviado de novo). Avisos que a D4Sign mandar depois para
+ *      aquele envio caem como "documento desconhecido" e são ignorados;
+ *   3. envia pelo caminho normal (`enviarParaAssinatura`), que já vai pela
+ *      ZapSign, com selfie e a assinatura no lugar certo.
+ */
+export async function reenviarPelaZapSign(
+  _anterior: EstadoDeFormulario,
+  entrada: FormData
+): Promise<EstadoDeFormulario> {
+  const usuario = await exigirEquipe();
+
+  const analise = pedido.safeParse({ documentoId: entrada.get("documentoId") });
+  if (!analise.success) {
+    return { erro: analise.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+
+  try {
+    if (!zapsignLigada()) {
+      throw new FluxoInvalido(
+        "A ZapSign ainda não está ligada neste ambiente. Nada foi cancelado na D4Sign."
+      );
+    }
+
+    const documento = await db.documento.findUnique({
+      where: { id: analise.data.documentoId },
+      select: {
+        id: true,
+        atoId: true,
+        tipo: true,
+        substituidoPorId: true,
+        emAssinatura: {
+          select: {
+            id: true,
+            provedor: true,
+            status: true,
+            identificadorExterno: true,
+            jaAssinaram: true,
+            totalSignatarios: true,
+          },
+        },
+      },
+    });
+    if (!documento) throw new ErroDeNegocio("Documento não encontrado.");
+    await exigirAcessoAoAto(documento.atoId, db);
+
+    const antigo = documento.emAssinatura;
+    if (!antigo || !podeReenviarPelaZapSign(antigo, true)) {
+      throw new FluxoInvalido(
+        "Só documento com envio pendente na D4Sign pode ser reenviado pela ZapSign."
+      );
+    }
+    if (documento.substituidoPorId) {
+      throw new FluxoInvalido(
+        "Esta ata foi retificada e substituída por outra. Envie a ata nova para assinatura."
+      );
+    }
+
+    // 1. cancela lá — fora de transação, é chamada externa
+    let canceladoNaD4Sign = false;
+    if (d4signConfigurada()) {
+      try {
+        await cancelarNaD4Sign(antigo.identificadorExterno, "Reenviado pela ZapSign.");
+        canceladoNaD4Sign = true;
+      } catch (erro) {
+        console.error("[assinatura] falha ao cancelar na D4Sign para reenviar", erro);
+      }
+    }
+
+    // 2. tira a operação antiga do caminho, deixando o retrato dela
+    const rotulo = NOME_DO_TIPO[documento.tipo] ?? "Documento";
+    await db.$transaction(async (tx) => {
+      await tx.operacaoAssinatura.delete({ where: { id: antigo.id } });
+      await tx.eventoAto.create({
+        data: {
+          atoId: documento.atoId,
+          tipo: TipoEvento.ASSINATURA_CANCELADA,
+          descricao:
+            `${rotulo}: envio pela D4Sign (${antigo.identificadorExterno}, ` +
+            `${antigo.jaAssinaram} de ${antigo.totalSignatarios} tinham assinado) ` +
+            (canceladoNaD4Sign
+              ? "cancelado para reenvio pela ZapSign."
+              : "encerrado aqui para reenvio pela ZapSign. Não foi possível cancelar na D4Sign: cancele pelo painel deles, para ninguém assinar a versão antiga."),
+          usuarioId: usuario.id,
+          metadados: { documentoId: documento.id, identificadorD4Sign: antigo.identificadorExterno },
+        },
+      });
+    });
+
+    await registrarAuditoria({
+      usuarioId: usuario.id,
+      acao: "ALTEROU_ATO",
+      entidade: "Documento",
+      entidadeId: documento.id,
+      metadados: {
+        atoId: documento.atoId,
+        evento: "REENVIO_PELA_ZAPSIGN",
+        identificadorD4Sign: antigo.identificadorExterno,
+        statusAnterior: antigo.status,
+        jaAssinaram: antigo.jaAssinaram,
+        canceladoNaD4Sign,
+      },
+    });
+  } catch (erro) {
+    if (erro instanceof ErroDeNegocio) return { erro: erro.message };
+    throw erro;
+  }
+
+  // 3. o envio de sempre, que agora vai pela ZapSign
+  const resultado = await enviarParaAssinatura({}, entrada);
+  if (resultado.erro) {
+    return {
+      erro: `O envio antigo da D4Sign foi encerrado, mas o novo pela ZapSign não saiu: ${resultado.erro} Use "Enviar para assinatura" para tentar de novo.`,
+    };
+  }
+  return { aviso: "Reenviado pela ZapSign. Os signatários receberam o convite novo por e-mail." };
 }

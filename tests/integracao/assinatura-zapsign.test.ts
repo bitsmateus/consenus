@@ -35,7 +35,7 @@ vi.mock("@/lib/storage", () => ({
 
 const { db } = await import("@/lib/db");
 const { gerarAta, retificarAta } = await import("@/acoes/fluxo");
-const { enviarParaAssinatura } = await import("@/acoes/assinaturas");
+const { enviarParaAssinatura, reenviarPelaZapSign } = await import("@/acoes/assinaturas");
 const { POST: webhookZapSign } = await import("@/app/api/webhooks/zapsign/[token]/route");
 
 // ------------------------------------------------------- ZapSign simulada
@@ -57,6 +57,10 @@ const fetchSimulado = vi.fn(async (entrada: string | URL | Request, init?: Reque
   const corpo = init?.body ? JSON.parse(String(init.body)) : null;
   chamadas.push({ url, metodo, corpo, autorizacao: cabecalhos.get("authorization") });
 
+  if (url.includes("d4sign.com.br")) {
+    // D4Sign simulada: só o cancelamento é usado aqui
+    return url.includes("/cancel") ? respostaJson({ message: "ok" }) : respostaJson({}, 500);
+  }
   if (url.startsWith("https://arquivos.zapsign.test/")) {
     return new Response(Buffer.from("%PDF-assinado"), { status: 200 });
   }
@@ -229,6 +233,8 @@ describe("envio pela ZapSign", () => {
       "<<assina-solicitante>>",
     ]);
 
+    // decisão de 24/11/2026: selfie (só a foto do rosto) em toda assinatura
+    expect(signers.every((s) => s.require_selfie_photo === true)).toBe(true);
     expect(operacao.provedor).toBe("ZAPSIGN");
     expect(operacao.status).toBe("AGUARDANDO");
     expect(operacao.totalSignatarios).toBe(2);
@@ -344,5 +350,91 @@ describe("retificação com envio pendente na ZapSign", () => {
     expect(recusa?.corpo).toMatchObject({ doc_token: operacao.identificadorExterno });
     const depois = await db.operacaoAssinatura.findUniqueOrThrow({ where: { id: operacao.id } });
     expect(depois.status).toBe("CANCELADA");
+  });
+});
+
+describe("reenvio pela ZapSign do que ficou pendente na D4Sign", () => {
+  async function pendenteNaD4Sign(status: "AGUARDANDO" | "PARCIAL" | "FALHOU" = "AGUARDANDO") {
+    const { ato, ata } = await comAtaLavrada();
+    const operacao = await db.operacaoAssinatura.create({
+      data: {
+        atoId: ato.id,
+        documentoId: ata.id,
+        provedor: "D4SIGN",
+        identificadorExterno: `d4-${MARCA}-${ato.numero}`,
+        status,
+        totalSignatarios: 2,
+        jaAssinaram: status === "PARCIAL" ? 1 : 0,
+      },
+    });
+    return { ato, ata, operacao };
+  }
+
+  function comD4SignConfigurada<T>(fn: () => Promise<T>): Promise<T> {
+    process.env.D4SIGN_TOKEN_API = "d4-token";
+    process.env.D4SIGN_UUID_COFRE = "cofre";
+    return fn().finally(() => {
+      delete process.env.D4SIGN_TOKEN_API;
+      delete process.env.D4SIGN_UUID_COFRE;
+    });
+  }
+
+  it("com a ZapSign desligada: recusa e não cancela nada na D4Sign", async () => {
+    const { ata, operacao } = await pendenteNaD4Sign();
+    process.env.ASSINATURA_PROVEDOR = "d4sign";
+    try {
+      const resposta = await reenviarPelaZapSign({}, formulario({ documentoId: ata.id }));
+      expect(resposta.erro).toMatch(/ainda não está ligada/);
+    } finally {
+      process.env.ASSINATURA_PROVEDOR = "zapsign";
+    }
+    expect(chamadas).toHaveLength(0);
+    const intacta = await db.operacaoAssinatura.findUniqueOrThrow({ where: { id: operacao.id } });
+    expect(intacta.status).toBe("AGUARDANDO");
+  });
+
+  it("ligada: cancela na D4Sign, registra o retrato do envio antigo e envia pela ZapSign", async () => {
+    const { ato, ata, operacao } = await pendenteNaD4Sign("PARCIAL");
+
+    const resposta = await comD4SignConfigurada(() =>
+      reenviarPelaZapSign({}, formulario({ documentoId: ata.id }))
+    );
+    expect(resposta.erro).toBeUndefined();
+
+    // cancelou lá, com o UUID da D4Sign
+    expect(chamadas.some((c) => c.url.includes(`/documents/${operacao.identificadorExterno}/cancel`))).toBe(true);
+    // e criou um documento novo na ZapSign, com selfie
+    const criacao = chamadas.find((c) => c.url.endsWith("/docs/") && c.metodo === "POST");
+    expect(criacao).toBeDefined();
+
+    const nova = await db.operacaoAssinatura.findUniqueOrThrow({ where: { documentoId: ata.id } });
+    expect(nova.provedor).toBe("ZAPSIGN");
+    expect(nova.status).toBe("AGUARDANDO");
+    expect(nova.jaAssinaram).toBe(0);
+
+    const retrato = await db.eventoAto.findFirstOrThrow({
+      where: { atoId: ato.id, tipo: "ASSINATURA_CANCELADA" },
+    });
+    expect(retrato.descricao).toContain(operacao.identificadorExterno);
+    expect(retrato.descricao).toContain("1 de 2 tinham assinado");
+    expect(retrato.descricao).toContain("cancelado para reenvio pela ZapSign");
+  });
+
+  it("sem conseguir cancelar na D4Sign: reenvia assim mesmo e avisa para cancelar pelo painel", async () => {
+    const { ato, ata } = await pendenteNaD4Sign();
+    // D4Sign sem credencial aqui: não há como cancelar daqui
+    const resposta = await reenviarPelaZapSign({}, formulario({ documentoId: ata.id }));
+    expect(resposta.erro).toBeUndefined();
+    const retrato = await db.eventoAto.findFirstOrThrow({
+      where: { atoId: ato.id, tipo: "ASSINATURA_CANCELADA" },
+    });
+    expect(retrato.descricao).toMatch(/cancele pelo painel deles/);
+  });
+
+  it("assinado por todos, só o arquivo não voltou (FALHOU): não reenvia", async () => {
+    const { ata, operacao } = await pendenteNaD4Sign("FALHOU");
+    const resposta = await reenviarPelaZapSign({}, formulario({ documentoId: ata.id }));
+    expect(resposta.erro).toMatch(/pendente na D4Sign/);
+    expect((await db.operacaoAssinatura.findUniqueOrThrow({ where: { id: operacao.id } })).provedor).toBe("D4SIGN");
   });
 });

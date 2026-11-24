@@ -2,7 +2,11 @@
 
 import { useActionState } from "react";
 import { StatusAssinatura } from "@prisma/client";
-import { enviarParaAssinatura, type EstadoDeFormulario } from "@/acoes/assinaturas";
+import {
+  enviarParaAssinatura,
+  reenviarPelaZapSign,
+  type EstadoDeFormulario,
+} from "@/acoes/assinaturas";
 import { Botao } from "@/components/ui/botao";
 import { Etiqueta } from "@/components/ui/etiqueta";
 import type { TomDeStatus } from "@/lib/formato";
@@ -13,6 +17,8 @@ export type AssinaturaDoDocumento = {
   jaAssinaram: number;
   temAssinado: boolean;
   ultimoErro: string | null;
+  /** pendente na D4Sign, com a ZapSign já ligada: o servidor decide (page.tsx) */
+  podeReenviarPelaZapSign: boolean;
 };
 
 const ROTULO: Record<StatusAssinatura, string> = {
@@ -70,6 +76,7 @@ export function Assinatura({
         {assinatura.status === "ARQUIVADA" && !assinatura.temAssinado && (
           <p className="mt-1.5 text-[11px] text-carvao-300">Arquivo assinado indisponível.</p>
         )}
+        {assinatura.podeReenviarPelaZapSign && <ReenviarPelaZapSign documentoId={documentoId} />}
       </div>
     );
   }
@@ -93,6 +100,45 @@ export function Assinatura({
           Vai para quem compareceu à sessão, mais o conciliador.
         </span>
       </div>
+    </form>
+  );
+}
+
+/**
+ * Reenvio pela ZapSign do que ficou pendente na D4Sign. Só aparece com a
+ * ZapSign ligada; confirma antes, porque cancela o envio antigo e quem já
+ * tinha assinado na D4Sign assina de novo.
+ */
+function ReenviarPelaZapSign({ documentoId }: { documentoId: string }) {
+  const [estado, acao, pendente] = useActionState<EstadoDeFormulario, FormData>(
+    reenviarPelaZapSign,
+    {}
+  );
+
+  return (
+    <form
+      action={acao}
+      className="mt-2"
+      onSubmit={(e) => {
+        if (
+          !window.confirm(
+            "Cancelar o envio na D4Sign e reenviar pela ZapSign? Todos os signatários recebem um convite novo, inclusive quem já assinou na D4Sign."
+          )
+        ) {
+          e.preventDefault();
+        }
+      }}
+    >
+      <input type="hidden" name="documentoId" value={documentoId} />
+      {estado.erro && (
+        <p role="alert" className="mb-2 rounded-md bg-erro-bg px-3 py-2 text-xs text-erro">
+          {estado.erro}
+        </p>
+      )}
+      {estado.aviso && <p className="mb-2 text-xs text-sucesso">{estado.aviso}</p>}
+      <Botao type="submit" variante="secundario" disabled={pendente}>
+        {pendente ? "Reenviando…" : "Reenviar pela ZapSign"}
+      </Botao>
     </form>
   );
 }

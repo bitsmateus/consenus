@@ -341,6 +341,7 @@ export async function buscarAtoEm(where: Prisma.AtoWhereInput) {
               jaAssinaram: true,
               assinadoId: true,
               ultimoErro: true,
+              provedor: true,
             },
           },
         },
