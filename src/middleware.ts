@@ -30,7 +30,10 @@ function ehPublica(pathname: string): boolean {
     // Webhook da AR Online, mesma razão. A defesa é o valor fixo do header
     // Authorization e, sobretudo, o fato de o aviso não virar conteúdo:
     // o laudo é buscado na API deles pelo protocolo já gravado aqui.
-    pathname.startsWith("/api/webhooks/ar-online")
+    pathname.startsWith("/api/webhooks/ar-online") ||
+    // API do agente de IA. Quem chama é o n8n, sem sessão de usuário: a defesa
+    // é o token Bearer conferido dentro de cada rota (src/lib/api-ia.ts).
+    pathname.startsWith("/api/ia/")
   );
 }
 

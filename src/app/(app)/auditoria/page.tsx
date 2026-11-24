@@ -29,6 +29,7 @@ const ROTULO: Record<string, string> = {
   ENVIOU_DOCUMENTO: "Registrou envio ou anexo",
   BAIXOU_DOCUMENTO: "Baixou documento",
   CONSULTOU_VERIFICACAO: "Consulta pública de verificação",
+  CONSULTOU_API_IA: "Consulta do agente de IA (Clara)",
   VARREDURA_SUSPEITA: "Alerta de varredura de códigos",
   CRIOU_USUARIO: "Criou conta",
   ALTEROU_PERMISSAO: "Alterou permissões",

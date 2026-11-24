@@ -1,0 +1,94 @@
+openapi: 3.0.3
+info:
+  title: Consensus One — API do agente de IA
+  version: 1.0.0
+  description: Somente leitura. Usada pelo n8n (Clara, WhatsApp). Ver docs/14.
+servers:
+  - url: https://app.consensusone.com.br
+security:
+  - bearer: []
+components:
+  securitySchemes:
+    bearer: { type: http, scheme: bearer }
+  parameters:
+    telefone:
+      { name: telefone, in: query, schema: { type: string }, description: "Qualquer formato; precisa de DDD. Ex.: 5511987654321" }
+    documento:
+      { name: documento, in: query, schema: { type: string }, description: "CPF (11) ou CNPJ (14), com ou sem máscara" }
+  schemas:
+    Cadastro:
+      type: object
+      properties:
+        pessoaId: { type: string }
+        tratamento: { type: string, description: "Primeiro nome (pessoa física)" }
+        tipo: { type: string, enum: [FISICA, JURIDICA] }
+        papeis: { type: array, items: { type: string, enum: [SOLICITANTE, CONVIDADO, PROCURADOR] } }
+    Sessao:
+      type: object
+      properties:
+        numeroDoProcedimento: { type: string }
+        dataHora: { type: string, format: date-time }
+        dataHoraTexto: { type: string }
+        papel: { type: string, enum: [SOLICITANTE, CONVIDADO] }
+        comoProcurador: { type: boolean }
+        modalidade: { type: string, enum: [VIDEOCONFERENCIA, PRESENCIAL, HIBRIDA] }
+        link: { type: string, nullable: true }
+        idReuniao: { type: string, nullable: true }
+        senha: { type: string, nullable: true }
+        localPresencial: { type: string, nullable: true }
+    NaoEncontrada:
+      type: object
+      properties:
+        encontrado: { type: boolean, enum: [false] }
+        motivo: { type: string, enum: [nao_encontrada, ambigua] }
+        acao: { type: string, enum: [pedir_documento] }
+  responses:
+    NaoAutorizado: { description: Token ausente ou errado }
+paths:
+  /api/ia/v1/saude:
+    get:
+      summary: Teste de conexão
+      responses: { "200": { description: ok }, "401": { description: não autorizado } }
+  /api/ia/v1/cadastro:
+    get:
+      summary: A pessoa tem cadastro?
+      parameters:
+        - $ref: "#/components/parameters/telefone"
+        - $ref: "#/components/parameters/documento"
+      responses:
+        "200":
+          description: Encontrada ou não
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - { $ref: "#/components/schemas/NaoEncontrada" }
+                  - type: object
+                    properties:
+                      encontrado: { type: boolean, enum: [true] }
+                      cadastro: { $ref: "#/components/schemas/Cadastro" }
+        "400": { description: Sem telefone/documento, telefone sem DDD ou documento inválido }
+        "401": { description: Não autorizado }
+        "429": { description: Mais de 60 consultas por minuto }
+  /api/ia/v1/sessoes:
+    get:
+      summary: Sessões agendadas e link do Zoom
+      parameters:
+        - $ref: "#/components/parameters/telefone"
+        - $ref: "#/components/parameters/documento"
+      responses:
+        "200":
+          description: Lista vazia = cadastro sem sessão liberada
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - { $ref: "#/components/schemas/NaoEncontrada" }
+                  - type: object
+                    properties:
+                      encontrado: { type: boolean, enum: [true] }
+                      cadastro: { $ref: "#/components/schemas/Cadastro" }
+                      sessoes: { type: array, items: { $ref: "#/components/schemas/Sessao" } }
+        "400": { description: Entrada inválida }
+        "401": { description: Não autorizado }
+        "429": { description: Limite excedido }
