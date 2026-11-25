@@ -233,8 +233,8 @@ describe("envio pela ZapSign", () => {
       "<<assina-solicitante>>",
     ]);
 
-    // decisão de 24/11/2026: selfie (só a foto do rosto) em toda assinatura
-    expect(signers.every((s) => s.require_selfie_photo === true)).toBe(true);
+    // selfie tirada em 25/11/2026: ninguém precisa tirar foto do rosto
+    expect(signers.every((s) => s.require_selfie_photo === false)).toBe(true);
     expect(operacao.provedor).toBe("ZAPSIGN");
     expect(operacao.status).toBe("AGUARDANDO");
     expect(operacao.totalSignatarios).toBe(2);
@@ -403,7 +403,7 @@ describe("reenvio pela ZapSign do que ficou pendente na D4Sign", () => {
 
     // cancelou lá, com o UUID da D4Sign
     expect(chamadas.some((c) => c.url.includes(`/documents/${operacao.identificadorExterno}/cancel`))).toBe(true);
-    // e criou um documento novo na ZapSign, com selfie
+    // e criou um documento novo na ZapSign
     const criacao = chamadas.find((c) => c.url.endsWith("/docs/") && c.metodo === "POST");
     expect(criacao).toBeDefined();
 

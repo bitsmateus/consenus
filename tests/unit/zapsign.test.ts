@@ -200,22 +200,26 @@ describe("em que linha cada pessoa assina", () => {
   });
 });
 
-describe("selfie na assinatura (decisão de 24/11/2026)", () => {
-  it("ligada por padrão: cada signatário tira a foto do rosto ao assinar", () => {
-    expect(exigirSelfie(undefined)).toBe(true);
+describe("selfie na assinatura (tirada em 25/11/2026)", () => {
+  it("desligada por padrão: ninguém precisa tirar foto do rosto", () => {
+    expect(exigirSelfie(undefined)).toBe(false);
+    expect(exigirSelfie("")).toBe(false);
     const signers = corpoDoDocumento(PEDIDO).signers as Record<string, unknown>[];
-    for (const s of signers) expect(s.require_selfie_photo).toBe(true);
+    for (const s of signers) expect(s.require_selfie_photo).toBe(false);
   });
 
-  it("ZAPSIGN_SELFIE=0 desliga", () => {
+  it("um ZAPSIGN_SELFIE antigo em 0 continua desligado", () => {
     expect(exigirSelfie("0")).toBe(false);
-    expect(exigirSelfie("nao")).toBe(false);
-    const signers = corpoDoDocumento(PEDIDO, AUTENTICACAO_PADRAO, false).signers as Record<string, unknown>[];
-    expect(signers[0]?.require_selfie_photo).toBe(false);
   });
 
-  it("é só a foto: nenhuma validação biométrica (custo extra) é pedida", () => {
-    const signers = corpoDoDocumento(PEDIDO).signers as Record<string, unknown>[];
+  it("ZAPSIGN_SELFIE=1 religa, sem nova versão", () => {
+    expect(exigirSelfie("1")).toBe(true);
+    const signers = corpoDoDocumento(PEDIDO, AUTENTICACAO_PADRAO, true).signers as Record<string, unknown>[];
+    expect(signers[0]?.require_selfie_photo).toBe(true);
+  });
+
+  it("nenhuma validação biométrica (custo extra) é pedida", () => {
+    const signers = corpoDoDocumento(PEDIDO, AUTENTICACAO_PADRAO, true).signers as Record<string, unknown>[];
     for (const s of signers) expect(s).not.toHaveProperty("selfie_validation_type");
   });
 });

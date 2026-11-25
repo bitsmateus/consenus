@@ -32,8 +32,8 @@ ata substituída) acontecem antes da chamada.
 Quem assina é a mesma regra de sempre (`montarSignatarios`). Cada signatário
 vai com `auth_mode` de `ZAPSIGN_AUTENTICACAO` (padrão
 `assinaturaTela-tokenEmail`, sem custo extra), e-mail automático, nome e
-e-mail travados, **selfie (foto do rosto) pedida na hora de assinar**
-(`require_selfie_photo`, decisão de 24/11/2026; `ZAPSIGN_SELFIE=0` desliga) e o
+e-mail travados, **sem selfie** (ligada em 24/11/2026 e tirada em 25/11/2026, a
+pedido; `ZAPSIGN_SELFIE=1` religa) e o
 papel em `qualification` ("Conciliador", "Interessado
 Solicitante"…), que aparece no relatório de assinaturas.
 
@@ -86,7 +86,7 @@ reenviado pela ZapSign — **só depois de a ZapSign estar 100% pronta**.
 - O clique pede confirmação e então: cancela o envio na D4Sign; apaga a
   operação antiga deixando o retrato dela na linha do tempo (UUID, quantos
   tinham assinado) e na auditoria; e envia pela ZapSign pelo caminho normal,
-  com selfie e posição. Quem já tinha assinado na D4Sign assina de novo.
+  com a posição das assinaturas. Quem já tinha assinado na D4Sign assina de novo.
 - Se a D4Sign não deixar cancelar (o limite de 10 chamadas por hora), o
   reenvio acontece assim mesmo e a linha do tempo pede para cancelar pelo
   painel da D4Sign. Envio com status FALHOU (todos assinaram, só o arquivo não
@@ -100,7 +100,7 @@ reenviado pela ZapSign — **só depois de a ZapSign estar 100% pronta**.
 | `ZAPSIGN_API_TOKEN` | token da conta (Configurações › Integrações › API ZapSign) |
 | `ZAPSIGN_WEBHOOK_TOKEN` | segredo do caminho do webhook (`openssl rand -hex 32`) |
 | `ZAPSIGN_AUTENTICACAO` | forma de identificação do signatário (vazio = padrão) |
-| `ZAPSIGN_SELFIE` | `1` (padrão) pede a foto do rosto; `0` desliga |
+| `ZAPSIGN_SELFIE` | vazio ou `0` (padrão): sem selfie; `1` pede a foto do rosto |
 | `ZAPSIGN_BASE_URL` | vazio = produção |
 
 No painel da ZapSign, cadastrar o webhook (todos os eventos) em

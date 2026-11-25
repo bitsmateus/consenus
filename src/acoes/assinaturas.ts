@@ -270,7 +270,7 @@ export async function enviarParaAssinatura(
  *      não pode ser enviado de novo). Avisos que a D4Sign mandar depois para
  *      aquele envio caem como "documento desconhecido" e são ignorados;
  *   3. envia pelo caminho normal (`enviarParaAssinatura`), que já vai pela
- *      ZapSign, com selfie e a assinatura no lugar certo.
+ *      ZapSign, com a assinatura no lugar certo.
  */
 export async function reenviarPelaZapSign(
   _anterior: EstadoDeFormulario,

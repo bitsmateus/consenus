@@ -26,7 +26,7 @@ async function principal() {
   const modo = MODOS.includes((process.env.ZAPSIGN_AUTENTICACAO || "").trim())
     ? process.env.ZAPSIGN_AUTENTICACAO.trim()
     : "assinaturaTela-tokenEmail";
-  const selfie = !/^(0|nao|não|false|off)$/i.test((process.env.ZAPSIGN_SELFIE || "").trim());
+  const selfie = /^(1|sim|true|on)$/i.test((process.env.ZAPSIGN_SELFIE || "").trim());
 
   console.log(`Endereço da API: ${process.env.ZAPSIGN_BASE_URL ? base : "produção (padrão)"}`);
   console.log(`Provedor dos envios novos: ${process.env.ASSINATURA_PROVEDOR || "d4sign (padrão)"}`);
